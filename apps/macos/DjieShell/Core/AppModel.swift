@@ -110,6 +110,7 @@ final class AppModel {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-DjieDemoEdit") { editingHost = hosts.first }
         if let i = args.firstIndex(of: "-DjieDemoSection"), i + 1 < args.count, let s = Section(rawValue: args[i + 1]) { section = s }
+        if args.contains("-DjieDemoSelect") { selection = [hosts[2].id] }
     }
     #endif
 
@@ -397,6 +398,11 @@ final class AppModel {
                 activeSessionID = sessions.isEmpty ? nil : sessions[max(0, idx - 1)].id
             }
         }
+    }
+
+    /// View terminal dari tab yang sedang tampil (nil jika di daftar host).
+    var activeTerminalView: DjieTerminalView? {
+        sessions.first { $0.id == activeSessionID }?.view
     }
 
     func closeActive() {

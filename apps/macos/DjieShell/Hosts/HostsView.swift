@@ -1,9 +1,13 @@
 import SwiftUI
 
+enum HostLayout: String { case grid, list }
+
 struct HostsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
+    @AppStorage("hostLayout") private var layout: HostLayout = .grid
     @State private var query = ""
+    @Namespace private var ns
 
     private var filtered: [Host] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -21,10 +25,9 @@ struct HostsView: View {
     }
 
     var body: some View {
-        @Bindable var model = model
         ZStack(alignment: .bottom) {
             ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 26) {
                     header
                     if model.hosts.isEmpty {
                         EmptyHosts { model.editingHost = .blank() }
@@ -35,13 +38,31 @@ struct HostsView: View {
                     } else {
                         ForEach(grouped, id: \.0) { group, hosts in
                             VStack(alignment: .leading, spacing: 12) {
-                                Text(group.isEmpty ? "HOSTS" : group.uppercased())
-                                    .font(.system(size: 11, weight: .semibold))
-                                    .tracking(1)
-                                    .foregroundStyle(.secondary)
-                                LazyVGrid(columns: [GridItem(.adaptive(minimum: 270), spacing: 12)], spacing: 12) {
-                                    ForEach(Array(hosts.enumerated()), id: \.element.id) { i, h in
-                                        HostCard(host: h).staggerIn(i, base: 0)
+                                HStack(spacing: 8) {
+                                    Text(group.isEmpty ? "HOSTS" : group.uppercased())
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .tracking(1.2)
+                                    Text("\(hosts.count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .padding(.horizontal, 6).padding(.vertical, 1)
+                                        .background(Theme.ink.opacity(0.08), in: Capsule())
+                                    Rectangle().fill(Theme.ink.opacity(0.07)).frame(height: 1)
+                                }
+                                .foregroundStyle(.secondary)
+
+                                if layout == .grid {
+                                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 250, maximum: 360), spacing: 14)], spacing: 14) {
+                                        ForEach(Array(hosts.enumerated()), id: \.element.id) { i, h in
+                                            HostTile(host: h, layout: .grid, ns: ns)
+                                                .staggerIn(i, base: 0)
+                                        }
+                                    }
+                                } else {
+                                    VStack(spacing: 6) {
+                                        ForEach(Array(hosts.enumerated()), id: \.element.id) { i, h in
+                                            HostTile(host: h, layout: .list, ns: ns)
+                                                .staggerIn(i, base: 0)
+                                        }
                                     }
                                 }
                             }
@@ -50,6 +71,7 @@ struct HostsView: View {
                 }
                 .padding(28)
                 .padding(.bottom, 80)
+                .animation(.djie, value: layout)
             }
 
             if !model.selection.isEmpty {
@@ -62,14 +84,23 @@ struct HostsView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Hosts").font(.system(size: 26, weight: .bold, design: .rounded))
-                Text("\(model.hosts.count) server")
-                    .font(.callout).foregroundStyle(.secondary)
-                    .help("⌘-klik untuk memilih beberapa host · klik dua kali untuk connect")
+                HStack(spacing: 6) {
+                    Text("\(model.hosts.count) server")
+                    let online = Set(model.sessions.filter { $0.status == .connected }.map(\.host.id)).count
+                    if online > 0 {
+                        Text("·")
+                        Circle().fill(Color(hex: "#4ADE80")).frame(width: 6, height: 6)
+                        Text("\(online) terhubung").contentTransition(.numericText())
+                    }
+                }
+                .font(.callout).foregroundStyle(.secondary)
+                .help("⌘-klik untuk memilih beberapa host · klik dua kali untuk connect")
             }
             Spacer()
+            LayoutSwitch(layout: $layout)
             Button {
                 withAnimation(.djieSnappy) { hideAddresses.toggle() }
             } label: {
@@ -79,12 +110,7 @@ struct HostsView: View {
             }
             .buttonStyle(SecondaryButtonStyle())
             .help(hideAddresses ? "Tampilkan alamat host" : "Sembunyikan alamat host")
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Cari host, IP, tag…", text: $query).textFieldStyle(.plain).frame(width: 200)
-            }
-            .padding(.horizontal, 10).frame(height: 30)
-            .background(Theme.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 9))
+            SearchField(text: $query, prompt: "Cari host, IP, tag…")
             Button {
                 model.editingHost = .blank()
             } label: {
@@ -95,93 +121,331 @@ struct HostsView: View {
     }
 }
 
-struct HostCard: View {
+/// Saklar Grid / List dengan indikator yang meluncur.
+struct LayoutSwitch: View {
+    @Binding var layout: HostLayout
+    @Namespace private var ns
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach([HostLayout.grid, .list], id: \.self) { l in
+                Image(systemName: l == .grid ? "square.grid.2x2" : "list.bullet")
+                    .font(.system(size: 12, weight: .semibold))
+                    .frame(width: 30, height: 24)
+                    .foregroundStyle(layout == l ? .primary : .secondary)
+                    .background {
+                        if layout == l {
+                            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                                .fill(Theme.ink.opacity(0.12))
+                                .matchedGeometryEffect(id: "layout", in: ns)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture { withAnimation(.djieSnappy) { layout = l } }
+                    .help(l == .grid ? "Tampilan grid" : "Tampilan list")
+            }
+        }
+        .padding(3)
+        .background(Theme.ink.opacity(0.055), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.cardStroke))
+    }
+}
+
+// MARK: - Kartu host
+
+struct HostTile: View {
     @Environment(AppModel.self) private var model
     @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     let host: Host
-    @State private var hover = false
+    let layout: HostLayout
+    let ns: Namespace.ID
 
+    @State private var hover = false
+    @State private var mouse: CGPoint = .zero
+
+    private var color: Color { Color(hex: host.color) }
     private var selected: Bool { model.selection.contains(host.id) }
     private var editing: Bool { model.editingHost?.id == host.id }
+    private var live: Bool { model.sessions.contains { $0.host.id == host.id && $0.status == .connected } }
+    private var lastSeen: Date? {
+        model.logs.first { $0.hostId == host.id }.map { Date(ms: $0.startedAt) }
+    }
 
     var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(selected ? AnyShapeStyle(Theme.brandGradient) : AnyShapeStyle(Color(hex: host.color).gradient))
-                Image(systemName: selected ? "checkmark" : "server.rack")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(.black.opacity(0.75))
-                    .contentTransition(.symbolEffect(.replace))
-            }
-            .frame(width: 42, height: 42)
-            .onTapGesture { toggle() }
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(host.title).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                Text(host.displayAddress(hidden: hideAddresses))
-                    .font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
-                    .contentTransition(.opacity)
-                if !host.tags.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(host.tags.prefix(3), id: \.self) { t in
-                            Text(t).font(.system(size: 10, weight: .medium))
-                                .padding(.horizontal, 6).padding(.vertical, 2)
-                                .background(Theme.ink.opacity(0.07), in: Capsule())
-                        }
-                    }
-                    .foregroundStyle(.secondary)
-                }
-            }
-            Spacer(minLength: 0)
-
-            if hover && model.selection.isEmpty {
-                HStack(spacing: 4) {
-                    IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
-                    IconButton(symbol: "bolt.fill", help: "Connect", tint: Theme.accent) { model.connect([host.id]) }
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.8)))
-            }
+        Group {
+            if layout == .grid { gridBody } else { listBody }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(hover || selected ? Theme.cardHover : Theme.card)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(selected || editing ? Theme.accent.opacity(0.8) : Theme.ink.opacity(hover ? 0.14 : 0.07),
-                              lineWidth: selected || editing ? 1.5 : 1)
-        )
-        .shadow(color: Theme.shadow.opacity(hover ? 1 : 0), radius: 12, y: 6)
-        .offset(y: hover ? -1 : 0)
+        .background(background)
+        .overlay(border)
+        .clipShape(RoundedRectangle(cornerRadius: radius, style: .continuous))
+        .shadow(color: color.opacity(hover ? 0.22 : 0), radius: 18, y: 8)
+        .shadow(color: Theme.shadow.opacity(hover ? 1 : 0.4), radius: hover ? 14 : 3, y: hover ? 8 : 1)
+        .offset(y: hover ? -2 : 0)
         .animation(.djieHover, value: hover)
         .animation(.djieSnappy, value: selected)
         .contentShape(Rectangle())
-        .onHover { hover = $0 }
+        .onContinuousHover { phase in
+            switch phase {
+            case .active(let p): mouse = p; if !hover { hover = true }
+            case .ended: hover = false
+            }
+        }
         .onTapGesture(count: 2) { if model.selection.isEmpty { model.connect([host.id]) } }
         .simultaneousGesture(TapGesture().onEnded {
             if NSEvent.modifierFlags.contains(.command) || !model.selection.isEmpty { toggle() }
         })
-        .contextMenu {
-            Button("Connect") { model.connect([host.id]) }
-            Button("Edit") { model.editingHost = host }
-            Button("Duplikat") {
-                var copy = host
-                copy.id = ""
-                copy.label = host.title + " (salinan)"
-                model.save(copy)
+        .contextMenu { menu }
+    }
+
+    private var radius: CGFloat { layout == .grid ? 16 : 12 }
+
+    // MARK: Grid
+
+    private var gridBody: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top) {
+                icon(size: 46)
+                Spacer()
+                if hover && model.selection.isEmpty {
+                    HStack(spacing: 4) {
+                        IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
+                        IconButton(symbol: "doc.on.doc", help: "Duplikat") { duplicate() }
+                    }
+                    .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .topTrailing)))
+                } else {
+                    statusChip
+                }
             }
-            Button(selected ? "Batal pilih" : "Pilih") { toggle() }
-            Divider()
-            Button("Hapus", role: .destructive) { model.delete(host) }
+            VStack(alignment: .leading, spacing: 3) {
+                Text(host.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .matchedGeometryEffect(id: "title-\(host.id)", in: ns)
+                Text(host.displayAddress(hidden: hideAddresses))
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .contentTransition(.opacity)
+            }
+            HStack(spacing: 5) {
+                ForEach(host.tags.prefix(3), id: \.self) { tag in
+                    Text(tag).font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(color.opacity(0.13), in: Capsule())
+                        .foregroundStyle(color)
+                }
+                if host.tags.isEmpty {
+                    Label(authLabel, systemImage: authIcon).font(.system(size: 10, weight: .medium)).foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 0)
+                connectButton
+            }
+            .frame(height: 26)
         }
+        .padding(16)
+    }
+
+    // MARK: List
+
+    private var listBody: some View {
+        HStack(spacing: 14) {
+            icon(size: 34)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(host.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .lineLimit(1)
+                    .matchedGeometryEffect(id: "title-\(host.id)", in: ns)
+                Text(host.displayAddress(hidden: hideAddresses))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            .frame(minWidth: 160, alignment: .leading)
+            HStack(spacing: 5) {
+                ForEach(host.tags.prefix(4), id: \.self) { tag in
+                    Text(tag).font(.system(size: 10, weight: .medium))
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(color.opacity(0.13), in: Capsule())
+                        .foregroundStyle(color)
+                }
+            }
+            Spacer()
+            Label(authLabel, systemImage: authIcon)
+                .font(.system(size: 11)).foregroundStyle(.tertiary)
+                .frame(width: 90, alignment: .leading)
+            statusChip.frame(width: 130, alignment: .trailing)
+            HStack(spacing: 4) {
+                IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
+                connectButton
+            }
+            .opacity(hover || selected ? 1 : 0.35)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 9)
+    }
+
+    // MARK: Bagian bersama
+
+    private func icon(size: CGFloat) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .fill(selected ? AnyShapeStyle(Theme.brandGradient)
+                               : AnyShapeStyle(LinearGradient(colors: [color, color.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing)))
+            RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
+                .strokeBorder(.white.opacity(0.25), lineWidth: 1)
+            Image(systemName: selected ? "checkmark" : "server.rack")
+                .font(.system(size: size * 0.38, weight: .bold))
+                .foregroundStyle(.black.opacity(0.72))
+                .contentTransition(.symbolEffect(.replace))
+            if live {
+                Circle().fill(Color(hex: "#4ADE80"))
+                    .frame(width: size * 0.26, height: size * 0.26)
+                    .overlay(Circle().strokeBorder(Theme.bg, lineWidth: 2))
+                    .offset(x: size * 0.42, y: -size * 0.42)
+                    .transition(.scale)
+            }
+        }
+        .frame(width: size, height: size)
+        .shadow(color: color.opacity(hover ? 0.55 : 0.2), radius: hover ? 10 : 4)
+        .rotationEffect(.degrees(hover && layout == .grid ? -4 : 0))
+        .scaleEffect(hover && layout == .grid ? 1.06 : 1)
+        .animation(.djieSnappy, value: hover)
+        .matchedGeometryEffect(id: "icon-\(host.id)", in: ns)
+        .onTapGesture { toggle() }
+    }
+
+    @ViewBuilder
+    private var statusChip: some View {
+        if live {
+            HStack(spacing: 5) {
+                PulseDot(color: Color(hex: "#4ADE80"))
+                Text("Terhubung")
+            }
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(Color(hex: "#4ADE80"))
+            .padding(.horizontal, 8).padding(.vertical, 4)
+            .background(Color(hex: "#4ADE80").opacity(0.12), in: Capsule())
+        } else if let lastSeen {
+            Text(lastSeen.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)))
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+                .padding(.horizontal, 8).padding(.vertical, 4)
+                .background(Theme.ink.opacity(0.05), in: Capsule())
+                .help("Terakhir connect")
+        } else {
+            Text("Belum pernah")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.tertiary)
+        }
+    }
+
+    private var connectButton: some View {
+        Button {
+            model.connect([host.id])
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: "bolt.fill")
+                if layout == .grid && hover { Text("Connect").transition(.opacity.combined(with: .move(edge: .trailing))) }
+            }
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(hover ? Color.black.opacity(0.8) : color)
+            .padding(.horizontal, 9).frame(height: 26)
+            .background {
+                Capsule().fill(hover ? AnyShapeStyle(Theme.brandGradient) : AnyShapeStyle(color.opacity(0.14)))
+            }
+        }
+        .buttonStyle(.plain)
+        .help("Connect (klik dua kali kartu)")
+        .animation(.djieSnappy, value: hover)
+    }
+
+    private var background: some View {
+        ZStack {
+            Rectangle().fill(hover || selected ? Theme.cardHover : Theme.card)
+            // Sorotan halus yang mengikuti kursor
+            if hover {
+                RadialGradient(colors: [color.opacity(0.18), .clear], center: .topLeading,
+                               startRadius: 0, endRadius: layout == .grid ? 220 : 320)
+                    .offset(x: mouse.x, y: mouse.y)
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+            // Garis warna host di sisi kiri (list) / atas (grid)
+            if layout == .grid {
+                LinearGradient(colors: [color.opacity(0.14), .clear], startPoint: .top, endPoint: .center)
+            } else {
+                HStack { Rectangle().fill(color).frame(width: 3); Spacer() }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var border: some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if selected || editing {
+            shape.strokeBorder(Theme.accent, lineWidth: 1.5)
+        } else if hover {
+            // Border gradien yang berputar saat di-hover
+            TimelineView(.animation) { ctx in
+                let angle = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 4) / 4 * 360
+                shape.strokeBorder(
+                    AngularGradient(colors: [color, Theme.accent2, Theme.accent3, color], center: .center,
+                                    angle: .degrees(angle)),
+                    lineWidth: 1.2)
+                    .opacity(0.9)
+            }
+            .transition(.opacity)
+        } else {
+            shape.strokeBorder(Theme.cardStroke)
+        }
+    }
+
+    private var authLabel: String {
+        switch host.auth { case .password: "Password"; case .key: "SSH Key"; case .agent: "Agent" }
+    }
+    private var authIcon: String {
+        switch host.auth { case .password: "ellipsis.rectangle"; case .key: "key.fill"; case .agent: "person.badge.key" }
+    }
+
+    @ViewBuilder
+    private var menu: some View {
+        Button("Connect") { model.connect([host.id]) }
+        Button("Edit") { model.editingHost = host }
+        Button("Duplikat") { duplicate() }
+        Button(selected ? "Batal pilih" : "Pilih") { toggle() }
+        Divider()
+        Button("Salin alamat") {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(host.address, forType: .string)
+            model.flash("Alamat disalin")
+        }
+        Divider()
+        Button("Hapus", role: .destructive) { model.delete(host) }
+    }
+
+    private func duplicate() {
+        var copy = host
+        copy.id = ""
+        copy.label = host.title + " (salinan)"
+        model.save(copy)
     }
 
     private func toggle() {
         withAnimation(.djieSnappy) {
             if selected { model.selection.remove(host.id) } else { model.selection.insert(host.id) }
         }
+    }
+}
+
+struct PulseDot: View {
+    let color: Color
+    @State private var on = false
+    var body: some View {
+        ZStack {
+            Circle().fill(color.opacity(0.5)).scaleEffect(on ? 2 : 1).opacity(on ? 0 : 1)
+            Circle().fill(color)
+        }
+        .frame(width: 6, height: 6)
+        .onAppear { withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { on = true } }
     }
 }
 

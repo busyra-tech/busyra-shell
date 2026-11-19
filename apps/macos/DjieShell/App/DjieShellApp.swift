@@ -71,6 +71,17 @@ enum KeyRouter {
                 model.showHome()
                 return nil
             }
+            // Copy / paste / select all ke terminal aktif — kecuali sedang mengetik di kolom teks.
+            if ["c", "v", "a"].contains(ch), let term = model.activeTerminalView,
+               !(NSApp.keyWindow?.firstResponder is NSTextView) {
+                switch ch {
+                case "c": term.copySelection()
+                case "v": term.pasteClipboard()
+                default: term.selectAll(nil)
+                }
+                term.window?.makeFirstResponder(term)
+                return nil
+            }
             return event
         }
     }

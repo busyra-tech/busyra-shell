@@ -127,6 +127,49 @@ final class DjieTerminalView: LocalProcessTerminalView {
             DispatchQueue.main.async { self.onFirstData?() }
         }
     }
+
+    // MARK: Copy / paste
+
+    /// SwiftTerm tidak membuka status seleksi secara publik; validasi menu Copy-nya
+    /// mengembalikan `true` hanya jika ada teks yang dipilih.
+    var hasSelection: Bool {
+        validateUserInterfaceItem(NSMenuItem(title: "", action: #selector(copy(_:)), keyEquivalent: ""))
+    }
+
+    func copySelection() {
+        guard hasSelection else { return }
+        copy(self)
+    }
+
+    func pasteClipboard() {
+        guard NSPasteboard.general.string(forType: .string) != nil else { return }
+        paste(self)
+    }
+
+    func clearScreen() {
+        // Ctrl+L: shell membersihkan layar dan menggambar ulang prompt
+        send(txt: "\u{0C}")
+    }
+
+    /// Menu klik kanan.
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let m = NSMenu()
+        let copyItem = NSMenuItem(title: "Salin", action: #selector(menuCopy), keyEquivalent: "c")
+        copyItem.isEnabled = hasSelection
+        m.addItem(copyItem)
+        m.addItem(NSMenuItem(title: "Tempel", action: #selector(menuPaste), keyEquivalent: "v"))
+        m.addItem(NSMenuItem(title: "Pilih Semua", action: #selector(menuSelectAll), keyEquivalent: "a"))
+        m.addItem(.separator())
+        m.addItem(NSMenuItem(title: "Bersihkan layar", action: #selector(menuClear), keyEquivalent: ""))
+        m.items.forEach { $0.target = self }
+        m.autoenablesItems = false
+        return m
+    }
+
+    @objc private func menuCopy() { copySelection() }
+    @objc private func menuPaste() { pasteClipboard() }
+    @objc private func menuSelectAll() { selectAll(nil) }
+    @objc private func menuClear() { clearScreen() }
 }
 
 /// Susun argumen `ssh` dari data host.
