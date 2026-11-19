@@ -80,60 +80,271 @@ extension DbConnection {
 
 extension DbConnection: Identifiable {}
 
-/// Satu koneksi database yang sedang terbuka.
+/// Database bawaan sistem: disembunyikan di grup tersendiri seperti phpMyAdmin.
+extension DbEngine {
+    var systemDatabases: Set<String> {
+        switch self {
+        case .mysql, .mariadb: ["information_schema", "mysql", "performance_schema", "sys"]
+        case .sqlserver: ["master", "tempdb", "model", "msdb"]
+        case .clickhouse: ["system", "INFORMATION_SCHEMA", "information_schema"]
+        case .mongodb: ["admin", "local", "config"]
+        default: []
+        }
+    }
+
+    /// Engine yang bisa membaca tabel database lain tanpa pindah koneksi.
+    var listsAcrossDatabases: Bool {
+        switch self {
+        case .postgres, .redis: false
+        default: true
+        }
+    }
+
+    var supportsStructure: Bool { isSQL }
+}
+
+/// Satu koneksi database yang sedang terbuka (tampilan ala phpMyAdmin).
 @MainActor
 @Observable
 final class DbWorkspace: Identifiable {
     enum Status: Equatable { case connecting, ready, failed(String) }
+    enum Tab: String, CaseIterable, Identifiable {
+        case overview, browse, structure, sql
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .overview: "Ringkasan"
+            case .browse: "Telusuri"
+            case .structure: "Struktur"
+            case .sql: "SQL"
+            }
+        }
+        var icon: String {
+            switch self {
+            case .overview: "square.grid.2x2"
+            case .browse: "tablecells"
+            case .structure: "list.bullet.rectangle"
+            case .sql: "chevron.left.forwardslash.chevron.right"
+            }
+        }
+    }
 
     let id = UUID()
     var conn: DbConnection
     var status: Status = .connecting
+
+    // Pohon database
     var databases: [String] = []
-    var tables: [DbTable] = []
+    var dbTables: [String: [DbTable]] = [:]
+    var expanded: Set<String> = []
+    var loadingDbs: Set<String> = []
+    var activeDatabase: String?
+    var showSystem = false
+
+    // Pilihan
+    var selectedDb: String?
+    var selectedTable: DbTable?
+    var tab: Tab = .overview
+
+    // Telusuri (halaman data)
+    var page: QueryResult?
+    var pageSize: UInt32 = 100
+    var offset: UInt64 = 0
+    var totalRows: UInt64?
+    var totalIsEstimate = false
+
+    // Struktur
+    var structure: QueryResult?
+
+    // SQL
     var query = ""
     var result: QueryResult?
+    var history: [String] = []
+
     var running = false
     var error: String?
-    var history: [String] = []
-    var selectedTable: String?
 
     @ObservationIgnored private var session: DbSession?
+    @ObservationIgnored private var ssh: SshTarget?
 
     init(conn: DbConnection) {
         self.conn = conn
-        query = ""
+    }
+
+    var userDatabases: [String] { databases.filter { !conn.engine.systemDatabases.contains($0) } }
+    var systemDatabases: [String] { databases.filter { conn.engine.systemDatabases.contains($0) } }
+    var availableTabs: [Tab] {
+        if selectedTable != nil { return conn.engine.supportsStructure ? [.browse, .structure, .sql] : [.browse, .sql] }
+        return [.overview, .sql]
     }
 
     func connect(ssh: SshTarget?) async {
+        self.ssh = ssh
         withAnimation(.djie) { status = .connecting }
         do {
             let s = try await DbSession.connect(conn: conn, ssh: ssh)
             session = s
-            async let dbs = (try? await s.databases()) ?? []
-            async let tbls = (try? await s.tables()) ?? []
-            let (d, t) = await (dbs, tbls)
+            var dbs = (try? await s.databases()) ?? []
+            if conn.engine == .sqlite { dbs = ["main"] }
+            let fallback: String? = switch conn.engine {
+                case .sqlite: "main"
+                case .postgres: "postgres"
+                case .redis: "0"
+                default: nil
+            }
+            let active = conn.database.isEmpty ? fallback : conn.database
             withAnimation(.djie) {
-                databases = d
-                tables = t
+                databases = dbs
+                activeDatabase = active
                 status = .ready
+            }
+            // Buka otomatis: database di koneksi, atau satu-satunya database pengguna
+            if let a = active ?? (userDatabases.count == 1 ? userDatabases.first : nil) {
+                await toggle(a, forceOpen: true)
+                if selectedDb == nil { selectedDb = a }
+            }
+            if conn.engine == .redis || conn.engine == .sqlite, let a = active ?? databases.first {
+                await toggle(a, forceOpen: true)
+                selectedDb = a
             }
         } catch {
             withAnimation(.djie) { status = .failed(error.localizedDescription) }
         }
     }
 
-    /// Ganti database aktif (sambung ulang dengan nama database lain).
-    func switchDatabase(_ name: String, ssh: SshTarget?) async {
-        conn.database = name
-        result = nil
-        await connect(ssh: ssh)
+    /// Buka/tutup node database di pohon (tabel dimuat saat pertama dibuka).
+    func toggle(_ db: String, forceOpen: Bool = false) async {
+        if expanded.contains(db) && !forceOpen {
+            _ = withAnimation(.djieSnappy) { expanded.remove(db) }
+            return
+        }
+        _ = withAnimation(.djieSnappy) { expanded.insert(db) }
+        if dbTables[db] == nil { await loadTables(db) }
     }
 
-    func refreshTables() async {
+    func loadTables(_ db: String) async {
+        guard session != nil else { return }
+        loadingDbs.insert(db)
+        defer { loadingDbs.remove(db) }
+        do {
+            let t: [DbTable]
+            if conn.engine.listsAcrossDatabases {
+                t = try await session!.tablesIn(database: db)
+            } else {
+                if activeDatabase != db { try await useDatabase(db) }
+                t = try await session!.tables()
+            }
+            withAnimation(.djie) { dbTables[db] = t }
+        } catch {
+            withAnimation(.djie) { self.error = error.localizedDescription }
+        }
+    }
+
+    func refresh() async {
         guard let session else { return }
-        let t = (try? await session.tables()) ?? []
-        withAnimation(.djieSnappy) { tables = t }
+        let dbs = (try? await session.databases()) ?? databases
+        withAnimation(.djieSnappy) { databases = conn.engine == .sqlite ? ["main"] : dbs }
+        for db in expanded { await loadTables(db) }
+        if let t = selectedTable, tab == .browse { await loadPage(t) }
+    }
+
+    /// Jadikan database aktif (USE / SELECT n / sambung ulang untuk PostgreSQL).
+    private func useDatabase(_ db: String) async throws {
+        guard let session else { return }
+        if try await session.useDatabase(name: db) {
+            activeDatabase = db
+            return
+        }
+        // PostgreSQL: satu koneksi = satu database → sambung ulang
+        var c = conn
+        c.database = db
+        let s = try await DbSession.connect(conn: c, ssh: ssh)
+        self.session = s
+        conn = c
+        activeDatabase = db
+    }
+
+    /// Klik nama database: tampilkan ringkasan tabelnya.
+    func selectDatabase(_ db: String) async {
+        withAnimation(.djie) {
+            selectedDb = db
+            selectedTable = nil
+            tab = .overview
+            error = nil
+        }
+        if activeDatabase != db, conn.engine != .sqlite {
+            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.localizedDescription } }
+        }
+        if !expanded.contains(db) || dbTables[db] == nil { await toggle(db, forceOpen: true) }
+    }
+
+    func openTable(_ t: DbTable, in db: String) async {
+        if activeDatabase != db, conn.engine != .sqlite {
+            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.localizedDescription }; return }
+        }
+        withAnimation(.djie) {
+            selectedDb = db
+            selectedTable = t
+            if tab == .overview || (!conn.engine.supportsStructure && tab == .structure) { tab = .browse }
+            offset = 0
+            page = nil
+            structure = nil
+            totalRows = t.rows
+            totalIsEstimate = t.rows != nil
+            error = nil
+        }
+        if let session { query = session.pageSql(schema: t.schema, table: t.name, limit: pageSize, offset: 0) }
+        await loadTab()
+        // Hitung baris persis jika tabel tidak terlalu besar
+        if conn.engine.isSQL, (t.rows ?? 0) < 2_000_000, let session,
+           let n = try? await session.countRows(schema: t.schema, table: t.name), selectedTable?.name == t.name {
+            withAnimation(.djieSnappy) { totalRows = n; totalIsEstimate = false }
+        }
+    }
+
+    func loadTab() async {
+        guard let t = selectedTable else { return }
+        switch tab {
+        case .browse: if page == nil { await loadPage(t) }
+        case .structure: if structure == nil { await loadStructure(t) }
+        default: break
+        }
+    }
+
+    func loadPage(_ t: DbTable) async {
+        guard let session else { return }
+        withAnimation(.djieSnappy) { running = true; error = nil }
+        defer { withAnimation(.djieSnappy) { running = false } }
+        do {
+            let r = try await session.page(schema: t.schema, table: t.name, limit: pageSize, offset: offset)
+            withAnimation(.djie) { page = r }
+        } catch {
+            withAnimation(.djie) { self.error = error.localizedDescription }
+        }
+    }
+
+    func loadStructure(_ t: DbTable) async {
+        guard let session else { return }
+        withAnimation(.djieSnappy) { running = true; error = nil }
+        defer { withAnimation(.djieSnappy) { running = false } }
+        do {
+            let r = try await session.columns(schema: t.schema, table: t.name)
+            withAnimation(.djie) { structure = r }
+        } catch {
+            withAnimation(.djie) { self.error = error.localizedDescription }
+        }
+    }
+
+    func goToPage(offset newOffset: UInt64) async {
+        guard let t = selectedTable else { return }
+        offset = newOffset
+        await loadPage(t)
+    }
+
+    func setPageSize(_ n: UInt32) async {
+        pageSize = n
+        offset = 0
+        if let t = selectedTable { await loadPage(t) }
     }
 
     func run(_ sql: String? = nil) async {
@@ -145,34 +356,38 @@ final class DbWorkspace: Identifiable {
             let r = try await session.run(sql: text)
             withAnimation(.djie) { result = r }
             if history.first != text { history.insert(text, at: 0); history = Array(history.prefix(30)) }
-            // Perubahan struktur (CREATE/DROP/ALTER) → muat ulang daftar tabel
-            if text.range(of: #"^\s*(create|drop|alter|rename)"#, options: [.regularExpression, .caseInsensitive]) != nil {
-                await refreshTables()
+            // USE nama_db → ikuti di pohon
+            if let m = text.firstMatch(of: /^\s*use\s+[`\[]?([^`\]\s;]+)/.ignoresCase()) {
+                activeDatabase = String(m.1)
+                selectedDb = String(m.1)
+            }
+            // Perubahan struktur → muat ulang pohon & data
+            if text.range(of: #"^\s*(create|drop|alter|rename|truncate)"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                await refresh()
+                structure = nil
+            } else if text.range(of: #"^\s*(insert|update|delete|replace)"#, options: [.regularExpression, .caseInsensitive]) != nil {
+                page = nil
             }
         } catch {
             withAnimation(.djie) { self.error = error.localizedDescription }
         }
     }
 
-    func openTable(_ t: DbTable) async {
-        guard let session else { return }
-        selectedTable = t.name
-        query = session.previewSql(schema: t.schema, table: t.name, limit: 200)
-        withAnimation(.djieSnappy) { running = true; error = nil }
-        defer { withAnimation(.djieSnappy) { running = false } }
-        do {
-            let r = try await session.preview(schema: t.schema, table: t.name)
-            withAnimation(.djie) { result = r }
-        } catch {
-            withAnimation(.djie) { self.error = error.localizedDescription }
+    /// Hasil yang sedang tampil di tab aktif.
+    var shownResult: QueryResult? {
+        switch tab {
+        case .browse: page
+        case .structure: structure
+        case .sql: result
+        case .overview: nil
         }
     }
 
-    /// Simpan hasil sebagai CSV.
+    /// Simpan hasil yang tampil sebagai CSV.
     func exportCSV() {
-        guard let r = result, !r.columns.isEmpty else { return }
+        guard let r = shownResult, !r.columns.isEmpty else { return }
         let panel = NSSavePanel()
-        panel.nameFieldStringValue = (selectedTable ?? "hasil") + ".csv"
+        panel.nameFieldStringValue = (selectedTable?.name ?? "hasil") + ".csv"
         panel.allowedContentTypes = [.commaSeparatedText]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         func esc(_ v: String?) -> String {
@@ -183,4 +398,12 @@ final class DbWorkspace: Identifiable {
         lines += r.rows.map { $0.map(esc).joined(separator: ",") }
         try? (lines.joined(separator: "\n") + "\n").write(to: url, atomically: true, encoding: .utf8)
     }
+}
+
+extension DbTable {
+    var sizeText: String? {
+        guard let size = sizeBytes, size > 0 else { return nil }
+        return ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file)
+    }
+    var rowsText: String? { rows.map { $0.formatted(.number) } }
 }

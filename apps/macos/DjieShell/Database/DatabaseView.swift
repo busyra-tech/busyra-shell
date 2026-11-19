@@ -288,12 +288,12 @@ struct DbEditor: View {
     }
 }
 
-// MARK: - Workspace
+// MARK: - Workspace (ala phpMyAdmin)
 
 struct DbWorkspaceView: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: DbWorkspace
-    @State private var tableFilter = ""
+    @Namespace private var tabNS
 
     private var preset: DbPreset { DbPreset.find(ws.conn) }
 
@@ -323,17 +323,22 @@ struct DbWorkspaceView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .ready:
                 HSplitView {
-                    schemaPanel.frame(minWidth: 200, idealWidth: 240, maxWidth: 360)
-                    VSplitView {
-                        editor.frame(minHeight: 120, idealHeight: 180)
-                        results.frame(minHeight: 160)
+                    DbTree(ws: ws).frame(minWidth: 220, idealWidth: 270, maxWidth: 420)
+                    VStack(spacing: 0) {
+                        breadcrumb
+                        tabBar
+                        Divider()
+                        content
                     }
-                    .frame(minWidth: 420)
+                    .frame(minWidth: 460)
+                    .background(Theme.bg)
                 }
             }
         }
         .animation(.djie, value: ws.status)
     }
+
+    // MARK: Header & navigasi
 
     private var header: some View {
         HStack(spacing: 12) {
@@ -348,53 +353,183 @@ struct DbWorkspaceView: View {
                 }
             }
             Spacer()
-            if ws.databases.count > 1 {
-                Picker("Database", selection: Binding(get: { ws.conn.database }, set: { name in
-                    Task { await ws.switchDatabase(name, ssh: model.sshTarget(forId: ws.conn.sshHostId)) }
-                })) {
-                    if !ws.databases.contains(ws.conn.database) { Text(ws.conn.database.isEmpty ? "(default)" : ws.conn.database).tag(ws.conn.database) }
-                    ForEach(ws.databases, id: \.self) { Text($0).tag($0) }
-                }
-                .frame(maxWidth: 220)
+            if ws.status == .ready {
+                IconButton(symbol: "arrow.clockwise", help: "Muat ulang") { Task { await ws.refresh() } }
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
     }
 
-    private var filteredTables: [DbTable] {
-        tableFilter.isEmpty ? ws.tables : ws.tables.filter { $0.name.localizedCaseInsensitiveContains(tableFilter) }
+    private var breadcrumb: some View {
+        HStack(spacing: 6) {
+            Button { withAnimation(.djie) { ws.selectedDb = nil; ws.selectedTable = nil; ws.tab = .overview } } label: {
+                Label("Server", systemImage: "server.rack")
+            }
+            .buttonStyle(.plain)
+            if let db = ws.selectedDb {
+                Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                Button { Task { await ws.selectDatabase(db) } } label: { Label(db, systemImage: "cylinder") }
+                    .buttonStyle(.plain)
+            }
+            if let t = ws.selectedTable {
+                Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                Label(t.name, systemImage: t.isView ? "eye" : "tablecells").foregroundStyle(.primary)
+                    .transition(.opacity.combined(with: .move(edge: .leading)))
+            }
+            Spacer()
+        }
+        .font(.system(size: 12, weight: .medium))
+        .foregroundStyle(.secondary)
+        .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 6)
+        .animation(.djie, value: ws.selectedTable?.name)
     }
 
-    private var schemaPanel: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Text(ws.conn.engine == .redis ? "KEY" : ws.conn.engine == .mongodb ? "KOLEKSI" : "TABEL")
-                    .font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundStyle(.tertiary)
-                Text("\(ws.tables.count)").font(.system(size: 10, weight: .bold))
-                    .padding(.horizontal, 6).padding(.vertical, 1).background(Theme.ink.opacity(0.08), in: Capsule())
-                Spacer()
-                IconButton(symbol: "arrow.clockwise", help: "Muat ulang") { Task { await ws.refreshTables() } }
-            }
-            .padding(.horizontal, 12).padding(.top, 10)
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
-                TextField("Cari…", text: $tableFilter).textFieldStyle(.plain).font(.system(size: 12))
-            }
-            .padding(.horizontal, 9).frame(height: 28)
-            .background(Theme.field, in: RoundedRectangle(cornerRadius: 7))
-            .padding(10)
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 1) {
-                    ForEach(filteredTables, id: \.name) { t in
-                        TableRow(table: t, engine: ws.conn.engine, selected: ws.selectedTable == t.name) {
-                            Task { await ws.openTable(t) }
+    private var tabBar: some View {
+        HStack(spacing: 4) {
+            ForEach(ws.availableTabs) { t in
+                Button {
+                    withAnimation(.djieSnappy) { ws.tab = t }
+                    Task { await ws.loadTab() }
+                } label: {
+                    Label(t.title, systemImage: t.icon)
+                        .font(.system(size: 12.5, weight: ws.tab == t ? .semibold : .regular))
+                        .padding(.horizontal, 12).padding(.vertical, 7)
+                        .foregroundStyle(ws.tab == t ? .primary : .secondary)
+                        .background {
+                            if ws.tab == t {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Theme.accent.opacity(0.14))
+                                    .matchedGeometryEffect(id: "tab", in: tabNS)
+                            }
                         }
-                    }
+                        .contentShape(Rectangle())
                 }
-                .padding(.horizontal, 6).padding(.bottom, 8)
+                .buttonStyle(.plain)
+            }
+            Spacer()
+            if let r = ws.shownResult, !r.columns.isEmpty {
+                Button { ws.exportCSV() } label: { Label("Ekspor CSV", systemImage: "square.and.arrow.down") }
+                    .buttonStyle(SecondaryButtonStyle())
             }
         }
+        .padding(.horizontal, 12).padding(.bottom, 8)
+    }
+
+    @ViewBuilder private var content: some View {
+        ZStack {
+            switch ws.tab {
+            case .overview:
+                if let db = ws.selectedDb { DbOverview(ws: ws, db: db) } else { ServerOverview(ws: ws) }
+            case .browse: browse
+            case .structure: structureView
+            case .sql: sqlView
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .transition(.opacity)
+        .animation(.djie, value: ws.tab)
+    }
+
+    // MARK: Telusuri
+
+    private var browse: some View {
+        VStack(spacing: 0) {
+            errorBar
+            if let r = ws.page, !r.columns.isEmpty {
+                ResultGrid(result: r, rowOffset: Int(ws.offset)).id("page\(ws.offset)\(r.rows.count)\(r.elapsedMs)")
+                    .transition(.opacity)
+            } else if ws.running {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let r = ws.page {
+                Text(r.rows.isEmpty ? "Tabel kosong" : "").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Color.clear
+            }
+            if ws.conn.engine.isSQL { pager }
+        }
+    }
+
+    private var pager: some View {
+        let shown = UInt64(ws.page?.rows.count ?? 0)
+        let total = ws.totalRows
+        let hasNext = total.map { ws.offset + shown < $0 } ?? (shown == UInt64(ws.pageSize))
+        return HStack(spacing: 10) {
+            if ws.running { ProgressView().controlSize(.small) }
+            Group {
+                if shown == 0 {
+                    Text("0 baris")
+                } else {
+                    Text("Baris \((ws.offset + 1).formatted())–\((ws.offset + shown).formatted())")
+                        + Text(total.map { " dari \(ws.totalIsEstimate ? "~" : "")\($0.formatted())" } ?? "")
+                }
+            }
+            .font(.system(size: 12, weight: .medium))
+            if let ms = ws.page?.elapsedMs { Text("· \(ms) ms").font(.system(size: 12)).foregroundStyle(.secondary) }
+            Spacer()
+            Picker("", selection: Binding(get: { ws.pageSize }, set: { n in Task { await ws.setPageSize(n) } })) {
+                ForEach([25, 50, 100, 250, 500] as [UInt32], id: \.self) { Text("\($0) / halaman").tag($0) }
+            }
+            .labelsHidden().fixedSize()
+            HStack(spacing: 2) {
+                IconButton(symbol: "chevron.left.2", help: "Halaman pertama") { Task { await ws.goToPage(offset: 0) } }
+                    .disabled(ws.offset == 0)
+                IconButton(symbol: "chevron.left", help: "Sebelumnya") {
+                    Task { await ws.goToPage(offset: ws.offset >= UInt64(ws.pageSize) ? ws.offset - UInt64(ws.pageSize) : 0) }
+                }
+                .disabled(ws.offset == 0)
+                if let total, total > 0 {
+                    Text("\(ws.offset / UInt64(ws.pageSize) + 1) / \((total + UInt64(ws.pageSize) - 1) / UInt64(ws.pageSize))")
+                        .font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.secondary)
+                        .frame(minWidth: 54)
+                        .contentTransition(.numericText())
+                }
+                IconButton(symbol: "chevron.right", help: "Berikutnya") { Task { await ws.goToPage(offset: ws.offset + UInt64(ws.pageSize)) } }
+                    .disabled(!hasNext)
+                IconButton(symbol: "chevron.right.2", help: "Halaman terakhir") {
+                    if let total, total > 0 { Task { await ws.goToPage(offset: (total - 1) / UInt64(ws.pageSize) * UInt64(ws.pageSize)) } }
+                }
+                .disabled(!hasNext || total == nil)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
         .background(Theme.panel)
+        .overlay(alignment: .top) { Divider() }
+        .animation(.djieSnappy, value: ws.offset)
+    }
+
+    // MARK: Struktur
+
+    private var structureView: some View {
+        VStack(spacing: 0) {
+            errorBar
+            if let r = ws.structure, !r.columns.isEmpty {
+                ResultGrid(result: r, highlightColumn: "Kunci").transition(.opacity)
+            } else if ws.running {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                Color.clear
+            }
+        }
+    }
+
+    // MARK: SQL
+
+    private var sqlView: some View {
+        VSplitView {
+            editor.frame(minHeight: 120, idealHeight: 180)
+            results.frame(minHeight: 160)
+        }
+    }
+
+    @ViewBuilder private var errorBar: some View {
+        if let e = ws.error {
+            Label(e, systemImage: "exclamationmark.triangle.fill")
+                .font(.system(size: 12)).foregroundStyle(.orange).lineLimit(3).textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12).padding(.vertical, 8)
+                .background(Color.orange.opacity(0.08))
+                .transition(.move(edge: .top).combined(with: .opacity))
+        }
     }
 
     private var editor: some View {
@@ -420,6 +555,9 @@ struct DbWorkspaceView: View {
                         }
                     } label: { Label("Riwayat", systemImage: "clock.arrow.circlepath") }
                     .menuStyle(.borderlessButton).fixedSize()
+                }
+                if let db = ws.activeDatabase {
+                    Label(db, systemImage: "cylinder").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Text(ws.conn.engine.isSQL ? "⌘⏎ untuk menjalankan" : "Satu perintah per baris")
@@ -454,13 +592,9 @@ struct DbWorkspaceView: View {
                         .font(.system(size: 12, weight: .semibold))
                     Text("· \(r.elapsedMs) ms").font(.system(size: 12)).foregroundStyle(.secondary)
                 } else {
-                    Text("Jalankan query atau pilih tabel di kiri").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text("Tulis query lalu tekan Jalankan").font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                if let r = ws.result, !r.columns.isEmpty {
-                    Button { ws.exportCSV() } label: { Label("Ekspor CSV", systemImage: "square.and.arrow.down") }
-                        .buttonStyle(SecondaryButtonStyle())
-                }
             }
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Theme.panel)
@@ -477,6 +611,147 @@ struct DbWorkspaceView: View {
     }
 }
 
+// MARK: - Pohon database
+
+private struct DbTree: View {
+    @Bindable var ws: DbWorkspace
+    @State private var filter = ""
+
+    private func matches(_ t: DbTable) -> Bool { filter.isEmpty || t.name.localizedCaseInsensitiveContains(filter) }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
+                TextField(ws.conn.engine == .redis ? "Cari key…" : "Cari tabel…", text: $filter).textFieldStyle(.plain).font(.system(size: 12))
+                if !filter.isEmpty {
+                    Button { filter = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
+                }
+            }
+            .padding(.horizontal, 9).frame(height: 28)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 7))
+            .padding(10)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 1) {
+                    sectionLabel(ws.conn.engine == .redis ? "DATABASE REDIS" : "DATABASE", count: ws.userDatabases.count)
+                    ForEach(ws.userDatabases, id: \.self) { db in node(db) }
+
+                    if !ws.systemDatabases.isEmpty {
+                        Button {
+                            withAnimation(.djieSnappy) { ws.showSystem.toggle() }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold))
+                                    .rotationEffect(.degrees(ws.showSystem ? 90 : 0))
+                                Text("SISTEM").tracking(1.2)
+                                Text("\(ws.systemDatabases.count)").padding(.horizontal, 5).background(Theme.ink.opacity(0.08), in: Capsule())
+                                Spacer()
+                            }
+                            .font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+                            .padding(.horizontal, 8).padding(.top, 14).padding(.bottom, 4)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        if ws.showSystem {
+                            ForEach(ws.systemDatabases, id: \.self) { db in node(db, system: true) }
+                        }
+                    }
+                }
+                .padding(.horizontal, 6).padding(.bottom, 10)
+            }
+        }
+        .background(Theme.panel)
+    }
+
+    private func sectionLabel(_ text: String, count: Int) -> some View {
+        HStack(spacing: 6) {
+            Text(text).tracking(1.2)
+            Text("\(count)").padding(.horizontal, 5).background(Theme.ink.opacity(0.08), in: Capsule())
+            Spacer()
+        }
+        .font(.system(size: 10, weight: .semibold)).foregroundStyle(.tertiary)
+        .padding(.horizontal, 8).padding(.bottom, 4)
+    }
+
+    @ViewBuilder private func node(_ db: String, system: Bool = false) -> some View {
+        let open = ws.expanded.contains(db)
+        let tables = (ws.dbTables[db] ?? []).filter(matches)
+        DbNodeRow(name: db, open: open, loading: ws.loadingDbs.contains(db),
+                  count: ws.dbTables[db]?.count, selected: ws.selectedDb == db && ws.selectedTable == nil,
+                  active: ws.activeDatabase == db, system: system,
+                  onToggle: { Task { await ws.toggle(db) } },
+                  onSelect: { Task { await ws.selectDatabase(db) } })
+        if open {
+            ForEach(tables, id: \.name) { t in
+                TableRow(table: t, engine: ws.conn.engine,
+                         selected: ws.selectedDb == db && ws.selectedTable?.name == t.name && ws.selectedTable?.schema == t.schema) {
+                    Task { await ws.openTable(t, in: db) }
+                }
+                .padding(.leading, 18)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+            if let all = ws.dbTables[db], all.isEmpty {
+                Text("Tidak ada tabel").font(.caption).foregroundStyle(.tertiary).padding(.leading, 40).padding(.vertical, 4)
+            }
+        }
+    }
+}
+
+private struct DbNodeRow: View {
+    let name: String
+    let open: Bool
+    let loading: Bool
+    let count: Int?
+    let selected: Bool
+    let active: Bool
+    let system: Bool
+    var onToggle: () -> Void
+    var onSelect: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Button(action: onToggle) {
+                Group {
+                    if loading { ProgressView().controlSize(.mini) }
+                    else { Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold)).rotationEffect(.degrees(open ? 90 : 0)) }
+                }
+                .frame(width: 14, height: 22)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+
+            Button(action: onSelect) {
+                HStack(spacing: 7) {
+                    Image(systemName: open ? "cylinder.split.1x2.fill" : "cylinder.split.1x2")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(system ? AnyShapeStyle(.tertiary) : AnyShapeStyle(Theme.accent))
+                    Text(name).font(.system(size: 12.5, weight: active ? .semibold : .regular)).lineLimit(1).truncationMode(.middle)
+                        .foregroundStyle(system ? .secondary : .primary)
+                    Spacer(minLength: 0)
+                    if let count {
+                        Text("\(count)").font(.system(size: 10, weight: .semibold, design: .rounded)).foregroundStyle(.secondary)
+                            .padding(.horizontal, 6).padding(.vertical, 1)
+                            .background(Theme.ink.opacity(0.07), in: Capsule())
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .frame(height: 26)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 6)
+        .background(selected ? Theme.accent.opacity(0.16) : hover ? Theme.ink.opacity(0.05) : .clear,
+                    in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .onHover { hover = $0 }
+        .animation(.djieSnappy, value: open)
+        .animation(.djieSnappy, value: count)
+    }
+}
+
 struct TableRow: View {
     let table: DbTable
     let engine: DbEngine
@@ -490,11 +765,13 @@ struct TableRow: View {
                 Image(systemName: icon).font(.system(size: 11)).foregroundStyle(table.isView ? Theme.accent3 : Theme.accent2).frame(width: 14)
                 Text(table.name).font(.system(size: 12)).lineLimit(1).truncationMode(.middle)
                 Spacer(minLength: 0)
-                if !table.schema.isEmpty && engine.isSQL && !["public", "dbo", "main"].contains(table.schema) {
+                if engine == .postgres || engine == .sqlserver, !["public", "dbo"].contains(table.schema) {
                     Text(table.schema).font(.system(size: 9.5)).foregroundStyle(.tertiary)
+                } else if hover, let rows = table.rowsText {
+                    Text(rows).font(.system(size: 9.5, design: .rounded)).foregroundStyle(.tertiary)
                 }
             }
-            .padding(.horizontal, 8).frame(height: 26)
+            .padding(.horizontal, 8).frame(height: 25)
             .background(selected ? Theme.accent.opacity(0.16) : hover ? Theme.ink.opacity(0.05) : .clear,
                         in: RoundedRectangle(cornerRadius: 6, style: .continuous))
             .contentShape(Rectangle())
@@ -512,13 +789,175 @@ struct TableRow: View {
     }
 }
 
+// MARK: - Ringkasan
+
+/// Daftar tabel satu database: baris, ukuran, tipe (seperti halaman database phpMyAdmin).
+private struct DbOverview: View {
+    @Bindable var ws: DbWorkspace
+    let db: String
+    @State private var filter = ""
+
+    private var tables: [DbTable] {
+        let all = ws.dbTables[db] ?? []
+        return filter.isEmpty ? all : all.filter { $0.name.localizedCaseInsensitiveContains(filter) }
+    }
+
+    var body: some View {
+        let all = ws.dbTables[db] ?? []
+        VStack(spacing: 0) {
+            HStack(spacing: 16) {
+                stat("\(all.filter { !$0.isView }.count)", "tabel", "tablecells", Theme.accent2)
+                stat("\(all.filter(\.isView).count)", "view", "eye", Theme.accent3)
+                stat(all.compactMap(\.rows).reduce(0, +).formatted(), "baris (perkiraan)", "list.number", Theme.accent)
+                stat(ByteCountFormatter.string(fromByteCount: Int64(all.compactMap(\.sizeBytes).reduce(0, +)), countStyle: .file),
+                     "ukuran", "internaldrive", Color(hex: "#F59E0B"))
+                Spacer()
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
+                    TextField("Filter tabel", text: $filter).textFieldStyle(.plain).font(.system(size: 12))
+                }
+                .padding(.horizontal, 9).frame(width: 200, height: 28)
+                .background(Theme.field, in: RoundedRectangle(cornerRadius: 7))
+            }
+            .padding(14)
+
+            HStack(spacing: 0) {
+                Text("Tabel").frame(maxWidth: .infinity, alignment: .leading)
+                Text("Tipe").frame(width: 80, alignment: .leading)
+                Text("Baris").frame(width: 110, alignment: .trailing)
+                Text("Ukuran").frame(width: 100, alignment: .trailing)
+            }
+            .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
+            .padding(.horizontal, 18).padding(.vertical, 6)
+            .background(.bar)
+            .overlay(alignment: .bottom) { Divider() }
+
+            if ws.loadingDbs.contains(db) && all.isEmpty {
+                ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if all.isEmpty {
+                Text("Database ini belum punya tabel").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(Array(tables.enumerated()), id: \.element.name) { i, t in
+                            OverviewRow(table: t, striped: i % 2 == 1) { Task { await ws.openTable(t, in: db) } }
+                                .staggerIn(min(i, 14), base: 0)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func stat(_ value: String, _ label: String, _ icon: String, _ tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: icon).foregroundStyle(tint)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(value).font(.system(size: 16, weight: .bold, design: .rounded)).contentTransition(.numericText())
+                Text(label).font(.system(size: 10.5)).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct OverviewRow: View {
+    let table: DbTable
+    let striped: Bool
+    var onOpen: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: onOpen) {
+            HStack(spacing: 0) {
+                HStack(spacing: 8) {
+                    Image(systemName: table.isView ? "eye" : "tablecells").foregroundStyle(table.isView ? Theme.accent3 : Theme.accent2)
+                    Text(table.name).lineLimit(1)
+                    if hover {
+                        Text("Telusuri →").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.accent)
+                            .transition(.opacity.combined(with: .move(edge: .leading)))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                Text(table.isView ? "VIEW" : "TABLE").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                    .frame(width: 80, alignment: .leading)
+                Text(table.rowsText ?? "—").font(.system(size: 12, design: .monospaced)).frame(width: 110, alignment: .trailing)
+                Text(table.sizeText ?? "—").font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                    .frame(width: 100, alignment: .trailing)
+            }
+            .font(.system(size: 12.5))
+            .padding(.horizontal, 18).frame(height: 30)
+            .background(hover ? Theme.accent.opacity(0.09) : striped ? Theme.ink.opacity(0.025) : .clear)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in withAnimation(.djieSnappy) { hover = h } }
+    }
+}
+
+/// Belum memilih database: kartu-kartu database.
+private struct ServerOverview: View {
+    @Bindable var ws: DbWorkspace
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Pilih database").font(.title3.bold())
+                Text("\(ws.userDatabases.count) database pengguna · \(ws.systemDatabases.count) database sistem")
+                    .font(.callout).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
+                    ForEach(Array(ws.userDatabases.enumerated()), id: \.element) { i, db in
+                        Button { Task { await ws.selectDatabase(db) } } label: {
+                            HStack(spacing: 10) {
+                                Image(systemName: "cylinder.split.1x2.fill").font(.system(size: 18))
+                                    .foregroundStyle(Theme.brandGradient)
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(db).font(.system(size: 13.5, weight: .semibold)).lineLimit(1)
+                                    Text(ws.dbTables[db].map { "\($0.count) tabel" } ?? "Klik untuk membuka")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                            }
+                            .padding(14)
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(DbTileStyle())
+                        .staggerIn(min(i, 16), base: 0)
+                    }
+                }
+            }
+            .padding(22)
+        }
+    }
+}
+
+private struct DbTileStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { Tile(configuration: configuration) }
+    private struct Tile: View {
+        let configuration: Configuration
+        @State private var hover = false
+        var body: some View {
+            configuration.label
+                .background(hover ? Theme.cardHover : Theme.card, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(hover ? Theme.accent.opacity(0.5) : Theme.cardStroke))
+                .scaleEffect(configuration.isPressed ? 0.97 : hover ? 1.015 : 1)
+                .animation(.djieSnappy, value: hover)
+                .animation(.djieSnappy, value: configuration.isPressed)
+                .onHover { hover = $0 }
+        }
+    }
+}
+
 /// Tabel hasil: header tetap, gulir dua arah, NULL ditampilkan miring, klik ganda menyalin nilai.
 struct ResultGrid: View {
     let result: QueryResult
+    var rowOffset = 0
+    /// Kolom yang nilainya disorot sebagai badge (mis. "Kunci" di tab Struktur).
+    var highlightColumn: String? = nil
     @State private var copied: String?
 
     private var widths: [CGFloat] {
         result.columns.enumerated().map { i, name in
+            if name == highlightColumn { return 112 }
             let sample = result.rows.prefix(60).map { ($0[safe: i] ?? nil)?.count ?? 4 }.max() ?? 4
             return min(360, max(70, CGFloat(max(name.count, sample)) * 7.4 + 22))
         }
@@ -531,10 +970,14 @@ struct ResultGrid: View {
                 SwiftUI.Section {
                     ForEach(result.rows.indices, id: \.self) { r in
                         HStack(spacing: 0) {
-                            Text("\(r + 1)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary)
+                            Text("\(rowOffset + r + 1)").font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.tertiary)
                                 .frame(width: 44, alignment: .trailing).padding(.trailing, 8)
                             ForEach(result.columns.indices, id: \.self) { c in
-                                cell(result.rows[r][safe: c] ?? nil).frame(width: w[c], alignment: .leading)
+                                if result.columns[c] == highlightColumn {
+                                    keyCell(result.rows[r][safe: c] ?? nil).frame(width: w[c], alignment: .leading)
+                                } else {
+                                    cell(result.rows[r][safe: c] ?? nil).frame(width: w[c], alignment: .leading)
+                                }
                             }
                         }
                         .frame(height: 26)
@@ -564,6 +1007,20 @@ struct ResultGrid: View {
             }
         }
         .animation(.djie, value: copied)
+    }
+
+    @ViewBuilder private func keyCell(_ v: String?) -> some View {
+        let key = v ?? ""
+        let color: Color = key == "PRI" ? Color(hex: "#F59E0B") : key == "UNI" ? Theme.accent3 : Theme.accent2
+        HStack {
+            if !key.isEmpty {
+                Label(key == "PRI" ? "PRIMARY" : key == "UNI" ? "UNIQUE" : key == "MUL" ? "INDEX" : key, systemImage: "key.fill")
+                    .font(.system(size: 10, weight: .bold)).foregroundStyle(color)
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(color.opacity(0.14), in: Capsule())
+            }
+        }
+        .padding(.leading, 8)
     }
 
     private func cell(_ v: String?) -> some View {

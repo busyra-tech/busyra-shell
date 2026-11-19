@@ -17,8 +17,18 @@ async fn roundtrip(s: &DbSession, create: &str) {
     let r = s.run("SELECT id, nama FROM djie_t ORDER BY id".into()).await.expect("select");
     assert_eq!(r.columns, vec!["id", "nama"]);
     assert_eq!(r.rows, vec![vec![Some("1".into()), Some("halo".into())], vec![Some("2".into()), None]]);
-    assert!(s.tables().await.unwrap().iter().any(|t| t.name == "djie_t"));
-    assert!(!s.databases().await.unwrap().is_empty());
+    let tables = s.tables().await.unwrap();
+    let t = tables.iter().find(|t| t.name == "djie_t").expect("djie_t ada di tables()");
+    let dbs = s.databases().await.unwrap();
+    assert!(!dbs.is_empty());
+    // Pohon ala phpMyAdmin: tabel per database, struktur, jumlah baris, halaman
+    let current = if t.schema == "public" || t.schema == "main" { dbs[0].clone() } else { t.schema.clone() };
+    assert!(s.tables_in(current).await.unwrap().iter().any(|t| t.name == "djie_t"));
+    let cols = s.columns(t.schema.clone(), "djie_t".into()).await.unwrap();
+    assert_eq!(cols.rows.iter().map(|r| r[0].clone().unwrap()).collect::<Vec<_>>(), vec!["id", "nama"]);
+    assert_eq!(s.count_rows(t.schema.clone(), "djie_t".into()).await.unwrap(), 2);
+    let p2 = s.page(t.schema.clone(), "djie_t".into(), 1, 1).await.unwrap();
+    assert_eq!(p2.rows.len(), 1);
     assert!(s.run("SELECT * FROM tabel_tidak_ada".into()).await.is_err());
 }
 

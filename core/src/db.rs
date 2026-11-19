@@ -34,6 +34,10 @@ pub struct DbTable {
     pub schema: String,
     pub name: String,
     pub is_view: bool,
+    /// Perkiraan jumlah baris (statistik server), jika tersedia.
+    pub rows: Option<u64>,
+    /// Ukuran data + index dalam byte, jika tersedia.
+    pub size_bytes: Option<u64>,
 }
 
 fn db_err(e: impl std::fmt::Display) -> CoreError {
@@ -160,61 +164,95 @@ impl DbSession {
 
     /// Tabel & view di database aktif.
     pub async fn tables(&self) -> Result<Vec<DbTable>, CoreError> {
-        let sql = match self.engine {
-            DbEngine::Postgres => "SELECT table_schema, table_name, table_type FROM information_schema.tables \
-                 WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY 1, 2",
-            DbEngine::Mysql | DbEngine::Mariadb => "SELECT table_schema, table_name, table_type FROM information_schema.tables \
-                 WHERE table_schema = DATABASE() ORDER BY 2",
-            DbEngine::Sqlserver => "SELECT TABLE_SCHEMA, TABLE_NAME, TABLE_TYPE FROM INFORMATION_SCHEMA.TABLES ORDER BY 1, 2",
-            DbEngine::Sqlite => "SELECT 'main', name, type FROM sqlite_master WHERE type IN ('table','view') \
-                 AND name NOT LIKE 'sqlite_%' ORDER BY 2",
-            DbEngine::Clickhouse => "SELECT database, name, engine FROM system.tables WHERE database = currentDatabase() ORDER BY name",
+        self.list_tables(None).await
+    }
+
+    /// Tabel & view di database tertentu (untuk pohon database ala phpMyAdmin).
+    /// PostgreSQL tidak bisa lintas database: selalu database yang sedang tersambung.
+    pub async fn tables_in(&self, database: String) -> Result<Vec<DbTable>, CoreError> {
+        self.list_tables(Some(database)).await
+    }
+
+    /// Pindah database aktif di sesi yang sama. `false` = engine butuh sambung ulang (PostgreSQL).
+    pub async fn use_database(&self, name: String) -> Result<bool, CoreError> {
+        match self.engine {
+            DbEngine::Mysql | DbEngine::Mariadb => {
+                self.run(format!("USE {}", self.ident(&name))).await?;
+            }
+            DbEngine::Sqlserver => {
+                self.run(format!("USE {}", self.ident(&name))).await?;
+            }
             DbEngine::Redis => {
-                // Ambil key lewat SCAN (maks 1000) tanpa memblokir server seperti KEYS *
-                let mut guard = self.conn.lock().await;
-                let Conn::Redis(c) = &mut *guard else { return Ok(vec![]) };
-                let mut keys: Vec<String> = vec![];
-                let mut cursor: u64 = 0;
-                loop {
-                    let (next, batch): (u64, Vec<String>) = redis::cmd("SCAN").arg(cursor).arg("COUNT").arg(500)
-                        .query_async(c).await.map_err(db_err)?;
-                    keys.extend(batch);
-                    cursor = next;
-                    if cursor == 0 || keys.len() >= 1000 { break; }
-                }
-                keys.sort();
-                keys.dedup();
-                return Ok(keys.into_iter().map(|k| DbTable { schema: "key".into(), name: k, is_view: false }).collect());
+                let n: u32 = name.parse().map_err(|_| db_err("nomor database Redis tidak valid"))?;
+                self.run(format!("SELECT {n}")).await?;
+            }
+            DbEngine::Clickhouse => {
+                if let Conn::Ch(ch) = &mut *self.conn.lock().await { ch.database = name; }
             }
             DbEngine::Mongodb => {
-                if let Conn::Mongo(_, db) = &*self.conn.lock().await {
-                    let mut names = db.list_collection_names().await.map_err(db_err)?;
-                    names.sort();
-                    return Ok(names.into_iter().map(|n| DbTable { schema: db.name().to_string(), name: n, is_view: false }).collect());
-                }
-                return Ok(vec![]);
+                if let Conn::Mongo(client, db) = &mut *self.conn.lock().await { *db = client.database(&name); }
             }
+            DbEngine::Postgres => return Ok(false),
+            DbEngine::Sqlite => {}
+        }
+        Ok(true)
+    }
+
+    /// Struktur tabel: kolom, tipe, null, kunci, default, ekstra, komentar.
+    pub async fn columns(&self, schema: String, table: String) -> Result<QueryResult, CoreError> {
+        let (s, t) = (self.lit(&schema), self.lit(&table));
+        let sql = match self.engine {
+            DbEngine::Mysql | DbEngine::Mariadb => format!(
+                "SELECT COLUMN_NAME AS `Kolom`, COLUMN_TYPE AS `Tipe`, IS_NULLABLE AS `Null`, COLUMN_KEY AS `Kunci`, \
+                 NULLIF(COLUMN_DEFAULT, 'NULL') AS `Default`, EXTRA AS `Ekstra`, COLLATION_NAME AS `Collation`, COLUMN_COMMENT AS `Komentar` \
+                 FROM information_schema.columns WHERE table_schema = {s} AND table_name = {t} ORDER BY ORDINAL_POSITION"),
+            DbEngine::Postgres => format!(
+                "SELECT c.column_name AS \"Kolom\", \
+                 CASE WHEN c.character_maximum_length IS NOT NULL THEN c.data_type || '(' || c.character_maximum_length || ')' ELSE c.data_type END AS \"Tipe\", \
+                 c.is_nullable AS \"Null\", \
+                 CASE WHEN EXISTS (SELECT 1 FROM information_schema.table_constraints tc JOIN information_schema.key_column_usage k \
+                   ON k.constraint_name = tc.constraint_name AND k.table_schema = tc.table_schema \
+                   WHERE tc.constraint_type = 'PRIMARY KEY' AND tc.table_schema = c.table_schema AND tc.table_name = c.table_name \
+                   AND k.column_name = c.column_name) THEN 'PRI' ELSE '' END AS \"Kunci\", \
+                 c.column_default AS \"Default\", \
+                 col_description(format('%I.%I', c.table_schema, c.table_name)::regclass, c.ordinal_position::int) AS \"Komentar\" \
+                 FROM information_schema.columns c WHERE c.table_schema = {s} AND c.table_name = {t} ORDER BY c.ordinal_position"),
+            DbEngine::Sqlserver => format!(
+                "SELECT COLUMN_NAME AS [Kolom], DATA_TYPE + COALESCE('(' + CAST(NULLIF(CHARACTER_MAXIMUM_LENGTH, -1) AS varchar) + ')', '') AS [Tipe], \
+                 IS_NULLABLE AS [Null], COLUMN_DEFAULT AS [Default] \
+                 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = {s} AND TABLE_NAME = {t} ORDER BY ORDINAL_POSITION"),
+            DbEngine::Sqlite => format!("SELECT name AS Kolom, type AS Tipe, CASE \"notnull\" WHEN 1 THEN 'NO' ELSE 'YES' END AS \"Null\", \
+                 CASE WHEN pk > 0 THEN 'PRI' ELSE '' END AS Kunci, dflt_value AS \"Default\" FROM pragma_table_info({t})"),
+            DbEngine::Clickhouse => format!(
+                "SELECT name AS Kolom, type AS Tipe, default_expression AS `Default`, comment AS Komentar \
+                 FROM system.columns WHERE database = {s} AND table = {t} ORDER BY position"),
+            DbEngine::Redis | DbEngine::Mongodb => return Ok(empty()),
         };
-        let r = self.run(sql.into()).await?;
-        Ok(r.rows
-            .into_iter()
-            .map(|row| {
-                let get = |i: usize| row.get(i).cloned().flatten().unwrap_or_default();
-                DbTable { schema: get(0), name: get(1), is_view: get(2).to_lowercase().contains("view") }
-            })
-            .collect())
+        self.run(sql).await
+    }
+
+    /// Jumlah baris persis (SELECT COUNT(*)).
+    pub async fn count_rows(&self, schema: String, table: String) -> Result<u64, CoreError> {
+        if !self.engine_is_sql() { return Ok(0); }
+        let r = self.run(format!("SELECT COUNT(*) FROM {}", self.qualified(&schema, &table))).await?;
+        Ok(r.rows.first().and_then(|row| row.first().cloned().flatten()).and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
     /// Query untuk melihat isi tabel (dengan kutip identifier sesuai engine).
     pub fn preview_sql(&self, schema: String, table: String, limit: u32) -> String {
+        self.page_sql(schema, table, limit, 0)
+    }
+
+    /// Query halaman data tabel (LIMIT/OFFSET sesuai engine).
+    pub fn page_sql(&self, schema: String, table: String, limit: u32, offset: u64) -> String {
+        let q = self.qualified(&schema, &table);
         match self.engine {
-            DbEngine::Postgres => format!("SELECT * FROM \"{}\".\"{}\" LIMIT {limit}", schema.replace('"', "\"\""), table.replace('"', "\"\"")),
-            DbEngine::Mysql | DbEngine::Mariadb => format!("SELECT * FROM `{}`.`{}` LIMIT {limit}", schema.replace('`', "``"), table.replace('`', "``")),
-            DbEngine::Sqlserver => format!("SELECT TOP {limit} * FROM [{}].[{}]", schema.replace(']', "]]"), table.replace(']', "]]")),
-            DbEngine::Sqlite => format!("SELECT * FROM \"{}\" LIMIT {limit}", table.replace('"', "\"\"")),
-            DbEngine::Clickhouse => format!("SELECT * FROM `{}`.`{}` LIMIT {limit}", schema.replace('`', "\\`"), table.replace('`', "\\`")),
+            DbEngine::Sqlserver if offset == 0 => format!("SELECT TOP {limit} * FROM {q}"),
+            DbEngine::Sqlserver => format!("SELECT * FROM {q} ORDER BY (SELECT NULL) OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY"),
             DbEngine::Redis => format!("TYPE {}", quote_arg(&table)),
             DbEngine::Mongodb => format!("db.{table}.find({{}})"),
+            _ if offset == 0 => format!("SELECT * FROM {q} LIMIT {limit}"),
+            _ => format!("SELECT * FROM {q} LIMIT {limit} OFFSET {offset}"),
         }
     }
 
@@ -235,6 +273,112 @@ impl DbSession {
             return self.run(cmd).await;
         }
         self.run(self.preview_sql(schema, table, 200)).await
+    }
+
+    /// Satu halaman data tabel.
+    pub async fn page(&self, schema: String, table: String, limit: u32, offset: u64) -> Result<QueryResult, CoreError> {
+        if !self.engine_is_sql() { return self.preview(schema, table).await; }
+        self.run(self.page_sql(schema, table, limit, offset)).await
+    }
+}
+
+impl DbSession {
+    fn engine_is_sql(&self) -> bool {
+        !matches!(self.engine, DbEngine::Redis | DbEngine::Mongodb)
+    }
+
+    /// Kutip identifier sesuai engine.
+    fn ident(&self, s: &str) -> String {
+        match self.engine {
+            DbEngine::Mysql | DbEngine::Mariadb => format!("`{}`", s.replace('`', "``")),
+            DbEngine::Clickhouse => format!("`{}`", s.replace('\\', "\\\\").replace('`', "\\`")),
+            DbEngine::Sqlserver => format!("[{}]", s.replace(']', "]]")),
+            _ => format!("\"{}\"", s.replace('"', "\"\"")),
+        }
+    }
+
+    /// Literal string SQL yang aman.
+    fn lit(&self, s: &str) -> String {
+        match self.engine {
+            DbEngine::Mysql | DbEngine::Mariadb | DbEngine::Clickhouse => format!("'{}'", s.replace('\\', "\\\\").replace('\'', "''")),
+            _ => format!("'{}'", s.replace('\'', "''")),
+        }
+    }
+
+    fn qualified(&self, schema: &str, table: &str) -> String {
+        match self.engine {
+            DbEngine::Sqlite => self.ident(table),
+            _ if schema.is_empty() => self.ident(table),
+            _ => format!("{}.{}", self.ident(schema), self.ident(table)),
+        }
+    }
+
+    /// `database`: None = database aktif.
+    async fn list_tables(&self, database: Option<String>) -> Result<Vec<DbTable>, CoreError> {
+        let sql = match self.engine {
+            DbEngine::Postgres => "SELECT n.nspname, c.relname, CASE WHEN c.relkind IN ('v','m') THEN 'VIEW' ELSE 'TABLE' END, \
+                 GREATEST(c.reltuples, 0)::bigint, pg_total_relation_size(c.oid) \
+                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace \
+                 WHERE c.relkind IN ('r','v','m','p','f') AND n.nspname NOT IN ('pg_catalog','information_schema') \
+                 AND n.nspname NOT LIKE 'pg_toast%' AND n.nspname NOT LIKE 'pg_temp%' ORDER BY 1, 2".to_string(),
+            DbEngine::Mysql | DbEngine::Mariadb => format!(
+                "SELECT table_schema, table_name, table_type, table_rows, data_length + index_length \
+                 FROM information_schema.tables WHERE table_schema = {} ORDER BY table_name",
+                database.as_deref().map(|d| self.lit(d)).unwrap_or_else(|| "DATABASE()".into())),
+            DbEngine::Sqlserver => {
+                let p = database.as_deref().map(|d| format!("{}.", self.ident(d))).unwrap_or_default();
+                format!("SELECT s.name, o.name, o.type_desc, SUM(p.rows), NULL \
+                     FROM {p}sys.objects o JOIN {p}sys.schemas s ON s.schema_id = o.schema_id \
+                     LEFT JOIN {p}sys.partitions p ON p.object_id = o.object_id AND p.index_id IN (0, 1) \
+                     WHERE o.type IN ('U','V') AND o.is_ms_shipped = 0 GROUP BY s.name, o.name, o.type_desc ORDER BY 1, 2")
+            }
+            DbEngine::Sqlite => "SELECT 'main', name, type, NULL, NULL FROM sqlite_master WHERE type IN ('table','view') \
+                 AND name NOT LIKE 'sqlite_%' ORDER BY 2".to_string(),
+            DbEngine::Clickhouse => format!(
+                "SELECT database, name, engine, total_rows, total_bytes FROM system.tables WHERE database = {} ORDER BY name",
+                database.as_deref().map(|d| self.lit(d)).unwrap_or_else(|| "currentDatabase()".into())),
+            DbEngine::Redis => {
+                // Ambil key lewat SCAN (maks 1000) tanpa memblokir server seperti KEYS *
+                let mut guard = self.conn.lock().await;
+                let Conn::Redis(c) = &mut *guard else { return Ok(vec![]) };
+                let mut keys: Vec<String> = vec![];
+                let mut cursor: u64 = 0;
+                loop {
+                    let (next, batch): (u64, Vec<String>) = redis::cmd("SCAN").arg(cursor).arg("COUNT").arg(500)
+                        .query_async(c).await.map_err(db_err)?;
+                    keys.extend(batch);
+                    cursor = next;
+                    if cursor == 0 || keys.len() >= 1000 { break; }
+                }
+                keys.sort();
+                keys.dedup();
+                return Ok(keys.into_iter().map(|k| DbTable { schema: "key".into(), name: k, is_view: false, rows: None, size_bytes: None }).collect());
+            }
+            DbEngine::Mongodb => {
+                if let Conn::Mongo(client, db) = &*self.conn.lock().await {
+                    let db = match &database { Some(d) => client.database(d), None => db.clone() };
+                    let mut names = db.list_collection_names().await.map_err(db_err)?;
+                    names.sort();
+                    return Ok(names.into_iter().map(|n| DbTable { schema: db.name().to_string(), name: n, is_view: false, rows: None, size_bytes: None }).collect());
+                }
+                return Ok(vec![]);
+            }
+        };
+        let r = self.run(sql).await?;
+        Ok(r.rows
+            .into_iter()
+            .map(|row| {
+                let get = |i: usize| row.get(i).cloned().flatten();
+                let num = |i: usize| get(i).and_then(|v| v.parse::<f64>().ok()).map(|v| v.max(0.0) as u64);
+                DbTable {
+                    schema: get(0).unwrap_or_default(),
+                    name: get(1).unwrap_or_default(),
+                    is_view: get(2).unwrap_or_default().to_lowercase().contains("view"),
+                    rows: num(3),
+                    size_bytes: num(4),
+                }
+            })
+            .collect())
     }
 }
 

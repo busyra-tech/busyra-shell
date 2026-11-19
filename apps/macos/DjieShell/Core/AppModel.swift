@@ -166,6 +166,27 @@ final class AppModel {
             }
         }
         let env = ProcessInfo.processInfo.environment
+        if let port = env["DJIE_MYSQL_PORT"].flatMap(UInt16.init) {
+            // Tes tampilan phpMyAdmin: MariaDB lokal tanpa database terpilih
+            let my = DbConnection(id: "", label: "MariaDB lokal", engine: .mariadb, host: "127.0.0.1", port: port, username: "root",
+                                  password: env["DJIE_MYSQL_PW"], database: "", filePath: "", tls: false, sshHostId: nil,
+                                  color: "#C0765A", updatedAt: 0, deleted: false)
+            if let saved = try? v.upsertDatabase(conn: my) {
+                reload()
+                Task {
+                    await openDatabase(saved)
+                    // DJIE_MYSQL_OPEN=db atau db/tabel, DJIE_MYSQL_TAB=structure|sql
+                    guard let ws = dbWorkspace, let target = env["DJIE_MYSQL_OPEN"] else { return }
+                    let parts = target.split(separator: "/").map(String.init)
+                    await ws.selectDatabase(parts[0])
+                    if parts.count > 1, let t = ws.dbTables[parts[0]]?.first(where: { $0.name == parts[1] }) {
+                        if let tab = env["DJIE_MYSQL_TAB"].flatMap(DbWorkspace.Tab.init(rawValue:)) { ws.tab = tab }
+                        await ws.openTable(t, in: parts[0])
+                        if env["DJIE_MYSQL_PAGE"] != nil { await ws.goToPage(offset: 100) }
+                    }
+                }
+            }
+        }
         if args.contains("-DjieDemoSftp"), let port = env["DJIE_SFTP_PORT"].flatMap(UInt16.init),
            let pem = env["DJIE_SFTP_KEY"].flatMap({ try? String(contentsOfFile: $0, encoding: .utf8) }),
            let k = try? v.importKey(label: "tes-sftp", privateKey: pem, passphrase: nil) {
