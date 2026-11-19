@@ -5,7 +5,7 @@ namespace DjieShell;
 public partial class App : Application
 {
     public static MainWindow? Window { get; private set; }
-    public static AppState State { get; } = new();
+    internal static AppState State { get; } = new();
 
     public App()
     {

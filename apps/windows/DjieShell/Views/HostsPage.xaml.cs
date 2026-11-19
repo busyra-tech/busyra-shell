@@ -27,7 +27,7 @@ public sealed partial class HostsPage : Page
         if (App.State.Vault == null) return;
         var q = Search.Text.Trim().ToLowerInvariant();
         var hosts = App.State.Hosts
-            .Where(h => q.Length == 0 || h.label.ToLowerInvariant().Contains(q) || h.hostname.ToLowerInvariant().Contains(q))
+            .Where(h => q.Length == 0 || h.Label.ToLowerInvariant().Contains(q) || h.Hostname.ToLowerInvariant().Contains(q))
             .OrderBy(h => Title(h), StringComparer.OrdinalIgnoreCase)
             .ToList();
         Subtitle.Text = $"{App.State.Hosts.Count} server · terenkripsi di vault";
@@ -37,7 +37,7 @@ public sealed partial class HostsPage : Page
 
     private void Search_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) => Reload();
 
-    private static string Title(Host h) => string.IsNullOrWhiteSpace(h.label) ? h.hostname : h.label;
+    private static string Title(Host h) => string.IsNullOrWhiteSpace(h.Label) ? h.Hostname : h.Label;
 
     /// Alamat disamarkan seperti di Mac: 10.0.***.***
     private static string Mask(string host)
@@ -59,7 +59,7 @@ public sealed partial class HostsPage : Page
 
     private FrameworkElement Card(Host h, int index)
     {
-        var color = ParseHex(h.color);
+        var color = ParseHex(h.Color);
         var badge = new Border
         {
             Width = 42, Height = 42, CornerRadius = new CornerRadius(12),
@@ -72,7 +72,7 @@ public sealed partial class HostsPage : Page
         };
         var text = new StackPanel { Spacing = 2, VerticalAlignment = VerticalAlignment.Center };
         text.Children.Add(new TextBlock { Text = Title(h), FontSize = 15, FontWeight = Microsoft.UI.Text.FontWeights.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis });
-        text.Children.Add(new TextBlock { Text = $"{h.username}@{Mask(h.hostname)}:{h.port}", Opacity = 0.6, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas") });
+        text.Children.Add(new TextBlock { Text = $"{h.Username}@{Mask(h.Hostname)}:{h.Port}", Opacity = 0.6, FontSize = 12, FontFamily = new FontFamily("Cascadia Mono, Consolas") });
 
         var head = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12 };
         head.Children.Add(badge);
@@ -160,7 +160,7 @@ public sealed partial class HostsPage : Page
     /// Buka sesi SSH di Windows Terminal (fallback ke konsol ssh.exe).
     private void Connect(Host h)
     {
-        var args = $"-p {h.port} {h.username}@{h.hostname}";
+        var args = $"-p {h.Port} {h.Username}@{h.Hostname}";
         try
         {
             Process.Start(new ProcessStartInfo("wt.exe", $"new-tab --title \"{Title(h)}\" ssh {args}") { UseShellExecute = true });
@@ -175,13 +175,13 @@ public sealed partial class HostsPage : Page
 
     private async System.Threading.Tasks.Task Edit(Host h)
     {
-        var label = new TextBox { Header = "Label", Text = h.label, PlaceholderText = "Server produksi" };
-        var host = new TextBox { Header = "Alamat (IP / domain)", Text = h.hostname, PlaceholderText = "192.168.1.10" };
-        var port = new NumberBox { Header = "Port", Value = h.port, Minimum = 1, Maximum = 65535, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
-        var user = new TextBox { Header = "Username", Text = h.username };
-        var pass = new PasswordBox { Header = "Password (opsional)", Password = h.password ?? "" };
+        var label = new TextBox { Header = "Label", Text = h.Label, PlaceholderText = "Server produksi" };
+        var host = new TextBox { Header = "Alamat (IP / domain)", Text = h.Hostname, PlaceholderText = "192.168.1.10" };
+        var port = new NumberBox { Header = "Port", Value = h.Port, Minimum = 1, Maximum = 65535, SpinButtonPlacementMode = NumberBoxSpinButtonPlacementMode.Compact };
+        var user = new TextBox { Header = "Username", Text = h.Username };
+        var pass = new PasswordBox { Header = "Password (opsional)", Password = h.Password ?? "" };
         var colors = new[] { "#3FD0B4", "#3B82F6", "#8B5CF6", "#EC4899", "#F59E0B", "#EF4444", "#10B981", "#64748B" };
-        var colorPick = new ComboBox { Header = "Warna kartu", ItemsSource = colors, SelectedItem = colors.Contains(h.color) ? h.color : colors[0], HorizontalAlignment = HorizontalAlignment.Stretch };
+        var colorPick = new ComboBox { Header = "Warna kartu", ItemsSource = colors, SelectedItem = colors.Contains(h.Color) ? h.Color : colors[0], HorizontalAlignment = HorizontalAlignment.Stretch };
 
         var row = new Grid { ColumnSpacing = 10 };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
@@ -196,7 +196,7 @@ public sealed partial class HostsPage : Page
         var dlg = new ContentDialog
         {
             XamlRoot = XamlRoot,
-            Title = string.IsNullOrEmpty(h.id) ? "Host baru" : "Edit host",
+            Title = string.IsNullOrEmpty(h.Id) ? "Host baru" : "Edit host",
             Content = form,
             PrimaryButtonText = "Simpan",
             CloseButtonText = "Batal",
@@ -206,13 +206,13 @@ public sealed partial class HostsPage : Page
 
         App.State.Save(h with
         {
-            label = label.Text.Trim(),
-            hostname = host.Text.Trim(),
-            port = (ushort)Math.Clamp(double.IsNaN(port.Value) ? 22 : port.Value, 1, 65535),
-            username = string.IsNullOrWhiteSpace(user.Text) ? "root" : user.Text.Trim(),
-            password = string.IsNullOrEmpty(pass.Password) ? null : pass.Password,
-            auth = AuthMethod.Password,
-            color = colorPick.SelectedItem as string ?? "#3FD0B4",
+            Label = label.Text.Trim(),
+            Hostname = host.Text.Trim(),
+            Port = (ushort)Math.Clamp(double.IsNaN(port.Value) ? 22 : port.Value, 1, 65535),
+            Username = string.IsNullOrWhiteSpace(user.Text) ? "root" : user.Text.Trim(),
+            Password = string.IsNullOrEmpty(pass.Password) ? null : pass.Password,
+            Auth = AuthMethod.Password,
+            Color = colorPick.SelectedItem as string ?? "#3FD0B4",
         });
     }
 

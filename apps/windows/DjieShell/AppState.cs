@@ -7,7 +7,7 @@ using uniffi.djie_core;
 namespace DjieShell;
 
 /// <summary>State app: vault terenkripsi dari djie-core (Rust), sama persis dengan versi macOS.</summary>
-public class AppState
+internal class AppState
 {
     public static string DataDir
     {
@@ -30,15 +30,15 @@ public class AppState
     public void Unlock(string password) { Vault = Vault.Unlock(VaultPath, password); Changed?.Invoke(); }
     public void Lock() { Vault = null; Changed?.Invoke(); }
 
-    public List<Host> Hosts => Vault?.Hosts() ?? new();
-    public List<SshKey> Keys => Vault?.Keys() ?? new();
+    public Host[] Hosts => Vault?.Hosts() ?? [];
+    public SshKey[] Keys => Vault?.Keys() ?? [];
 
     public Host Save(Host h) { var r = Vault!.UpsertHost(h); Changed?.Invoke(); return r; }
-    public void Delete(Host h) { Vault!.DeleteHost(h.id); Changed?.Invoke(); }
+    public void Delete(Host h) { Vault!.DeleteHost(h.Id); Changed?.Invoke(); }
 
     public static Host BlankHost() => new Host(
-        id: "", hostname: "", label: "", group: null, tags: new List<string>(), color: "#3FD0B4",
-        port: 22, username: "root", auth: AuthMethod.Password, password: null, keyId: null,
-        agentForwarding: false, startupSnippet: null, jumpHostId: null, env: new List<EnvVar>(),
-        charset: "UTF-8", terminalTheme: null, updatedAt: 0, deleted: false);
+        Id: "", Hostname: "", Label: "", Group: null, Tags: [], Color: "#3FD0B4",
+        Port: 22, Username: "root", Auth: AuthMethod.Password, Password: null, KeyId: null,
+        AgentForwarding: false, StartupSnippet: null, JumpHostId: null, Env: [],
+        Charset: "UTF-8", TerminalTheme: null, UpdatedAt: 0, Deleted: false);
 }
