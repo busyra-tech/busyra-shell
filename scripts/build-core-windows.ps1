@@ -9,6 +9,12 @@ $app = Join-Path $root "apps\windows\DjieShell"
 $cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
 if (-not (Test-Path $cargo)) { $cargo = "cargo" }
 
+# crate `ring` butuh clang untuk target ARM64 → pakai LLVM bawaan VS Build Tools
+$vsLlvm = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC\Tools\Llvm\*\bin\clang.exe", "$env:ProgramFiles\Microsoft Visual Studio\*\*\VC\Tools\Llvm\*\bin\clang.exe" -ErrorAction SilentlyContinue |
+    Sort-Object { $_.FullName -notmatch "ARM64" } | Select-Object -First 1
+if ($vsLlvm) { $env:Path = $vsLlvm.DirectoryName + ";" + $env:Path }
+elseif (-not (Get-Command clang -ErrorAction SilentlyContinue)) { throw "clang tidak ditemukan: pasang komponen VS 'C++ Clang tools' (VC.Llvm.Clang)" }
+
 Push-Location $core
 foreach ($t in @("aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc")) {
     & $cargo build --release --lib --target $t
