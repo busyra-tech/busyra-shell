@@ -1,54 +1,110 @@
 using System;
-using System.Reflection;
+using System.Runtime.InteropServices;
+using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media.Animation;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.System;
 using DjieShell.Views;
 
 namespace DjieShell;
 
 public sealed partial class MainWindow : Window
 {
+    private FrameworkElement? _current;
+    private Phase? _shownPhase;
+
     public MainWindow()
     {
         InitializeComponent();
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
         AppWindow.SetIcon("Assets/djie.ico");
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1240, 800));
-        if (AppWindow.Presenter is OverlappedPresenter p) { p.PreferredMinimumWidth = 940; p.PreferredMinimumHeight = 600; }
-        VersionText.Text = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.1.0";
+        AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
+        if (AppWindow.Presenter is OverlappedPresenter p) { p.PreferredMinimumWidth = 980; p.PreferredMinimumHeight = 620; }
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        Closed += (_, _) => { App.Model.Tunnels.StopAll(); foreach (var s in App.Model.Sessions) s.Terminate(); };
 
-        // Perubahan state bisa datang dari thread lain → kembali ke UI thread
-        App.State.Changed += () => DispatcherQueue.TryEnqueue(Route);
+        App.Model.Changed += what =>
+        {
+            if (what == "phase") Route();
+            else if (what == "theme") ApplyTheme(true);
+        };
+        AddAccelerators();
+        ApplyTheme(false);
 #if DEBUG
-        if (Environment.GetEnvironmentVariable("DJIE_DEMO") == "1") LoadDemo();
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO") == "1")
+        {
+            try { App.Model.LoadDemo(); }
+            catch (Exception e) { System.IO.File.AppendAllText(System.IO.Path.Combine(Config.LocalDir, "error.log"), $"demo: {e}\n"); }
+        }
 #endif
         Route();
     }
 
-#if DEBUG
-    /// Vault contoh untuk tes tampilan (hanya build debug, folder DJIE_DATA_DIR).
-    private static void LoadDemo()
+    private void ApplyTheme(bool rebuild)
     {
-        if (App.State.HasVault) App.State.Unlock("demo-password-123");
-        else App.State.Create("demo-password-123");
-        if (App.State.Hosts.Length > 0) return;
-        var samples = new[] {
-            ("prod-api", "10.0.1.10", "ubuntu", "#3FD0B4"), ("prod-db", "10.0.1.20", "postgres", "#F0616D"),
-            ("staging", "staging.djie.local", "deploy", "#5B9CF5"), ("homelab", "192.168.1.5", "pi", "#9D7CF2"),
-            ("vpn-gateway", "vpn.djie.id", "root", "#F59E0B"),
-        };
-        foreach (var (label, host, user, color) in samples)
-            App.State.Save(AppState.BlankHost() with { Label = label, Hostname = host, Username = user, Color = color });
+        var dark = App.Model.IsDark;
+        Root.RequestedTheme = dark ? ElementTheme.Dark : ElementTheme.Light;
+        Root.Background = Theme.Bg;
+        TitleText.Foreground = Theme.Text;
+        var tb = AppWindow.TitleBar;
+        tb.ButtonForegroundColor = dark ? Colors.White : Colors.Black;
+        tb.ButtonBackgroundColor = Colors.Transparent;
+        tb.ButtonInactiveBackgroundColor = Colors.Transparent;
+        tb.ButtonHoverBackgroundColor = dark ? Windows.UI.Color.FromArgb(30, 255, 255, 255) : Windows.UI.Color.FromArgb(20, 0, 0, 0);
+        tb.ButtonInactiveForegroundColor = dark ? Windows.UI.Color.FromArgb(120, 255, 255, 255) : Windows.UI.Color.FromArgb(120, 0, 0, 0);
+        // Shell menggambar ulang sendiri (view terminal tidak boleh dibuat ulang); onboarding dibuat ulang
+        if (rebuild && _current is OnboardingPage) { _shownPhase = null; Route(); }
     }
-#endif
 
-    /// Terkunci → halaman kunci; terbuka → shell utama.
+    /// <summary>Terkunci / onboarding → layar sambutan; terbuka → shell utama.</summary>
     private void Route()
     {
-        var target = App.State.Vault == null ? typeof(LockPage) : typeof(ShellPage);
-        if (RootFrame.CurrentSourcePageType != target)
-            RootFrame.Navigate(target, null, new DrillInNavigationTransitionInfo());
+        var phase = App.Model.Phase;
+        if (_shownPhase == phase && _current != null) return;
+        if (_current is ShellPage oldShell) oldShell.Detach();
+        if (_current is OnboardingPage oldOnb) oldOnb.Detach();
+        _shownPhase = phase;
+        FrameworkElement next = phase == Phase.Main ? new ShellPage() : new OnboardingPage();
+        PageHost.Children.Clear();
+        PageHost.Children.Add(next);
+        _current = next;
+        TitleText.Visibility = phase == Phase.Main ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void AddAccelerators()
+    {
+        void Add(VirtualKey key, VirtualKeyModifiers mods, Action a)
+        {
+            var k = new KeyboardAccelerator { Key = key, Modifiers = mods };
+            k.Invoked += (_, e) => { if (App.Model.Phase == Phase.Main) { a(); e.Handled = true; } };
+            Root.KeyboardAccelerators.Add(k);
+        }
+        var m = App.Model;
+        Add(VirtualKey.N, VirtualKeyModifiers.Control, () => { m.Navigate(Section.Hosts); m.Edit(HostExt.Blank()); });
+        Add(VirtualKey.L, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.Lock);
+        Add(VirtualKey.W, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.CloseActive);
+        Add(VirtualKey.Tab, VirtualKeyModifiers.Control, () => m.CycleTab(1));
+        Add(VirtualKey.Tab, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.CycleTab(-1));
+        for (int i = 0; i <= 9; i++)
+        {
+            var n = i;
+            Add(VirtualKey.Number0 + i, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.FocusTab(n));
+        }
+        Root.KeyboardAcceleratorPlacementMode = KeyboardAcceleratorPlacementMode.Hidden;
+    }
+
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int cmd);
+
+    public IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+    public void BringToFront()
+    {
+        ShowWindow(Hwnd, 9);
+        SetForegroundWindow(Hwnd);
     }
 }

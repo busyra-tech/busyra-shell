@@ -7,24 +7,11 @@
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
             </ResourceDictionary.MergedDictionaries>
-            <Color x:Key="DjieTeal">#3FD0B4</Color>
-            <Color x:Key="DjieBlue">#5B9CF5</Color>
-            <Color x:Key="DjieViolet">#9D7CF2</Color>
-            <LinearGradientBrush x:Key="DjieGradient" StartPoint="0,0" EndPoint="1,1">
-                <GradientStop Color="#3FD0B4" Offset="0" />
-                <GradientStop Color="#5B9CF5" Offset="0.5" />
-                <GradientStop Color="#9D7CF2" Offset="1" />
-            </LinearGradientBrush>
-            <SolidColorBrush x:Key="CardBrush" Color="#0DFFFFFF" />
-            <SolidColorBrush x:Key="CardStrokeBrush" Color="#17FFFFFF" />
-            <Style x:Key="PrimaryButton" TargetType="Button">
-                <Setter Property="Background" Value="{StaticResource DjieGradient}" />
-                <Setter Property="Foreground" Value="#0A1A16" />
-                <Setter Property="FontWeight" Value="SemiBold" />
-                <Setter Property="Padding" Value="16,8" />
-                <Setter Property="CornerRadius" Value="8" />
-                <Setter Property="BorderThickness" Value="0" />
-            </Style>
+            <Color x:Key="SystemAccentColor">#3FD0B4</Color>
+            <Color x:Key="SystemAccentColorLight1">#5FDCC4</Color>
+            <Color x:Key="SystemAccentColorLight2">#7FE6D2</Color>
+            <Color x:Key="SystemAccentColorDark1">#2FB79D</Color>
+            <Color x:Key="SystemAccentColorDark2">#249884</Color>
         </ResourceDictionary>
     </Application.Resources>
 </Application>
