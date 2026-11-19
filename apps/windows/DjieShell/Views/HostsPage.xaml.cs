@@ -30,9 +30,9 @@ public sealed partial class HostsPage : Page
             .Where(h => q.Length == 0 || h.Label.ToLowerInvariant().Contains(q) || h.Hostname.ToLowerInvariant().Contains(q))
             .OrderBy(h => Title(h), StringComparer.OrdinalIgnoreCase)
             .ToList();
-        Subtitle.Text = $"{App.State.Hosts.Count} server · terenkripsi di vault";
+        Subtitle.Text = $"{App.State.Hosts.Length} server · terenkripsi di vault";
         Cards.ItemsSource = hosts.Select((h, i) => Card(h, i)).ToList();
-        Empty.Visibility = App.State.Hosts.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        Empty.Visibility = App.State.Hosts.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void Search_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args) => Reload();
@@ -114,7 +114,7 @@ public sealed partial class HostsPage : Page
     }
 
     /// Animasi masuk berurutan + angkat saat hover (Composition).
-    private static void Animate(UIElement el, int index)
+    private static void Animate(FrameworkElement el, int index)
     {
         ElementCompositionPreview.SetIsTranslationEnabled(el, true);
         var visual = ElementCompositionPreview.GetElementVisual(el);
