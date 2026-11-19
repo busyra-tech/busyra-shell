@@ -15,6 +15,9 @@ $vsLlvm = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC
 if ($vsLlvm) { $env:Path = $vsLlvm.DirectoryName + ";" + $env:Path }
 elseif (-not (Get-Command clang -ErrorAction SilentlyContinue)) { throw "clang tidak ditemukan: pasang komponen VS 'C++ Clang tools' (VC.Llvm.Clang)" }
 
+# aws-lc-sys (x64) butuh NASM → pakai objek NASM prebuilt bawaan crate
+$env:AWS_LC_SYS_PREBUILT_NASM = "1"
+
 Push-Location $core
 foreach ($t in @("aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc")) {
     & $cargo build --release --lib --target $t
