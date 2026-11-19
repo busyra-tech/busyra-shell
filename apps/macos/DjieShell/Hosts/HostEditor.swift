@@ -30,6 +30,7 @@ struct HostEditor: View {
                 VStack(spacing: 14) {
                     addressCard
                     generalCard
+                    colorCard
                     sshCard
                     advancedCard
                     themeCard
@@ -327,20 +328,58 @@ struct HostEditor: View {
 
     private var themeCard: some View {
         EditorCard("Tema terminal") {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(TerminalThemes.all) { t in
-                        let active = TerminalThemes.def(h.terminalTheme).id == t.id
-                        VStack(alignment: .leading, spacing: 6) {
-                            ThemePreview(theme: t)
-                                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(active ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: active ? 2 : 1))
-                                .scaleEffect(active ? 1 : 0.95)
-                            Text(t.name).font(.caption).foregroundStyle(active ? .primary : .secondary)
-                        }
-                        .onTapGesture { withAnimation(.djieSnappy) { h.terminalTheme = t.id } }
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 12) {
+                themeOption(id: nil, name: "Otomatis", preview: TerminalThemes.def(nil))
+                ForEach(TerminalThemes.all) { t in themeOption(id: t.id, name: t.name, preview: t) }
+            }
+        }
+    }
+
+    private func themeOption(id: String?, name: String, preview: TerminalThemes.Def) -> some View {
+        let active = h.terminalTheme == id
+        return VStack(alignment: .leading, spacing: 6) {
+            ThemePreview(theme: preview, auto: id == nil)
+                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(active ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: active ? 2 : 1))
+                .overlay(alignment: .topTrailing) {
+                    if active {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Theme.accent, .white)
+                            .offset(x: 5, y: -5)
+                            .transition(.scale.combined(with: .opacity))
                     }
                 }
-                .padding(2)
+                .scaleEffect(active ? 1 : 0.96)
+            Text(name).font(.caption).foregroundStyle(active ? .primary : .secondary).lineLimit(1)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { withAnimation(.djieSnappy) { h.terminalTheme = id } }
+    }
+
+    private var colorCard: some View {
+        EditorCard("Warna kartu") {
+            CardPreview(host: h)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 26), spacing: 8)], spacing: 8) {
+                ForEach(Theme.cardPalette, id: \.self) { c in
+                    let active = h.color.uppercased() == c.uppercased()
+                    Circle()
+                        .fill(LinearGradient(colors: [Color(hex: c), Color(hex: c).opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                        .frame(width: 26, height: 26)
+                        .overlay(Circle().strokeBorder(.white.opacity(active ? 0.9 : 0), lineWidth: 2).padding(2))
+                        .overlay { if active { Image(systemName: "checkmark").font(.system(size: 10, weight: .heavy)).foregroundStyle(.black.opacity(0.7)) } }
+                        .scaleEffect(active ? 1.12 : 1)
+                        .shadow(color: Color(hex: c).opacity(active ? 0.6 : 0), radius: 6)
+                        .onTapGesture { withAnimation(.djieSnappy) { h.color = c } }
+                }
+            }
+            HStack {
+                Text("Warna lain").font(.callout).foregroundStyle(.secondary)
+                Spacer()
+                ColorPicker("", selection: Binding(
+                    get: { Color(hex: h.color) },
+                    set: { h.color = $0.hexString }
+                ), supportsOpacity: false)
+                .labelsHidden()
+                Text(h.color.uppercased()).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
             }
         }
     }
@@ -384,18 +423,64 @@ struct FieldRow<Content: View>: View {
 
 struct ThemePreview: View {
     let theme: TerminalThemes.Def
+    var auto = false
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Capsule().fill(Color(hex: theme.accent)).frame(width: 52, height: 4)
-            Capsule().fill(Color(hex: theme.fg).opacity(0.7)).frame(width: 40, height: 4)
+        VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 3) {
-                Capsule().fill(Color(hex: theme.accent).opacity(0.7)).frame(width: 18, height: 4)
-                Capsule().fill(Color(hex: theme.fg).opacity(0.5)).frame(width: 14, height: 4)
-                Rectangle().fill(Color(hex: theme.accent)).frame(width: 4, height: 7)
+                Text("$").foregroundStyle(Color(hex: theme.accent))
+                Capsule().fill(Color(hex: theme.fg).opacity(0.75)).frame(width: 34, height: 4)
+            }
+            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            HStack(spacing: 3) {
+                ForEach([1, 2, 3, 4, 5, 6], id: \.self) { i in
+                    Circle().fill(Color(hex: theme.ansi[i])).frame(width: 7, height: 7)
+                }
+            }
+            HStack(spacing: 3) {
+                Capsule().fill(Color(hex: theme.fg).opacity(0.45)).frame(width: 22, height: 4)
+                Rectangle().fill(Color(hex: theme.accent)).frame(width: 5, height: 8)
             }
         }
-        .padding(10)
-        .frame(width: 84, height: 54, alignment: .topLeading)
-        .background(Color(hex: theme.bg), in: RoundedRectangle(cornerRadius: 8))
+        .padding(9)
+        .frame(maxWidth: .infinity, minHeight: 58, alignment: .topLeading)
+        .background {
+            if auto {
+                // Separuh gelap, separuh terang: mengikuti mode app
+                LinearGradient(stops: [.init(color: Color(hex: "#0B0E13"), location: 0.5), .init(color: Color(hex: "#F7F6F2"), location: 0.5)],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .opacity(0.9)
+            } else {
+                Color(hex: theme.bg)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 9))
+    }
+}
+
+/// Pratinjau kecil kartu host dengan warna terpilih.
+struct CardPreview: View {
+    let host: Host
+    var body: some View {
+        let c = Color(hex: host.color)
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .fill(LinearGradient(colors: [c, c.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .overlay(Image(systemName: "server.rack").font(.system(size: 16, weight: .bold)).foregroundStyle(.black.opacity(0.7)))
+                .frame(width: 40, height: 40)
+                .shadow(color: c.opacity(0.5), radius: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(host.title.isEmpty ? "Nama host" : host.title).font(.system(size: 13, weight: .semibold))
+                Text("\(host.username)@••••••••").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+            }
+            Spacer()
+            Image(systemName: "bolt.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(c)
+                .frame(width: 26, height: 26).background(c.opacity(0.15), in: Circle())
+        }
+        .padding(12)
+        .background(LinearGradient(colors: [c.opacity(0.16), Theme.card], startPoint: .top, endPoint: .bottom),
+                    in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(c.opacity(0.45)))
+        .animation(.djieSnappy, value: host.color)
     }
 }

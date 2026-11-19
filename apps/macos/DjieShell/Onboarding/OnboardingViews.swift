@@ -12,7 +12,8 @@ struct OnboardingContainer: View {
                 case .welcome: WelcomeView().transition(.blurSlide)
                 case .createPassword: CreatePasswordView().transition(.blurSlide)
                 case .restore: RestoreView().transition(.blurSlide)
-                default: LockView().transition(.blurSlide)
+                case .locked: LockView().transition(.blurSlide)
+                case .main: Color.clear
                 }
             }
             .frame(width: 420)
@@ -388,7 +389,8 @@ struct LockView: View {
         }
         .onAppear {
             focused = true
-            if BiometricUnlock.isAvailable { Task { await biometric() } }
+            // Hanya saat benar-benar terkunci (bukan saat layar ini sedang memudar keluar)
+            if model.phase == .locked && BiometricUnlock.isAvailable { Task { await biometric() } }
         }
         .animation(.djie, value: error)
     }
@@ -405,6 +407,7 @@ struct LockView: View {
     }
 
     private func biometric() async {
+        guard model.phase == .locked else { return }
         try? await model.unlockWithBiometrics()
     }
 }

@@ -6,7 +6,7 @@ struct TerminalPane: View {
     let session: TerminalSession
 
     var body: some View {
-        let theme = TerminalThemes.def(session.host.terminalTheme)
+        let theme = TerminalThemes.def(session.themeID)
         ZStack {
             Color(hex: theme.bg)
             TerminalRepresentable(session: session)

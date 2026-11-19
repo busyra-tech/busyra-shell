@@ -13,6 +13,13 @@ extension Color {
         )
     }
 
+    /// `#RRGGBB` dari warna SwiftUI (untuk disimpan di vault).
+    var hexString: String {
+        let ns = NSColor(self).usingColorSpace(.sRGB) ?? .gray
+        return String(format: "#%02X%02X%02X", Int(round(ns.redComponent * 255)),
+                      Int(round(ns.greenComponent * 255)), Int(round(ns.blueComponent * 255)))
+    }
+
     /// Warna yang otomatis berganti mengikuti mode terang / gelap.
     static func adaptive(light: NSColor, dark: NSColor) -> Color {
         Color(nsColor: NSColor(name: nil) { ap in
@@ -40,6 +47,9 @@ enum Theme {
     static let shadow = Color.adaptive(light: NSColor.black.withAlphaComponent(0.10), dark: NSColor.black.withAlphaComponent(0.40))
 
     static let hostColors = ["#3FD0B4", "#5B9CF5", "#9D7CF2", "#F2A65A", "#F0616D", "#8BD450", "#E879C6", "#94A3B8"]
+    /// Pilihan warna kartu host (bisa juga warna bebas lewat color picker).
+    static let cardPalette = ["#3FD0B4", "#22C55E", "#84CC16", "#EAB308", "#F2A65A", "#F97316", "#F0616D", "#E11D48",
+                              "#E879C6", "#C084FC", "#9D7CF2", "#6366F1", "#5B9CF5", "#06B6D4", "#14B8A6", "#94A3B8"]
 
     static let brandGradient = LinearGradient(
         colors: [accent, accent2, accent3], startPoint: .topLeading, endPoint: .bottomTrailing)

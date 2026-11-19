@@ -10,8 +10,10 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, forwarding, snippets, knownHosts, logs
+    case hosts, keychain, forwarding, snippets, knownHosts, logs, donate, about
     var id: String { rawValue }
+    static let main: [Section] = [.hosts, .keychain, .forwarding, .snippets, .knownHosts, .logs]
+    static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
         case .hosts: "Hosts"
@@ -20,6 +22,8 @@ enum Section: String, CaseIterable, Identifiable {
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
         case .logs: "Logs"
+        case .donate: "Donasi"
+        case .about: "Tentang"
         }
     }
     var icon: String {
@@ -30,6 +34,8 @@ enum Section: String, CaseIterable, Identifiable {
         case .snippets: "curlybraces"
         case .knownHosts: "touchid"
         case .logs: "clock.fill"
+        case .donate: "heart.fill"
+        case .about: "info.circle.fill"
         }
     }
 }
@@ -68,6 +74,9 @@ final class AppModel {
     var editingHost: Host?
 
     var sync: SyncState = .off
+    /// Rilis baru yang tersedia di GitHub (nil = sudah versi terbaru / belum dicek).
+    var update: AvailableUpdate?
+    var updateDismissed = false
     let tunnels = TunnelManager()
 
     private var vault: Vault?
@@ -111,6 +120,16 @@ final class AppModel {
         if args.contains("-DjieDemoEdit") { editingHost = hosts.first }
         if let i = args.firstIndex(of: "-DjieDemoSection"), i + 1 < args.count, let s = Section(rawValue: args[i + 1]) { section = s }
         if args.contains("-DjieDemoSelect") { selection = [hosts[2].id] }
+        if args.contains("-DjieDemoConnect") {
+            var local = Host.blank()
+            local.label = "localhost"; local.hostname = "127.0.0.1"; local.auth = .agent
+            local.username = NSUserName(); local.color = "#F2A65A"; local.terminalTheme = "ember"
+            if let l = try? v.upsertHost(host: local) { reload(); connect([l.id]) }
+        }
+        if args.contains("-DjieDemoLockCycle") {
+            phase = .welcome
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [self] in open(v) }
+        }
     }
     #endif
 
@@ -173,6 +192,18 @@ final class AppModel {
         sync = accountEmail == nil ? .off : .idle
         withAnimation(.djie) { phase = .main }
         if accountEmail != nil { syncNow() }
+        Task { await checkForUpdates(manual: false) }
+    }
+
+    /// Cek rilis baru. `manual` = dipanggil dari menu, tampilkan hasil walau sudah terbaru.
+    func checkForUpdates(manual: Bool) async {
+        do {
+            let u = try await UpdateChecker.check()
+            withAnimation(.djie) { update = u; if u != nil { updateDismissed = false } }
+            if manual && u == nil { flash("Djie Shell \(AppVersion.current) sudah versi terbaru") }
+        } catch {
+            if manual { flash("Gagal memeriksa pembaruan") }
+        }
     }
 
     private func reload() {
@@ -268,6 +299,10 @@ final class AppModel {
         guard let vault else { return nil }
         do {
             let saved = try vault.upsertHost(host: host)
+            // Tab yang sedang terbuka untuk host ini langsung memakai tema baru
+            for s in sessions where s.host.id == saved.id && s.themeID != saved.terminalTheme {
+                s.applyTheme(saved.terminalTheme)
+            }
             changed()
             return saved
         } catch {

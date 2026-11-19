@@ -111,12 +111,12 @@ struct HostsView: View {
             .buttonStyle(SecondaryButtonStyle())
             .help(hideAddresses ? "Tampilkan alamat host" : "Sembunyikan alamat host")
             SearchField(text: $query, prompt: "Cari host, IP, tag…")
-            Button {
-                model.editingHost = .blank()
-            } label: {
-                Label("Host Baru", systemImage: "plus")
+            ViewThatFits(in: .horizontal) {
+                Button { model.editingHost = .blank() } label: { Label("Host Baru", systemImage: "plus") }
+                    .buttonStyle(PrimaryButtonStyle()).fixedSize()
+                Button { model.editingHost = .blank() } label: { Image(systemName: "plus") }
+                    .buttonStyle(PrimaryButtonStyle()).help("Host Baru")
             }
-            .buttonStyle(PrimaryButtonStyle())
         }
     }
 }

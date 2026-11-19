@@ -61,6 +61,8 @@ struct SectionContent: View {
         case .snippets: SnippetsView()
         case .knownHosts: KnownHostsView()
         case .logs: LogsView()
+        case .donate: DonateView()
+        case .about: AboutView()
         }
     }
 }
@@ -75,7 +77,18 @@ struct SidebarView: View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 DjieLogo(size: 26)
-                Text("Djie Shell").font(.system(size: 15, weight: .semibold, design: .rounded))
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Djie Shell").font(.system(size: 15, weight: .semibold, design: .rounded)).lineLimit(1)
+                    HStack(spacing: 5) {
+                        Text("SSH Client").font(.system(size: 10)).foregroundStyle(.secondary)
+                        Text(AppVersion.current)
+                            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                            .padding(.horizontal, 4).padding(.vertical, 1)
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.ink.opacity(0.2)))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .fixedSize()
                 Spacer()
                 AppearanceMenu().foregroundStyle(.secondary)
             }
@@ -87,14 +100,24 @@ struct SidebarView: View {
                 get: { model.activeSessionID == nil ? model.section : nil },
                 set: { if let s = $0 { model.section = s; model.showHome() } }
             )) {
-                ForEach(Section.allCases) { s in
+                ForEach(Section.main) { s in
                     Label(s.title, systemImage: s.icon)
                         .badge(badge(for: s))
                         .tag(s)
                 }
+                SwiftUI.Section("Komunitas") {
+                    ForEach(Section.community) { s in
+                        Label(s.title, systemImage: s.icon).tag(s)
+                    }
+                }
             }
             .listStyle(.sidebar)
 
+            if let u = model.update, !model.updateDismissed {
+                UpdateCard(update: u)
+                    .padding(.horizontal, 10)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             AccountFooter()
         }
     }
@@ -403,5 +426,37 @@ struct ComingSoon: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { float = true }
+    }
+}
+
+/// Kartu "versi baru tersedia" di bawah sidebar.
+struct UpdateCard: View {
+    @Environment(AppModel.self) private var model
+    let update: AvailableUpdate
+    @State private var shine = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                Image(systemName: "sparkles").foregroundStyle(Theme.brandGradient)
+                    .symbolEffect(.bounce, options: .repeat(.periodic(delay: 3)))
+                Text("Versi \(update.version) tersedia").font(.system(size: 12, weight: .semibold))
+                Spacer()
+                Button { withAnimation(.djie) { model.updateDismissed = true } } label: {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
+                }
+                .buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+            Text("Kamu memakai \(AppVersion.current).").font(.system(size: 11)).foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Button("Download") { NSWorkspace.shared.open(update.download ?? update.page) }
+                    .buttonStyle(PrimaryButtonStyle())
+                Button("Catatan") { NSWorkspace.shared.open(update.page) }
+                    .buttonStyle(SecondaryButtonStyle())
+            }
+        }
+        .padding(12)
+        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.accent.opacity(0.35)))
     }
 }

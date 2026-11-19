@@ -21,6 +21,14 @@ struct DjieShellApp: App {
         .windowToolbarStyle(.unified(showsTitle: false))
         .defaultSize(width: 1240, height: 800)
         .commands {
+            CommandGroup(replacing: .appInfo) {
+                Button("Tentang Djie Shell") {
+                    model.section = .about
+                    model.showHome()
+                }
+                .disabled(model.phase != .main)
+                Button("Periksa Pembaruan…") { Task { await model.checkForUpdates(manual: true) } }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Host Baru…") { NotificationCenter.default.post(name: .djieNewHost, object: nil) }
                     .keyboardShortcut("n")

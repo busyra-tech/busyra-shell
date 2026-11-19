@@ -8,12 +8,10 @@ struct RootView: View {
             switch model.phase {
             case .welcome, .createPassword, .restore, .locked:
                 OnboardingContainer()
-                    .transition(.opacity.combined(with: .scale(scale: 1.04)))
+                    .transition(.opacity)
             case .main:
                 MainView()
-                    .transition(.asymmetric(
-                        insertion: .opacity.combined(with: .scale(scale: 0.96)),
-                        removal: .opacity))
+                    .transition(.opacity)
             }
         }
         .animation(.djie, value: model.phase)

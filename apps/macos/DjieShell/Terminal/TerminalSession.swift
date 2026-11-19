@@ -14,6 +14,8 @@ final class TerminalSession: Identifiable {
     let id = UUID()
     let host: Host
     var title: String
+    /// Tema yang sedang dipakai tab ini (bisa diganti tanpa reconnect).
+    var themeID: String?
     var status: Status = .connecting
 
     @ObservationIgnored private let key: SshKey?
@@ -32,6 +34,12 @@ final class TerminalSession: Identifiable {
         self.run = run
         self.model = model
         self.title = host.title
+        self.themeID = host.terminalTheme
+    }
+
+    func applyTheme(_ id: String?) {
+        themeID = id
+        TerminalThemes.apply(id, to: view)
     }
 
     /// Kirim teks ke terminal (dipakai snippet).
@@ -43,7 +51,7 @@ final class TerminalSession: Identifiable {
 
     private func makeView() -> DjieTerminalView {
         let v = DjieTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
-        TerminalThemes.apply(host.terminalTheme, to: v)
+        TerminalThemes.apply(themeID, to: v)
         let d = Delegate(session: self)
         delegate = d
         v.processDelegate = d
@@ -254,32 +262,5 @@ struct SSHCommand {
         guard FileManager.default.createFile(atPath: url.path, contents: Data(script.utf8),
                                              attributes: [.posixPermissions: 0o700]) else { return nil }
         return url
-    }
-}
-
-enum TerminalThemes {
-    struct Def: Identifiable { let id: String; let name: String; let bg: String; let fg: String; let accent: String }
-
-    static let all: [Def] = [
-        Def(id: "djie", name: "Djie Night", bg: "#0B0E13", fg: "#E6EDF3", accent: "#3FD0B4"),
-        Def(id: "ocean", name: "Deep Ocean", bg: "#0A1628", fg: "#D6E4F5", accent: "#5B9CF5"),
-        Def(id: "violet", name: "Violet Dusk", bg: "#14101F", fg: "#E9E2F7", accent: "#9D7CF2"),
-        Def(id: "paper", name: "Paper Light", bg: "#F7F6F2", fg: "#24262B", accent: "#0F9D84"),
-    ]
-
-    /// Tanpa pilihan tema: ikut mode app (gelap → Djie Night, terang → Paper Light).
-    @MainActor static func def(_ id: String?) -> Def {
-        if let t = all.first(where: { $0.id == id }) { return t }
-        let dark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        return dark ? all[0] : all[3]
-    }
-
-    @MainActor static func apply(_ id: String?, to v: TerminalView) {
-        let d = def(id)
-        v.nativeBackgroundColor = NSColor(Color(hex: d.bg))
-        v.nativeForegroundColor = NSColor(Color(hex: d.fg))
-        v.caretColor = NSColor(Color(hex: d.accent))
-        v.selectedTextBackgroundColor = NSColor(Color(hex: d.accent)).withAlphaComponent(0.35)
-        v.font = NSFont(name: "JetBrains Mono", size: 13) ?? .monospacedSystemFont(ofSize: 13, weight: .regular)
     }
 }
