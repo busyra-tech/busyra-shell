@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kebijakan Privasi — Djie Shell</title>
+  <style>
+    :root { --bg:#0e1116; --panel:#151a21; --line:#262e3a; --fg:#e6edf3; --muted:#8b96a5; --accent:#3fd0b4; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.7 Inter, system-ui, sans-serif; }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+    a { color: var(--accent); }
+    h1 { font-size: 32px; margin: 24px 0 4px; }
+    h2 { font-size: 20px; margin-top: 32px; }
+    .muted { color: var(--muted); font-size: 14px; }
+    code { background: var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:14px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a href="./">← Djie Shell</a>
+  <h1>Kebijakan Privasi</h1>
+  <p class="muted">Terakhir diperbarui: 19 November 2026</p>
+
+  <p>Djie Shell adalah aplikasi SSH client untuk macOS dan Windows. Kebijakan ini menjelaskan data apa yang diproses aplikasi dan bagaimana data itu dilindungi.</p>
+  <h2>Data yang disimpan</h2>
+  <p>Daftar host, username, password, SSH key, dan pengaturan lain disimpan di perangkatmu dalam satu file vault yang dienkripsi dengan master password (Argon2id + XChaCha20-Poly1305). Master password tidak pernah disimpan atau dikirim ke mana pun.</p>
+  <h2>Login dengan Google</h2>
+  <p>Jika kamu memilih “Masuk dengan Google”, aplikasi meminta izin berikut:</p>
+  <ul>
+    <li><code>openid</code> dan <code>email</code> — untuk mengetahui alamat email akunmu dan menampilkannya di aplikasi.</li>
+    <li><code>drive.appdata</code> — untuk menyimpan salinan vault terenkripsi di folder data aplikasi tersembunyi di Google Drive milikmu sendiri, agar bisa disinkronkan antar perangkat. Izin ini tidak memberi akses ke file lain di Google Drive-mu.</li>
+  </ul>
+  <p>Data yang disimpan di Google Drive selalu dalam bentuk terenkripsi. Tanpa master password, isinya tidak bisa dibaca oleh siapa pun, termasuk pengembang dan Google.</p>
+  <h2>Yang tidak kami lakukan</h2>
+  <ul>
+    <li>Tidak ada server Djie Shell: data tidak pernah dikirim ke server pengembang.</li>
+    <li>Tidak ada analitik, iklan, atau pelacakan.</li>
+    <li>Data dari layanan Google tidak dijual, tidak dibagikan ke pihak ketiga, dan tidak dipakai untuk melatih model AI.</li>
+  </ul>
+  <p>Penggunaan data yang diterima dari Google API mematuhi <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, termasuk ketentuan Limited Use.</p>
+  <h2>Menghapus data</h2>
+  <p>Hapus aplikasi dan folder <code>~/Library/Application Support/Djie Shell</code> (macOS) untuk menghapus data lokal. Untuk menghapus data di Google Drive dan mencabut izin, buka <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, pilih Djie Shell, lalu hapus aksesnya.</p>
+  <h2>Kontak</h2>
+  <p>Pertanyaan tentang privasi: <a href="mailto:djiecloud@gmail.com">djiecloud@gmail.com</a>.</p>
+</div>
+</body>
+</html>
