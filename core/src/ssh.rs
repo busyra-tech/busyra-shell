@@ -84,6 +84,24 @@ fn ssh_err(e: impl std::fmt::Display) -> CoreError {
 }
 
 /// Buka koneksi SSH dan autentikasi: key → agent → password → keyboard-interactive.
+/// Coba semua identitas di SSH agent. `true` jika salah satu diterima server.
+async fn agent_auth<S>(h: &mut Handle<Client>, user: &str, mut agent: AgentClient<S>) -> Result<bool, CoreError>
+where
+    S: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let Ok(ids) = agent.request_identities().await else { return Ok(false) };
+    let hash = h.best_supported_rsa_hash().await.map_err(ssh_err)?.flatten();
+    for id in ids {
+        let pk = id.public_key().into_owned();
+        if let Ok(res) = h.authenticate_publickey_with(user, pk, hash, &mut agent).await {
+            if res.success() {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 pub async fn connect(t: &SshTarget) -> Result<Handle<Client>, CoreError> {
     let config = Arc::new(client::Config {
         inactivity_timeout: None,
@@ -124,16 +142,24 @@ pub async fn connect(t: &SshTarget) -> Result<Handle<Client>, CoreError> {
 
     // 2. SSH agent sistem
     if t.use_agent {
-        if let Ok(mut agent) = AgentClient::connect_env().await {
-            if let Ok(ids) = agent.request_identities().await {
-                let hash = h.best_supported_rsa_hash().await.map_err(ssh_err)?.flatten();
-                for id in ids {
-                    let pk = id.public_key().into_owned();
-                    if let Ok(res) = h.authenticate_publickey_with(&user, pk, hash, &mut agent).await {
-                        if res.success() {
-                            return Ok(h);
-                        }
-                    }
+        // macOS/Linux: $SSH_AUTH_SOCK
+        #[cfg(unix)]
+        if let Ok(agent) = AgentClient::connect_env().await {
+            if agent_auth(&mut h, &user, agent).await? {
+                return Ok(h);
+            }
+        }
+        // Windows: agent OpenSSH (named pipe), lalu Pageant (PuTTY)
+        #[cfg(windows)]
+        {
+            if let Ok(agent) = AgentClient::connect_named_pipe(r"\\.\pipe\openssh-ssh-agent").await {
+                if agent_auth(&mut h, &user, agent).await? {
+                    return Ok(h);
+                }
+            }
+            if let Ok(agent) = AgentClient::connect_pageant().await {
+                if agent_auth(&mut h, &user, agent).await? {
+                    return Ok(h);
                 }
             }
         }
