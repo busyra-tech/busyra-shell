@@ -64,6 +64,7 @@ struct SectionContent: View {
         case .logs: LogsView()
         case .donate: DonateView()
         case .about: AboutView()
+        case .account: AccountView()
         }
     }
 }
@@ -221,6 +222,7 @@ extension Section {
         case .logs: Color(hex: "#64748B")
         case .donate: Color(hex: "#EF4444")
         case .about: Color(hex: "#6366F1")
+        case .account: Color(hex: "#14B8A6")
         }
     }
 }
@@ -243,13 +245,19 @@ struct AccountFooter: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                Circle().fill(Theme.brandGradient)
-                SyncIcon(state: model.sync)
-            }
-            .frame(width: 28, height: 28)
+            Avatar(name: model.profileName, email: model.accountEmail, picture: model.profilePicture, size: 30)
+                .overlay(alignment: .bottomTrailing) {
+                    if model.accountEmail != nil {
+                        SyncIcon(state: model.sync)
+                            .font(.system(size: 7))
+                            .frame(width: 14, height: 14)
+                            .background(Theme.brandGradient, in: Circle())
+                            .overlay(Circle().strokeBorder(Theme.panel, lineWidth: 1.5))
+                            .offset(x: 3, y: 3)
+                    }
+                }
             VStack(alignment: .leading, spacing: 1) {
-                Text(model.accountEmail ?? "Tanpa akun")
+                Text(model.profileName ?? model.accountEmail ?? "Tanpa akun")
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
@@ -273,6 +281,7 @@ struct AccountFooter: View {
                     Button("Putuskan akun Google", role: .destructive) { model.disconnectGoogle() }
                 }
                 Divider()
+                Button("Lihat profil") { model.section = .account; model.showHome() }
                 Button("Kunci vault") { model.lock() }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -285,9 +294,12 @@ struct AccountFooter: View {
         .background(Theme.ink.opacity(hover ? 0.06 : 0.03), in: RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
         .onTapGesture {
-            if model.accountEmail == nil || model.sync == .needsLogin { Task { await connect() } } else { model.syncNow() }
+            withAnimation(.djieSnappy) {
+                model.section = .account
+                model.showHome()
+            }
         }
-        .help(failureMessage ?? (model.accountEmail == nil ? "Hubungkan Google Drive untuk sync" : "Klik untuk sinkronkan sekarang"))
+        .help(failureMessage ?? "Lihat profil akun")
         .padding(10)
         .onHover { h in withAnimation(.djieHover) { hover = h } }
     }

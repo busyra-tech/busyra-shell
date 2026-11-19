@@ -343,8 +343,10 @@ struct FilePane<RowMenu: View, Extra: View>: View {
             onDropOnFolder(item, providers)
         }
         .contentShape(Rectangle())
-        .onTapGesture(count: 2) { onOpen(item) }
-        .simultaneousGesture(TapGesture().onEnded { select(item) })
+        // Satu gesture: langsung merespons; klik ganda dibaca dari jumlah klik macOS
+        .onTapGesture {
+            if (NSApp.currentEvent?.clickCount ?? 1) >= 2 { onOpen(item) } else { select(item) }
+        }
         .contextMenu {
             rowMenu(item)
         }

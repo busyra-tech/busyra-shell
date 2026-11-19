@@ -6,7 +6,7 @@ import Foundation
 /// Scope: email + drive.appdata (folder tersembunyi khusus app untuk sync vault).
 @MainActor
 final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProviding {
-    struct Result { let email: String; let refreshToken: String? }
+    struct Result { let email: String; let name: String?; let picture: String?; let refreshToken: String? }
 
     enum AuthError: LocalizedError {
         case notConfigured, cancelled, failed(String)
@@ -39,7 +39,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
             .init(name: "client_id", value: clientID),
             .init(name: "redirect_uri", value: redirect),
             .init(name: "response_type", value: "code"),
-            .init(name: "scope", value: "openid email https://www.googleapis.com/auth/drive.appdata"),
+            .init(name: "scope", value: "openid email profile https://www.googleapis.com/auth/drive.appdata"),
             .init(name: "code_challenge", value: challenge),
             .init(name: "code_challenge_method", value: "S256"),
             .init(name: "access_type", value: "offline"),
@@ -72,12 +72,14 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
             .joined(separator: "&").data(using: .utf8)
         let (data, _) = try await URLSession.shared.data(for: req)
         let token = try JSONDecoder().decode(TokenResponse.self, from: data)
-        guard let idToken = token.id_token, let email = Self.email(fromIDToken: idToken) else {
+        guard let idToken = token.id_token, let claims = Self.claims(fromIDToken: idToken),
+              let email = claims["email"] as? String else {
             throw AuthError.failed("Tidak bisa membaca email akun Google")
         }
         GoogleTokens.store(refreshToken: token.refresh_token, accessToken: token.access_token,
                            expiresIn: token.expires_in)
-        return Result(email: email, refreshToken: token.refresh_token)
+        return Result(email: email, name: claims["name"] as? String, picture: claims["picture"] as? String,
+                      refreshToken: token.refresh_token)
     }
 
     nonisolated func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
@@ -91,14 +93,15 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         let expires_in: Double?
     }
 
-    private static func email(fromIDToken jwt: String) -> String? {
+    /// Isi (claims) ID token Google: email, name, picture.
+    private static func claims(fromIDToken jwt: String) -> [String: Any]? {
         let parts = jwt.split(separator: ".")
         guard parts.count > 1 else { return nil }
         var b64 = String(parts[1]).replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
         while b64.count % 4 != 0 { b64 += "=" }
         guard let data = Data(base64Encoded: b64),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
-        return obj["email"] as? String
+        return obj
     }
 
     private static func randomString() -> String {

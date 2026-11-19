@@ -10,7 +10,7 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, forwarding, sftp, snippets, knownHosts, logs, donate, about
+    case hosts, keychain, forwarding, sftp, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
     static let main: [Section] = [.hosts, .keychain, .forwarding, .sftp, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
@@ -25,6 +25,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .logs: "Logs"
         case .donate: "Donasi"
         case .about: "Tentang"
+        case .account: "Akun"
         }
     }
     var icon: String {
@@ -38,6 +39,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .logs: "clock.fill"
         case .donate: "heart.fill"
         case .about: "info.circle.fill"
+        case .account: "person.crop.circle.fill"
         }
     }
 }
@@ -242,8 +244,20 @@ final class AppModel {
     // MARK: Akun Google & sync
 
     /// Login Google. Jika vault sudah ada di Drive, kembalikan `true` (perlu dipulihkan).
+    /// Nama & foto profil Google (hanya disimpan di Mac ini, bukan di vault).
+    var profileName: String? = UserDefaults.standard.string(forKey: "profile.name")
+    var profilePicture: URL? = UserDefaults.standard.string(forKey: "profile.picture").flatMap(URL.init(string:))
+
+    private func saveProfile(name: String?, picture: String?) {
+        UserDefaults.standard.set(name, forKey: "profile.name")
+        UserDefaults.standard.set(picture, forKey: "profile.picture")
+        profileName = name
+        profilePicture = picture.flatMap(URL.init(string:))
+    }
+
     func signInGoogle() async throws -> Bool {
         let r = try await GoogleAuth().signIn()
+        saveProfile(name: r.name, picture: r.picture)
         pendingAccountEmail = r.email
         if vault != nil {
             try vault?.setAccountEmail(email: r.email)
@@ -261,11 +275,34 @@ final class AppModel {
 
     func disconnectGoogle() {
         GoogleTokens.forget()
+        saveProfile(name: nil, picture: nil)
         try? vault?.setAccountEmail(email: nil)
         accountEmail = nil
         remoteFile = nil
         withAnimation(.djie) { sync = .off }
     }
+
+    /// Keluar dari akun.
+    /// - `deleteLocal == false`: putuskan Google & kunci vault; data tetap terenkripsi di Mac ini.
+    /// - `deleteLocal == true`: hapus vault, kunci Touch ID, dan token dari Mac ini → kembali ke layar sambutan.
+    ///   Salinan di Google Drive tidak dihapus, jadi bisa dipulihkan dengan login lagi.
+    func signOut(deleteLocal: Bool) {
+        disconnectGoogle()
+        lock()
+        guard deleteLocal else { return }
+        try? FileManager.default.removeItem(atPath: Config.vaultPath)
+        BiometricUnlock.forget()
+        pendingRemoteBlob = nil
+        pendingAccountEmail = nil
+        withAnimation(.djie) { phase = .welcome }
+    }
+
+    /// Aktifkan Touch ID untuk vault yang sedang terbuka.
+    func enableBiometric() {
+        if let v = vault { BiometricUnlock.store(key: v.exportKey()) }
+    }
+
+    var lastSynced: Date? { if case .synced(let d) = sync { d } else { nil } }
 
     private func scheduleSync() {
         guard accountEmail != nil else { return }
