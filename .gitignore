@@ -6,6 +6,7 @@ core/target/
 
 # Xcode (project dibuat dari project.yml lewat XcodeGen)
 apps/macos/build/
+apps/macos/build-release/
 apps/macos/*.xcodeproj/
 apps/macos/Frameworks/
 apps/macos/DjieShell/Core/Generated/
