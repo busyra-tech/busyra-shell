@@ -21,6 +21,10 @@ targets:
       - framework: Frameworks/DjieCoreFFI.xcframework
         embed: false
       - package: SwiftTerm
+      # Dibutuhkan driver database di djie-core (reqwest, MongoDB, native-tls)
+      - sdk: SystemConfiguration.framework
+      - sdk: Security.framework
+      - sdk: libz.tbd
     settings:
       base:
         PRODUCT_NAME: Djie Shell

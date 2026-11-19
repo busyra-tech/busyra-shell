@@ -132,6 +132,42 @@ pub struct SessionLog {
     pub deleted: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum DbEngine {
+    Postgres,
+    Mysql,
+    Mariadb,
+    Sqlserver,
+    Sqlite,
+    Redis,
+    Mongodb,
+    Clickhouse,
+}
+
+/// Koneksi database tersimpan. Password ada di dalam vault terenkripsi.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+pub struct DbConnection {
+    pub id: String,
+    pub label: String,
+    pub engine: DbEngine,
+    pub host: String,
+    pub port: u16,
+    pub username: String,
+    pub password: Option<String>,
+    /// Nama database awal (kosong = default server).
+    pub database: String,
+    /// Path file untuk SQLite.
+    pub file_path: String,
+    /// Pakai TLS/SSL (Postgres: coba TLS dulu lalu tanpa TLS jika `false`).
+    pub tls: bool,
+    /// Host SSH untuk tunnel (None = koneksi langsung).
+    pub ssh_host_id: Option<String>,
+    pub color: String,
+    pub updated_at: i64,
+    pub deleted: bool,
+}
+
 /// Isi vault yang dienkripsi.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct VaultData {
@@ -145,6 +181,8 @@ pub struct VaultData {
     pub forwards: Vec<PortForward>,
     #[serde(default)]
     pub logs: Vec<SessionLog>,
+    #[serde(default)]
+    pub databases: Vec<DbConnection>,
     #[serde(default)]
     pub account_email: Option<String>,
 }
@@ -183,4 +221,4 @@ macro_rules! impl_record {
         }
     )*};
 }
-impl_record!(Host, SshKey, Snippet, PortForward, SessionLog);
+impl_record!(Host, SshKey, Snippet, PortForward, SessionLog, DbConnection);

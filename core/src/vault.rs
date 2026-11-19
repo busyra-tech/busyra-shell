@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::crypto::{self, Key, SALT_LEN};
 use crate::keys;
-use crate::model::{Host, PortForward, Record, SessionLog, Snippet, SshKey, SyncOutcome, VaultData, now_ms};
+use crate::model::{DbConnection, Host, PortForward, Record, SessionLog, Snippet, SshKey, SyncOutcome, VaultData, now_ms};
 use crate::CoreError;
 
 /// Vault terbuka (sudah di-unlock). Semua perubahan langsung ditulis ke disk terenkripsi.
@@ -169,6 +169,7 @@ impl Vault {
             merge_records(&mut data.snippets, remote.snippets),
             merge_records(&mut data.forwards, remote.forwards),
             merge_records(&mut data.logs, remote.logs),
+            merge_records(&mut data.databases, remote.databases),
         ];
         let outcome = SyncOutcome {
             local_changed: results.iter().any(|r| r.0),
@@ -260,6 +261,20 @@ impl Vault {
         })
     }
 
+    pub fn databases(&self) -> Vec<DbConnection> {
+        let mut v = active(&self.data.lock().unwrap().databases);
+        v.sort_by_key(|d| d.label.to_lowercase());
+        v
+    }
+
+    pub fn upsert_database(&self, conn: DbConnection) -> Result<DbConnection, CoreError> {
+        self.mutate(|d| upsert(&mut d.databases, conn))
+    }
+
+    pub fn delete_database(&self, id: String) -> Result<(), CoreError> {
+        self.mutate(|d| remove(&mut d.databases, &id))
+    }
+
     pub fn clear_logs(&self) -> Result<(), CoreError> {
         self.mutate(|d| {
             for l in d.logs.iter_mut().filter(|l| !l.deleted) {
@@ -279,7 +294,7 @@ where
 
 pub trait HasDeleted { fn is_deleted(&self) -> bool; }
 macro_rules! has_deleted { ($($t:ty),*) => {$( impl HasDeleted for $t { fn is_deleted(&self) -> bool { self.deleted } } )*}; }
-has_deleted!(Snippet, PortForward, SessionLog);
+has_deleted!(Snippet, PortForward, SessionLog, DbConnection);
 
 /// Tambah (id kosong) atau ganti record.
 fn upsert<T: Record>(list: &mut Vec<T>, mut item: T) -> Result<T, CoreError> {

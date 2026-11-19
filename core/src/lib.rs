@@ -6,6 +6,7 @@
 //! - [`crypto`] : primitif enkripsi & format file
 
 mod crypto;
+mod db;
 mod error;
 mod keys;
 mod model;
@@ -14,7 +15,8 @@ mod ssh;
 mod vault;
 
 pub use error::CoreError;
-pub use model::{AuthMethod, EnvVar, ForwardKind, Host, PortForward, SessionLog, Snippet, SshKey, SyncOutcome};
+pub use db::{DbSession, DbTable, QueryResult};
+pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, PortForward, SessionLog, Snippet, SshKey, SyncOutcome};
 pub use sftp::{RemoteEntry, SftpClient, TransferProgress};
 pub use ssh::SshTarget;
 pub use vault::{Vault, vault_exists};

@@ -10,9 +10,9 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, forwarding, sftp, snippets, knownHosts, logs, donate, about, account
+    case hosts, keychain, forwarding, sftp, database, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .keychain, .forwarding, .sftp, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.hosts, .keychain, .forwarding, .sftp, .database, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
@@ -20,6 +20,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
         case .sftp: "SFTP"
+        case .database: "Database"
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
         case .logs: "Logs"
@@ -34,6 +35,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .keychain: "key.horizontal.fill"
         case .forwarding: "arrow.right.arrow.left"
         case .sftp: "folder.fill"
+        case .database: "cylinder.split.1x2.fill"
         case .snippets: "curlybraces"
         case .knownHosts: "touchid"
         case .logs: "clock.fill"
@@ -61,6 +63,9 @@ final class AppModel {
     var snippets: [Snippet] = []
     var forwards: [PortForward] = []
     var logs: [SessionLog] = []
+    var databases: [DbConnection] = []
+    /// Koneksi database yang sedang dibuka di workspace.
+    var dbWorkspace: DbWorkspace?
     var accountEmail: String?
     var pendingAccountEmail: String?
     /// Vault terenkripsi yang diunduh dari Drive saat login di perangkat baru.
@@ -130,6 +135,35 @@ final class AppModel {
             local.label = "localhost"; local.hostname = "127.0.0.1"; local.auth = .agent
             local.username = NSUserName(); local.color = "#F2A65A"; local.terminalTheme = "ember"
             if let l = try? v.upsertHost(host: local) { reload(); connect([l.id]) }
+        }
+        if args.contains("-DjieDemoDb") || args.contains("-DjieDemoDbList") {
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("djie-demo-\(UUID()).sqlite").path
+            let pg = DbConnection(id: "", label: "Produksi API", engine: .postgres, host: "10.0.1.20", port: 5432, username: "postgres",
+                                  password: nil, database: "app", filePath: "", tls: true, sshHostId: hs.first?.id, color: "#336791", updatedAt: 0, deleted: false)
+            let rd = DbConnection(id: "", label: "Cache", engine: .redis, host: "127.0.0.1", port: 6379, username: "",
+                                  password: nil, database: "0", filePath: "", tls: false, sshHostId: nil, color: "#DC382D", updatedAt: 0, deleted: false)
+            let my = DbConnection(id: "", label: "Absensi", engine: .mariadb, host: "127.0.0.1", port: 3306, username: "root",
+                                  password: nil, database: "absensi", filePath: "", tls: false, sshHostId: hs.last?.id, color: "#C0765A", updatedAt: 0, deleted: false)
+            let lite = DbConnection(id: "", label: "Toko Lokal", engine: .sqlite, host: "", port: 0, username: "", password: nil,
+                                    database: "", filePath: file, tls: false, sshHostId: nil, color: "#0F80CC", updatedAt: 0, deleted: false)
+            for c in [pg, rd, my] { _ = try? v.upsertDatabase(conn: c) }
+            if let saved = try? v.upsertDatabase(conn: lite) {
+                reload()
+                if args.contains("-DjieDemoDb") {
+                    Task {
+                        let s = try? await DbSession.connect(conn: saved, ssh: nil)
+                        _ = try? await s?.run(sql: "CREATE TABLE produk (id INTEGER PRIMARY KEY, nama TEXT, harga INTEGER, stok INTEGER, kategori TEXT)")
+                        _ = try? await s?.run(sql: "CREATE TABLE pelanggan (id INTEGER PRIMARY KEY, nama TEXT, kota TEXT)")
+                        _ = try? await s?.run(sql: "CREATE VIEW stok_rendah AS SELECT * FROM produk WHERE stok < 10")
+                        _ = try? await s?.run(sql: "INSERT INTO produk (nama, harga, stok, kategori) VALUES ('Kopi Gayo 250g', 85000, 42, 'Minuman'), ('Teh Tarik', 18000, 7, 'Minuman'), ('Keripik Pisang', 22000, 120, 'Camilan'), ('Kue Adee', 35000, NULL, 'Kue'), ('Madu Hutan', 120000, 5, 'Herbal'), ('Kopi Ulee Kareng', 65000, 31, 'Minuman')")
+                        await openDatabase(saved)
+                        dbWorkspace?.query = "SELECT nama, harga, stok, kategori FROM produk ORDER BY harga DESC;"
+                        await dbWorkspace?.run()
+                    }
+                } else {
+                    section = .database
+                }
+            }
         }
         let env = ProcessInfo.processInfo.environment
         if args.contains("-DjieDemoSftp"), let port = env["DJIE_SFTP_PORT"].flatMap(UInt16.init),
@@ -201,7 +235,8 @@ final class AppModel {
         sessions = []
         activeSessionID = nil
         vault = nil
-        hosts = []; keys = []; snippets = []; forwards = []; logs = []
+        hosts = []; keys = []; snippets = []; forwards = []; logs = []; databases = []
+        dbWorkspace = nil
         withAnimation(.djie) { phase = .locked }
     }
 
@@ -233,6 +268,7 @@ final class AppModel {
         snippets = vault.snippets()
         forwards = vault.forwards()
         logs = vault.logs()
+        databases = vault.databases()
     }
 
     /// Dipanggil setelah setiap perubahan data: muat ulang tampilan & jadwalkan sync.
@@ -439,6 +475,40 @@ final class AppModel {
         } else {
             flash("Host untuk aturan ini sudah tidak ada")
         }
+    }
+
+    // MARK: Database
+
+    func save(_ db: DbConnection) {
+        do { _ = try vault?.upsertDatabase(conn: db); changed() }
+        catch { flash(error.localizedDescription) }
+    }
+
+    func delete(_ db: DbConnection) {
+        if dbWorkspace?.conn.id == db.id { dbWorkspace = nil }
+        try? vault?.deleteDatabase(id: db.id)
+        changed()
+    }
+
+    func openDatabase(_ db: DbConnection) async {
+        let ws = DbWorkspace(conn: db)
+        withAnimation(.djie) {
+            section = .database
+            activeSessionID = nil
+            dbWorkspace = ws
+        }
+        await ws.connect(ssh: sshTarget(forId: db.sshHostId))
+    }
+
+    /// Target SSH dari host tersimpan (untuk tunnel database & SFTP).
+    func sshTarget(forId id: String?) -> SshTarget? {
+        guard let h = host(id: id) else { return nil }
+        let k = key(id: h.keyId)
+        return SshTarget(hostname: h.hostname, port: h.port, username: h.username,
+                         password: h.auth == .password ? h.password : nil,
+                         privateKey: h.auth == .key ? k?.privateKey : nil,
+                         passphrase: h.auth == .key ? k?.passphrase : nil,
+                         useAgent: true)
     }
 
     // MARK: SFTP

@@ -20,6 +20,8 @@ pub enum CoreError {
     AuthFailed,
     #[error("Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti.")]
     HostKeyChanged,
+    #[error("Database: {msg}")]
+    Db { msg: String },
     #[error("Transfer dibatalkan")]
     Cancelled,
     #[error("Gagal membaca/menulis file: {msg}")]

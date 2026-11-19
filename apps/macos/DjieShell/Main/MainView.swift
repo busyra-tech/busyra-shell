@@ -2,15 +2,16 @@ import SwiftUI
 
 struct MainView: View {
     @Environment(AppModel.self) private var model
+    @State private var columns: NavigationSplitViewVisibility = .all
 
     var body: some View {
         @Bindable var model = model
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 220, max: 280)
+                .navigationSplitViewColumnWidth(min: 210, ideal: 230, max: 290)
         } detail: {
             VStack(spacing: 0) {
-                TabStrip()
+                TabStrip(columns: $columns)
                 ZStack {
                     if model.activeSessionID == nil {
                         SectionContent(section: model.section)
@@ -29,8 +30,6 @@ struct MainView: View {
                 .animation(.djie, value: model.activeSessionID)
             }
             .background(Theme.bg)
-            .ignoresSafeArea(.container, edges: .top)
-            .toolbar(removing: .title)
             .toolbarBackground(.hidden, for: .windowToolbar)
             .inspector(isPresented: Binding(
                 get: { model.editingHost != nil },
@@ -59,6 +58,7 @@ struct SectionContent: View {
         case .keychain: KeychainView()
         case .forwarding: ForwardingView()
         case .sftp: SftpView()
+        case .database: DatabaseView()
         case .snippets: SnippetsView()
         case .knownHosts: KnownHostsView()
         case .logs: LogsView()
@@ -133,6 +133,7 @@ struct SidebarView: View {
         case .keychain: model.keys.count
         case .snippets: model.snippets.count
         case .forwarding: model.forwards.count
+        case .database: model.databases.count
         default: 0
         }
     }
@@ -217,6 +218,7 @@ extension Section {
         case .keychain: Color(hex: "#F59E0B")
         case .forwarding: Color(hex: "#10B981")
         case .sftp: Color(hex: "#06B6D4")
+        case .database: Color(hex: "#F97316")
         case .snippets: Color(hex: "#8B5CF6")
         case .knownHosts: Color(hex: "#EC4899")
         case .logs: Color(hex: "#64748B")
@@ -368,10 +370,14 @@ struct AppearanceMenu: View {
 
 struct TabStrip: View {
     @Environment(AppModel.self) private var model
+    @Binding var columns: NavigationSplitViewVisibility
     @Namespace private var ns
+
+    private var sidebarHidden: Bool { columns == .detailOnly }
 
     var body: some View {
         HStack(spacing: 6) {
+
             TabChip(isActive: model.activeSessionID == nil, ns: ns, onSelect: { model.showHome() }) {
                 Image(systemName: "square.grid.2x2.fill")
                     .font(.system(size: 12))
@@ -406,8 +412,7 @@ struct TabStrip: View {
             }
         }
         .padding(.horizontal, 10)
-        .padding(.top, 6)
-        .frame(height: 52)
+        .frame(height: 42)
         .background {
             Rectangle().fill(.bar)
                 .contentShape(Rectangle())
