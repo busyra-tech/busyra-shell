@@ -397,6 +397,10 @@ struct TabStrip: View {
                 .padding(.vertical, 1)
             }
             Spacer(minLength: 0)
+            if model.activeSessionID != nil {
+                AutocompleteMenu()
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
             if model.activeSessionID != nil && !model.snippets.isEmpty {
                 Menu {
                     ForEach(model.snippets) { sn in
@@ -575,5 +579,30 @@ struct UpdateCard: View {
         .padding(12)
         .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
         .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.accent.opacity(0.35)))
+    }
+}
+
+/// Pengaturan autocomplete terminal di strip tab.
+struct AutocompleteMenu: View {
+    @AppStorage(AutocompleteKeys.enabled) private var enabled = true
+    @State private var confirmClear = false
+
+    var body: some View {
+        Menu {
+            Toggle("Saran perintah saat mengetik", isOn: $enabled)
+            Divider()
+            Button("Hapus riwayat perintah (\(CommandHistory.count))", role: .destructive) { confirmClear = true }
+        } label: {
+            Label("Autocomplete", systemImage: enabled ? "text.cursor" : "text.badge.xmark")
+                .foregroundStyle(enabled ? Theme.accent : .secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .help("Saran perintah dari riwayat, snippet, dan perintah umum")
+        .confirmationDialog("Hapus semua riwayat perintah?", isPresented: $confirmClear) {
+            Button("Hapus", role: .destructive) { CommandHistory.clear() }
+        } message: {
+            Text("Riwayat hanya tersimpan di Mac ini dan dipakai untuk saran autocomplete.")
+        }
     }
 }

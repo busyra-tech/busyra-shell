@@ -166,6 +166,26 @@ final class AppModel {
             }
         }
         let env = ProcessInfo.processInfo.environment
+        // Tes autocomplete: DJIE_TERM_PORT + DJIE_TERM_KEY, lalu DJIE_TERM_TYPE = ketikan dipisah "|" (\r = Enter)
+        if let port = env["DJIE_TERM_PORT"].flatMap(UInt16.init),
+           let pem = env["DJIE_TERM_KEY"].flatMap({ try? String(contentsOfFile: $0, encoding: .utf8) }),
+           let k = try? v.importKey(label: "tes-terminal", privateKey: pem, passphrase: nil) {
+            var h = Host.blank()
+            h.label = "server-tes"; h.hostname = "127.0.0.1"; h.port = port; h.username = NSUserName()
+            h.auth = .key; h.keyId = k.id; h.color = "#3FD0B4"
+            if let saved = try? v.upsertHost(host: h) {
+                _ = try? v.upsertSnippet(snippet: Snippet(id: "", label: "Lihat log nginx", command: "tail -f /var/log/nginx/error.log", updatedAt: 0, deleted: false))
+                reload()
+                connect([saved.id])
+                let steps = (env["DJIE_TERM_TYPE"] ?? "").components(separatedBy: "|").map { $0.replacingOccurrences(of: "\\r", with: "\r") }
+                for (i, step) in steps.enumerated() where !step.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3 + Double(i) * 1.2) { [weak self] in
+                        if step == "<accept>" { self?.activeSession?.autocomplete.accept(0) }
+                        else { self?.activeTerminalView?.send(txt: step) }
+                    }
+                }
+            }
+        }
         if let port = env["DJIE_MYSQL_PORT"].flatMap(UInt16.init) {
             // Tes tampilan phpMyAdmin: MariaDB lokal tanpa database terpilih
             let my = DbConnection(id: "", label: "MariaDB lokal", engine: .mariadb, host: "127.0.0.1", port: port, username: "root",
@@ -589,6 +609,11 @@ final class AppModel {
                 activeSessionID = sessions.isEmpty ? nil : sessions[max(0, idx - 1)].id
             }
         }
+    }
+
+    /// Tab terminal yang sedang tampil.
+    var activeSession: TerminalSession? {
+        sessions.first { $0.id == activeSessionID }
     }
 
     /// View terminal dari tab yang sedang tampil (nil jika di daftar host).

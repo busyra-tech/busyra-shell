@@ -15,6 +15,13 @@ struct TerminalPane: View {
                 .opacity(session.status == .connecting ? 0.25 : 1)
                 .blur(radius: session.status == .connecting ? 2 : 0)
 
+            GeometryReader { geo in
+                if active, session.autocomplete.visible {
+                    AutocompletePopup(ac: session.autocomplete, cell: session.view.cellSize, paneSize: geo.size, theme: theme)
+                }
+            }
+            .animation(.djieSnappy, value: session.autocomplete.visible)
+
             if session.status == .connecting {
                 ConnectingOverlay(host: session.host)
                     .transition(.opacity.combined(with: .scale(scale: 1.05)))

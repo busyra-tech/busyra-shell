@@ -65,6 +65,11 @@ enum KeyRouter {
     static func install(model: AppModel) {
         guard monitor == nil else { return }
         monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Popup autocomplete terminal: Tab/→ terima, ↑↓ pilih, Esc tutup
+            if let s = model.activeSession, s.autocomplete.visible,
+               NSApp.keyWindow?.firstResponder === s.view, s.autocomplete.handle(event) {
+                return nil
+            }
             let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
             guard mods == .command, model.phase == .main, let ch = event.charactersIgnoringModifiers else { return event }
             if ch == "w", model.activeSessionID != nil {

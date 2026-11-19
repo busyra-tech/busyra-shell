@@ -17,6 +17,8 @@ final class TerminalSession: Identifiable {
     /// Tema yang sedang dipakai tab ini (bisa diganti tanpa reconnect).
     var themeID: String?
     var status: Status = .connecting
+    /// Saran perintah saat mengetik.
+    let autocomplete: Autocomplete
 
     @ObservationIgnored private let key: SshKey?
     @ObservationIgnored private let jump: Host?
@@ -35,6 +37,7 @@ final class TerminalSession: Identifiable {
         self.model = model
         self.title = host.title
         self.themeID = host.terminalTheme
+        self.autocomplete = Autocomplete(hostID: host.id)
     }
 
     func applyTheme(_ id: String?) {
@@ -55,6 +58,9 @@ final class TerminalSession: Identifiable {
         let d = Delegate(session: self)
         delegate = d
         v.processDelegate = d
+        autocomplete.view = v
+        autocomplete.snippets = { [weak model] in model?.snippets ?? [] }
+        v.onInput = { [weak ac = autocomplete] data in ac?.consume(data) }
         v.onFirstData = { [weak self] in
             guard let self else { return }
             withAnimation(.djie) { self.status = .connected }
@@ -124,9 +130,24 @@ final class TerminalSession: Identifiable {
 /// Terminal SwiftTerm dengan callback saat data pertama diterima (tanda sudah tersambung).
 final class DjieTerminalView: LocalProcessTerminalView {
     var onFirstData: (() -> Void)?
+    /// Semua input ke shell (ketikan, paste, snippet) — dipakai autocomplete.
+    var onInput: ((ArraySlice<UInt8>) -> Void)?
     private var gotData = false
 
     func resetFirstData() { gotData = false }
+
+    override func send(source: TerminalView, data: ArraySlice<UInt8>) {
+        super.send(source: source, data: data)
+        onInput?(data)
+    }
+
+    /// Ukuran satu sel karakter (untuk menaruh popup di posisi kursor).
+    var cellSize: CGSize {
+        let term = getTerminal()
+        let h = getOptimalFrameSize().height / CGFloat(max(1, term.rows))
+        let w = ("W" as NSString).size(withAttributes: [.font: font]).width
+        return CGSize(width: w, height: h)
+    }
 
     override func dataReceived(slice: ArraySlice<UInt8>) {
         super.dataReceived(slice: slice)
@@ -193,6 +214,10 @@ struct SSHCommand {
             // Terima host baru otomatis (TOFU), tolak jika fingerprint berubah.
             "-o", "StrictHostKeyChecking=accept-new",
         ]
+        #if DEBUG
+        // Tes: known_hosts terpisah agar ~/.ssh/known_hosts pengguna tidak tersentuh
+        if let kh = ProcessInfo.processInfo.environment["DJIE_TEST_KNOWN_HOSTS"] { args += ["-o", "UserKnownHostsFile=\(kh)"] }
+        #endif
         if !host.username.isEmpty { args += ["-l", host.username] }
         if host.agentForwarding { args.append("-A") }
         if let jump { args += ["-J", "\(jump.username)@\(jump.hostname):\(jump.port)"] }
