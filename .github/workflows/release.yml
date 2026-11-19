@@ -1,0 +1,55 @@
+name: Release
+
+# Push tag versi (mis. `git tag v0.1.0 && git push --tags`) untuk build
+# DMG macOS dan membuat draft GitHub Release. Job Windows ditambahkan di fase 5.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: core -> target
+
+      - name: Build djie-core (xcframework + binding Swift)
+        run: ./scripts/build-core-apple.sh
+
+      - name: Generate project & build app (universal)
+        working-directory: apps/macos
+        run: |
+          brew install xcodegen
+          xcodegen generate
+          xcodebuild -project DjieShell.xcodeproj -scheme DjieShell -configuration Release \
+            -derivedDataPath build -destination 'generic/platform=macOS' \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO build
+
+      - name: Buat DMG
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mkdir -p dist/dmg
+          cp -R "apps/macos/build/Build/Products/Release/Djie Shell.app" dist/dmg/
+          ln -s /Applications dist/dmg/Applications
+          hdiutil create -volname "Djie Shell" -srcfolder dist/dmg -ov -format UDZO \
+            "dist/Djie-Shell-${VERSION}-macOS.dmg"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: Djie Shell ${{ github.ref_name }}
+          files: dist/*.dmg
+          body: |
+            Download installer di bawah.
+            App belum ditandatangani sertifikat Apple berbayar — lihat panduan "Install" di website untuk cara membukanya.

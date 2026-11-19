@@ -1,0 +1,77 @@
+import AppKit
+import SwiftUI
+
+@main
+struct DjieShellApp: App {
+    @State private var model = AppModel()
+    @AppStorage(AppearanceMode.storageKey) private var appearance: AppearanceMode = .dark
+
+    var body: some Scene {
+        WindowGroup {
+            RootView()
+                .environment(model)
+                .frame(minWidth: 940, minHeight: 600)
+                .onAppear {
+                    appearance.apply()
+                    KeyRouter.install(model: model)
+                }
+                .onChange(of: appearance) { _, mode in mode.apply() }
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowToolbarStyle(.unified(showsTitle: false))
+        .defaultSize(width: 1240, height: 800)
+        .commands {
+            CommandGroup(replacing: .newItem) {
+                Button("Host Baru…") { NotificationCenter.default.post(name: .djieNewHost, object: nil) }
+                    .keyboardShortcut("n")
+                    .disabled(model.phase != .main)
+            }
+            CommandGroup(after: .sidebar) {
+                Picker("Tampilan", selection: $appearance) {
+                    ForEach(AppearanceMode.allCases) { m in Text(m.title).tag(m) }
+                }
+                Divider()
+            }
+            CommandMenu("Sesi") {
+                Button("Daftar Host") { model.showHome() }.keyboardShortcut("t")
+                Button("Tutup Tab") { model.closeActive() }
+                Divider()
+                Button("Kunci Vault") { model.lock() }
+                    .keyboardShortcut("l", modifiers: [.command, .shift])
+                    .disabled(model.phase != .main)
+            }
+        }
+    }
+}
+
+extension Notification.Name {
+    static let djieNewHost = Notification.Name("djie.newHost")
+}
+
+/// Shortcut tab yang harus diproses sebelum menu bawaan macOS:
+/// ⌘W menutup tab terminal (bukan jendela) selama masih ada tab, ⌘1…9 pindah tab.
+@MainActor
+enum KeyRouter {
+    private static var monitor: Any?
+
+    static func install(model: AppModel) {
+        guard monitor == nil else { return }
+        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            guard mods == .command, model.phase == .main, let ch = event.charactersIgnoringModifiers else { return event }
+            if ch == "w", model.activeSessionID != nil {
+                model.closeActive()
+                return nil
+            }
+            if let n = Int(ch), (1...9).contains(n) {
+                if n <= model.sessions.count { model.focusTab(number: n) }
+                return nil
+            }
+            if ch == "0" {
+                model.showHome()
+                return nil
+            }
+            return event
+        }
+    }
+}

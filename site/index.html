@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Djie Shell — SSH client modern untuk Mac & Windows</title>
+  <meta name="description" content="SSH client gratis untuk macOS dan Windows. Simpan host, key, dan snippet, sinkron terenkripsi lewat Google Drive." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet" />
+  <style>
+    :root { --bg:#0e1116; --panel:#151a21; --line:#262e3a; --fg:#e6edf3; --muted:#8b96a5; --accent:#3fd0b4; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--bg); color:var(--fg); font:16px/1.6 Inter, system-ui, sans-serif; }
+    a { color: inherit; }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+    header { display:flex; align-items:center; justify-content:space-between; padding:20px 0; }
+    .logo { display:flex; gap:10px; align-items:center; font-weight:600; }
+    .logo i { display:grid; place-items:center; width:30px; height:30px; border-radius:7px; background:var(--accent); color:var(--bg); font:700 13px "JetBrains Mono", monospace; font-style:normal; }
+    nav a { color:var(--muted); text-decoration:none; margin-left:22px; }
+    nav a:hover { color:var(--fg); }
+    .hero { text-align:center; padding:72px 0 40px; }
+    h1 { font-size: clamp(34px, 6vw, 56px); line-height:1.1; margin:0 0 16px; letter-spacing:-.02em; }
+    h1 span { color:var(--accent); }
+    .lead { color:var(--muted); font-size:18px; max-width:600px; margin:0 auto 32px; }
+    .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+    .btn { padding:12px 20px; border-radius:8px; font-weight:600; text-decoration:none; border:1px solid var(--line); }
+    .btn.primary { background:var(--accent); color:var(--bg); border-color:var(--accent); }
+    .small { color:var(--muted); font-size:13px; margin-top:12px; }
+    .term { margin:48px auto 0; max-width:780px; border:1px solid var(--line); border-radius:12px; background:var(--panel); text-align:left; overflow:hidden; }
+    .term .bar { display:flex; gap:6px; padding:12px 14px; border-bottom:1px solid var(--line); }
+    .term .bar b { width:11px; height:11px; border-radius:50%; background:var(--line); }
+    .term pre { margin:0; padding:18px; font:13px/1.7 "JetBrains Mono", monospace; overflow-x:auto; }
+    .g { color:#8bd450 } .b { color:#5b9cf5 } .c { color:var(--accent) } .m { color:var(--muted) }
+    section { padding:56px 0; }
+    h2 { font-size:28px; margin:0 0 24px; text-align:center; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:14px; }
+    .card { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:20px; }
+    .card h3 { margin:0 0 6px; font-size:16px; }
+    .card p { margin:0; color:var(--muted); font-size:14px; }
+    .steps { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:14px; }
+    code { font-family:"JetBrains Mono", monospace; background:var(--bg); border:1px solid var(--line); border-radius:4px; padding:1px 6px; font-size:13px; word-break:break-all; }
+    ol { padding-left:20px; color:var(--muted); } ol b { color:var(--fg); }
+    footer { border-top:1px solid var(--line); color:var(--muted); font-size:13px; padding:24px 0; text-align:center; }
+    @media (max-width: 560px) { nav a:not(:last-child) { display:none; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"><i>&gt;_</i> Djie Shell</div>
+      <nav>
+        <a href="#fitur">Fitur</a>
+        <a href="#install">Install</a>
+        <a id="gh-link" href="#">GitHub</a>
+      </nav>
+    </header>
+
+    <div class="hero">
+      <h1>Semua servermu,<br /><span>satu terminal.</span></h1>
+      <p class="lead">SSH client gratis untuk macOS dan Windows. Simpan host, SSH key, dan snippet sekali, lalu sinkron ke semua perangkat lewat Google Drive dengan enkripsi end-to-end.</p>
+      <div class="btns">
+        <a class="btn primary" id="dl-main" href="#install">Download</a>
+        <a class="btn" id="dl-other" href="#install">Semua versi</a>
+      </div>
+      <p class="small" id="dl-note">Gratis · macOS 11+ · Windows 10/11</p>
+
+      <div class="term">
+        <div class="bar"><b></b><b></b><b></b></div>
+<pre><span class="c">● Djie Shell</span> <span class="m">— root@prod-api:22</span>
+<span class="g">root</span>@<span class="b">prod-api</span>:~$ uptime
+ 10:42:07 up 128 days,  3:11,  1 user,  load average: 0.08, 0.05, 0.01
+<span class="g">root</span>@<span class="b">prod-api</span>:~$ <span class="c">▍</span></pre>
+      </div>
+    </div>
+
+    <section id="fitur">
+      <h2>Fitur</h2>
+      <div class="grid">
+        <div class="card"><h3>Host manager</h3><p>Grup, tag, warna, dan pencarian cepat. Konek dengan satu klik.</p></div>
+        <div class="card"><h3>Terminal modern</h3><p>Multi-tab, true color, copy-paste, tema dan font yang bisa diatur.</p></div>
+        <div class="card"><h3>Keychain</h3><p>Password, SSH key Ed25519/RSA/ECDSA, dan SSH agent.</p></div>
+        <div class="card"><h3>Sync Google Drive</h3><p>Data terenkripsi di Drive milikmu sendiri. Tanpa server pihak ketiga.</p></div>
+        <div class="card"><h3>SFTP & forwarding</h3><p>Transfer file drag &amp; drop dan port forwarding L/R/D. <em>(segera)</em></p></div>
+        <div class="card"><h3>Snippets</h3><p>Simpan perintah favorit dan jalankan ke banyak host. <em>(segera)</em></p></div>
+      </div>
+    </section>
+
+    <section id="install">
+      <h2>Install</h2>
+      <div class="steps">
+        <div class="card">
+          <h3>macOS</h3>
+          <ol>
+            <li>Download file <b>.dmg</b>, buka, lalu seret Djie Shell ke folder Applications.</li>
+            <li>Saat pertama dibuka muncul peringatan "tidak dapat diverifikasi". Buka <b>System Settings → Privacy &amp; Security</b>, lalu klik <b>Open Anyway</b>.</li>
+            <li>Atau lewat Terminal: <code>xattr -cr "/Applications/Djie Shell.app"</code></li>
+          </ol>
+        </div>
+        <div class="card">
+          <h3>Windows</h3>
+          <ol>
+            <li>Download file <b>-setup.exe</b> atau <b>.msi</b>, lalu jalankan.</li>
+            <li>Jika muncul "Windows protected your PC", klik <b>More info → Run anyway</b>.</li>
+          </ol>
+        </div>
+      </div>
+      <p class="small" style="text-align:center">App belum ditandatangani sertifikat developer berbayar, jadi peringatan di atas normal. Kode sumber terbuka di GitHub.</p>
+    </section>
+  </div>
+
+  <footer>Djie Shell · <a id="gh-foot" href="#">GitHub</a> · <a id="rel-link" href="#">Changelog</a></footer>
+
+  <script>
+    const REPO = "masadjie/djie-shell";
+    const repoUrl = `https://github.com/${REPO}`;
+    const releasesUrl = `${repoUrl}/releases/latest`;
+    document.getElementById("gh-link").href = repoUrl;
+    document.getElementById("gh-foot").href = repoUrl;
+    document.getElementById("rel-link").href = `${repoUrl}/releases`;
+    document.getElementById("dl-other").href = releasesUrl;
+
+    const ua = navigator.userAgent;
+    const os = /Mac/i.test(ua) ? "mac" : /Win/i.test(ua) ? "windows" : "other";
+    const main = document.getElementById("dl-main");
+    main.textContent = os === "mac" ? "Download untuk macOS" : os === "windows" ? "Download untuk Windows" : "Download";
+    main.href = releasesUrl;
+
+    fetch(`https://api.github.com/repos/${REPO}/releases/latest`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((rel) => {
+        const pick = (re) => rel.assets.find((a) => re.test(a.name));
+        const asset = os === "mac" ? pick(/macOS\.dmg$|\.dmg$/) : os === "windows" ? pick(/setup\.exe$/) || pick(/\.msi$/) : null;
+        if (asset) main.href = asset.browser_download_url;
+        document.getElementById("dl-note").textContent = `Versi ${rel.tag_name} · Gratis · macOS 11+ · Windows 10/11`;
+      })
+      .catch(() => {});
+  </script>
+</body>
+</html>
