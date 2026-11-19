@@ -75,6 +75,8 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         guard let idToken = token.id_token, let email = Self.email(fromIDToken: idToken) else {
             throw AuthError.failed("Tidak bisa membaca email akun Google")
         }
+        GoogleTokens.store(refreshToken: token.refresh_token, accessToken: token.access_token,
+                           expiresIn: token.expires_in)
         return Result(email: email, refreshToken: token.refresh_token)
     }
 
@@ -85,6 +87,8 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
     private struct TokenResponse: Decodable {
         let id_token: String?
         let refresh_token: String?
+        let access_token: String?
+        let expires_in: Double?
     }
 
     private static func email(fromIDToken jwt: String) -> String? {

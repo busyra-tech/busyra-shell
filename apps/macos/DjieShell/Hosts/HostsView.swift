@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HostsView: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     @State private var query = ""
 
     private var filtered: [Host] {
@@ -69,6 +70,15 @@ struct HostsView: View {
                     .help("⌘-klik untuk memilih beberapa host · klik dua kali untuk connect")
             }
             Spacer()
+            Button {
+                withAnimation(.djieSnappy) { hideAddresses.toggle() }
+            } label: {
+                Image(systemName: hideAddresses ? "eye.slash" : "eye")
+                    .contentTransition(.symbolEffect(.replace))
+                    .frame(width: 16)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            .help(hideAddresses ? "Tampilkan alamat host" : "Sembunyikan alamat host")
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField("Cari host, IP, tag…", text: $query).textFieldStyle(.plain).frame(width: 200)
@@ -87,6 +97,7 @@ struct HostsView: View {
 
 struct HostCard: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     let host: Host
     @State private var hover = false
 
@@ -108,7 +119,9 @@ struct HostCard: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(host.title).font(.system(size: 14, weight: .semibold)).lineLimit(1)
-                Text(host.address).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                Text(host.displayAddress(hidden: hideAddresses))
+                    .font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+                    .contentTransition(.opacity)
                 if !host.tags.isEmpty {
                     HStack(spacing: 4) {
                         ForEach(host.tags.prefix(3), id: \.self) { t in

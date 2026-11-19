@@ -11,6 +11,7 @@ struct OnboardingContainer: View {
                 switch model.phase {
                 case .welcome: WelcomeView().transition(.blurSlide)
                 case .createPassword: CreatePasswordView().transition(.blurSlide)
+                case .restore: RestoreView().transition(.blurSlide)
                 default: LockView().transition(.blurSlide)
                 }
             }
@@ -27,7 +28,6 @@ struct OnboardingContainer: View {
 
 struct WelcomeView: View {
     @Environment(AppModel.self) private var model
-    @State private var auth = GoogleAuth()
     @State private var signingIn = false
     @State private var error: String?
 
@@ -94,9 +94,8 @@ struct WelcomeView: View {
         signingIn = true
         defer { signingIn = false }
         do {
-            let r = try await auth.signIn()
-            model.pendingAccountEmail = r.email
-            model.phase = .createPassword
+            let needsRestore = try await model.signInGoogle()
+            model.phase = needsRestore ? .restore : .createPassword
         } catch GoogleAuth.AuthError.cancelled {
         } catch {
             self.error = error.localizedDescription
@@ -243,6 +242,88 @@ struct StrengthBar: View {
                 }
             }
             Text(labels[level]).font(.caption2).foregroundStyle(.secondary).frame(width: 80, alignment: .trailing)
+        }
+    }
+}
+
+// MARK: - Pulihkan dari Google Drive
+
+struct RestoreView: View {
+    @Environment(AppModel.self) private var model
+    @State private var password = ""
+    @State private var busy = false
+    @State private var error: String?
+    @State private var shake = 0
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ZStack {
+                Circle().fill(Theme.accent.opacity(0.15)).frame(width: 84, height: 84)
+                Image(systemName: "icloud.and.arrow.down.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(Theme.brandGradient)
+                    .symbolEffect(.bounce, options: .repeat(.periodic(delay: 2)))
+            }
+            .staggerIn(0, base: 0.05)
+            .padding(.bottom, 22)
+
+            Text("Vault ditemukan di Google Drive")
+                .font(.system(size: 24, weight: .bold, design: .rounded))
+                .multilineTextAlignment(.center)
+                .staggerIn(1, base: 0.05)
+            Text("Masukkan master password yang kamu pakai di perangkat lain untuk memulihkan host dan SSH key.")
+                .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                .padding(.top, 6)
+                .staggerIn(2, base: 0.05)
+
+            HStack(spacing: 10) {
+                SecureField("Master password", text: $password)
+                    .focused($focused)
+                    .onSubmit { Task { await submit() } }
+                    .djieField(error: error != nil)
+                Button {
+                    Task { await submit() }
+                } label: {
+                    Group {
+                        if busy { ProgressView().controlSize(.small).tint(.black) }
+                        else { Image(systemName: "arrow.right") }
+                    }
+                    .frame(width: 18, height: 18)
+                }
+                .buttonStyle(PrimaryButtonStyle(size: .large))
+                .disabled(password.isEmpty || busy)
+            }
+            .modifier(Shake(trigger: shake))
+            .padding(.top, 26)
+            .staggerIn(3, base: 0.05)
+
+            if let error {
+                Text(error).font(.caption).foregroundStyle(.red).padding(.top, 10).transition(.opacity)
+            }
+
+            Button("Mulai vault baru saja") {
+                model.pendingRemoteBlob = nil
+                model.phase = .createPassword
+            }
+            .buttonStyle(.plain)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .padding(.top, 18)
+            .staggerIn(4, base: 0.05)
+        }
+        .onAppear { focused = true }
+        .animation(.djie, value: error)
+    }
+
+    private func submit() async {
+        busy = true
+        defer { busy = false }
+        do { try await model.restore(password: password) }
+        catch {
+            self.error = "Master password salah"
+            password = ""
+            withAnimation(.default) { shake += 1 }
         }
     }
 }

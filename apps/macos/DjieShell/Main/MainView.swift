@@ -57,9 +57,10 @@ struct SectionContent: View {
         switch section {
         case .hosts: HostsView()
         case .keychain: KeychainView()
-        case .snippets: ComingSoon(section: section, text: "Simpan perintah favorit dan jalankan ke satu atau banyak host sekaligus.")
-        case .forwarding: ComingSoon(section: section, text: "Aturan port forwarding local, remote, dan dynamic (SOCKS).")
-        case .sftp: ComingSoon(section: section, text: "Transfer file dua panel dengan drag & drop.")
+        case .forwarding: ForwardingView()
+        case .snippets: SnippetsView()
+        case .knownHosts: KnownHostsView()
+        case .logs: LogsView()
         }
     }
 }
@@ -102,6 +103,8 @@ struct SidebarView: View {
         switch s {
         case .hosts: model.hosts.count
         case .keychain: model.keys.count
+        case .snippets: model.snippets.count
+        case .forwarding: model.forwards.count
         default: 0
         }
     }
@@ -110,38 +113,100 @@ struct SidebarView: View {
 struct AccountFooter: View {
     @Environment(AppModel.self) private var model
     @State private var hover = false
+    @State private var connecting = false
+
+    private var statusText: String {
+        switch model.sync {
+        case .off: "Lokal saja"
+        case .idle: "Siap sync"
+        case .syncing: "Menyinkronkan…"
+        case .synced(let d): "Tersinkron \(d.formatted(.relative(presentation: .named)))"
+        case .failed: "Sync gagal — klik untuk ulang"
+        }
+    }
 
     var body: some View {
         HStack(spacing: 10) {
             ZStack {
                 Circle().fill(Theme.brandGradient)
-                Image(systemName: model.accountEmail == nil ? "person.fill" : "checkmark.icloud.fill")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.black.opacity(0.75))
+                SyncIcon(state: model.sync)
             }
             .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 1) {
                 Text(model.accountEmail ?? "Tanpa akun")
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
-                Text(model.accountEmail == nil ? "Lokal saja" : "Sync Google Drive")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                TimelineView(.periodic(from: .now, by: 30)) { _ in
+                    Text(statusText)
+                        .font(.system(size: 11))
+                        .foregroundStyle(isFailed ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
+                        .lineLimit(1)
+                        .contentTransition(.opacity)
+                }
             }
-            Spacer()
-            Button {
-                model.lock()
+            Spacer(minLength: 0)
+            Menu {
+                if model.accountEmail == nil {
+                    Button("Hubungkan Google Drive…") { Task { await connect() } }
+                } else {
+                    Button("Sinkronkan sekarang") { model.syncNow() }
+                    Divider()
+                    Button("Putuskan akun Google", role: .destructive) { model.disconnectGoogle() }
+                }
+                Divider()
+                Button("Kunci vault") { model.lock() }
             } label: {
-                Image(systemName: "lock.fill")
+                Image(systemName: "ellipsis.circle")
             }
-            .buttonStyle(.borderless)
-            .help("Kunci vault (⇧⌘L)")
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
         }
         .padding(12)
         .background(Theme.ink.opacity(hover ? 0.06 : 0.03), in: RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if model.accountEmail == nil { Task { await connect() } } else { model.syncNow() }
+        }
+        .help(failureMessage ?? (model.accountEmail == nil ? "Hubungkan Google Drive untuk sync" : "Klik untuk sinkronkan sekarang"))
         .padding(10)
-        .onHover { h in withAnimation(.djieSnappy) { hover = h } }
+        .onHover { h in withAnimation(.djieHover) { hover = h } }
+    }
+
+    private var isFailed: Bool { if case .failed = model.sync { true } else { false } }
+    private var failureMessage: String? { if case .failed(let m) = model.sync { m } else { nil } }
+
+    private func connect() async {
+        guard !connecting else { return }
+        connecting = true
+        defer { connecting = false }
+        do { _ = try await model.signInGoogle() }
+        catch GoogleAuth.AuthError.cancelled {}
+        catch { model.flash(error.localizedDescription) }
+    }
+}
+
+/// Ikon status sync: berputar saat menyinkronkan, centang saat selesai.
+struct SyncIcon: View {
+    let state: SyncState
+    @State private var spin = false
+
+    var body: some View {
+        Group {
+            switch state {
+            case .off: Image(systemName: "person.fill")
+            case .idle, .synced: Image(systemName: "checkmark.icloud.fill")
+            case .syncing:
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .rotationEffect(.degrees(spin ? 360 : 0))
+                    .onAppear { withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) { spin = true } }
+                    .onDisappear { spin = false }
+            case .failed: Image(systemName: "exclamationmark.icloud.fill")
+            }
+        }
+        .font(.system(size: 12, weight: .bold))
+        .foregroundStyle(.black.opacity(0.75))
+        .contentTransition(.symbolEffect(.replace))
     }
 }
 
@@ -193,6 +258,19 @@ struct TabStrip: View {
                 .padding(.vertical, 1)
             }
             Spacer(minLength: 0)
+            if model.activeSessionID != nil && !model.snippets.isEmpty {
+                Menu {
+                    ForEach(model.snippets) { sn in
+                        Button(sn.label) { model.runInActiveSession(sn) }
+                    }
+                } label: {
+                    Label("Snippet", systemImage: "curlybraces")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+                .help("Jalankan snippet di tab ini")
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
         }
         .padding(.horizontal, 10)
         .padding(.top, 6)
@@ -233,6 +311,7 @@ struct TabChip<Label: View>: View {
 
 struct SessionTab: View {
     @Environment(AppModel.self) private var model
+    @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     let session: TerminalSession
     let index: Int
     let ns: Namespace.ID
@@ -259,7 +338,8 @@ struct SessionTab: View {
             }
         }
         .onHover { hover = $0 }
-        .help(index < 9 ? "\(session.host.address)  ·  ⌘\(index + 1)" : session.host.address)
+        .help(index < 9 ? "\(session.host.displayAddress(hidden: hideAddresses))  ·  ⌘\(index + 1)"
+                        : session.host.displayAddress(hidden: hideAddresses))
     }
 }
 

@@ -43,6 +43,7 @@ struct TerminalPane: View {
 /// Animasi saat menghubungkan: cincin memancar + paket data berjalan.
 struct ConnectingOverlay: View {
     let host: Host
+    @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     @State private var t = false
 
     var body: some View {
@@ -69,7 +70,7 @@ struct ConnectingOverlay: View {
 
             VStack(spacing: 6) {
                 Text("Menghubungkan ke \(host.title)").font(.system(size: 16, weight: .semibold))
-                Text(host.address).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
+                Text(host.displayAddress(hidden: hideAddresses)).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
             }
 
             HStack(spacing: 6) {

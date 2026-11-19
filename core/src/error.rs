@@ -8,6 +8,8 @@ pub enum CoreError {
     NotFound,
     #[error("Password minimal 8 karakter")]
     WeakPassword,
+    #[error("Vault di Google Drive memakai master password lain")]
+    KeyMismatch,
     #[error("SSH key tidak valid: {msg}")]
     InvalidKey { msg: String },
     #[error("File vault rusak: {msg}")]

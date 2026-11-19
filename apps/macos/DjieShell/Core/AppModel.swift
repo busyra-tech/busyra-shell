@@ -3,31 +3,39 @@ import SwiftUI
 enum Phase: Equatable {
     case welcome
     case createPassword
+    /// Vault ditemukan di Google Drive — buka dengan master password lama.
+    case restore
     case locked
     case main
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, snippets, forwarding, sftp
+    case hosts, keychain, forwarding, snippets, knownHosts, logs
     var id: String { rawValue }
     var title: String {
         switch self {
         case .hosts: "Hosts"
         case .keychain: "Keychain"
-        case .snippets: "Snippets"
         case .forwarding: "Port Forwarding"
-        case .sftp: "SFTP"
+        case .snippets: "Snippets"
+        case .knownHosts: "Known Hosts"
+        case .logs: "Logs"
         }
     }
     var icon: String {
         switch self {
         case .hosts: "server.rack"
-        case .keychain: "key.horizontal"
-        case .snippets: "curlybraces.square"
-        case .forwarding: "arrow.left.arrow.right"
-        case .sftp: "folder"
+        case .keychain: "key.horizontal.fill"
+        case .forwarding: "arrow.right.arrow.left"
+        case .snippets: "curlybraces"
+        case .knownHosts: "touchid"
+        case .logs: "clock.fill"
         }
     }
+}
+
+enum SyncState: Equatable {
+    case off, idle, syncing, synced(Date), failed(String)
 }
 
 /// State utama app. Semua data persisten lewat `Vault` (djie-core, Rust).
@@ -38,8 +46,13 @@ final class AppModel {
     var section: Section = .hosts
     var hosts: [Host] = []
     var keys: [SshKey] = []
+    var snippets: [Snippet] = []
+    var forwards: [PortForward] = []
+    var logs: [SessionLog] = []
     var accountEmail: String?
     var pendingAccountEmail: String?
+    /// Vault terenkripsi yang diunduh dari Drive saat login di perangkat baru.
+    var pendingRemoteBlob: Data?
 
     // Sesi terminal
     var sessions: [TerminalSession] = []
@@ -52,7 +65,12 @@ final class AppModel {
     /// Host yang sedang diedit di panel kanan (inspector). `id` kosong = host baru.
     var editingHost: Host?
 
+    var sync: SyncState = .off
+    let tunnels = TunnelManager()
+
     private var vault: Vault?
+    @ObservationIgnored private var syncTask: Task<Void, Never>?
+    @ObservationIgnored private var remoteFile: DriveClient.RemoteFile?
 
     init() {
         phase = vaultExists(path: Config.vaultPath) ? .locked : .welcome
@@ -62,7 +80,7 @@ final class AppModel {
     }
 
     #if DEBUG
-    /// Vault sementara berisi contoh host — hanya untuk build debug (`-DjieDemo`).
+    /// Vault sementara berisi contoh data — hanya untuk build debug (`-DjieDemo`).
     private func loadDemo() {
         let path = FileManager.default.temporaryDirectory.appendingPathComponent("djie-demo-\(UUID()).djie").path
         guard let v = try? Vault.create(path: path, password: "demo-password") else { return }
@@ -78,17 +96,18 @@ final class AppModel {
             _ = try? v.upsertHost(host: h)
         }
         _ = try? v.generateKey(label: "MacBook")
+        let hs = v.hosts()
+        _ = try? v.upsertSnippet(snippet: Snippet(id: "", label: "Cek disk", command: "df -h", updatedAt: 0, deleted: false))
+        _ = try? v.upsertSnippet(snippet: Snippet(id: "", label: "Update sistem", command: "sudo apt update && sudo apt upgrade -y", updatedAt: 0, deleted: false))
+        _ = try? v.upsertForward(forward: PortForward(id: "", label: "Postgres prod", hostId: hs[1].id, kind: .local,
+                                                      bindAddress: "127.0.0.1", bindPort: 5433, destHost: "localhost", destPort: 5432, updatedAt: 0, deleted: false))
+        if let l = try? v.startLog(hostId: hs[0].id, hostLabel: hs[0].title, address: hs[0].address) { try? v.finishLog(id: l, exitCode: 0) }
         vault = v
-        hosts = v.hosts()
-        keys = v.keys()
+        reload()
         phase = .main
-        if ProcessInfo.processInfo.arguments.contains("-DjieDemoEdit") { editingHost = hosts.first }
-        if ProcessInfo.processInfo.arguments.contains("-DjieDemoConnect") {
-            var local = Host.blank()
-            local.label = "localhost"; local.hostname = "127.0.0.1"; local.auth = .agent
-            local.username = NSUserName(); local.color = "#8BD450"
-            if let l = try? v.upsertHost(host: local) { hosts = v.hosts(); connect([l.id, hosts[0].id]) }
-        }
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-DjieDemoEdit") { editingHost = hosts.first }
+        if let i = args.firstIndex(of: "-DjieDemoSection"), i + 1 < args.count, let s = Section(rawValue: args[i + 1]) { section = s }
     }
     #endif
 
@@ -109,6 +128,23 @@ final class AppModel {
         BiometricUnlock.store(key: v.exportKey())
     }
 
+    /// Pulihkan vault dari Google Drive di perangkat ini.
+    func restore(password: String) async throws {
+        guard let blob = pendingRemoteBlob else { return }
+        let path = Config.vaultPath
+        try blob.write(to: URL(fileURLWithPath: path), options: .atomic)
+        do {
+            let v = try await Task.detached { try Vault.unlock(path: path, password: password) }.value
+            if let email = pendingAccountEmail { try v.setAccountEmail(email: email) }
+            pendingRemoteBlob = nil
+            open(v)
+            BiometricUnlock.store(key: v.exportKey())
+        } catch {
+            try? FileManager.default.removeItem(atPath: path)
+            throw error
+        }
+    }
+
     func unlockWithBiometrics() async throws {
         let key = try await BiometricUnlock.retrieve()
         let path = Config.vaultPath
@@ -118,11 +154,12 @@ final class AppModel {
 
     func lock() {
         sessions.forEach { $0.terminate() }
+        tunnels.stopAll()
+        syncTask?.cancel()
         sessions = []
         activeSessionID = nil
         vault = nil
-        hosts = []
-        keys = []
+        hosts = []; keys = []; snippets = []; forwards = []; logs = []
         withAnimation(.djie) { phase = .locked }
     }
 
@@ -130,18 +167,89 @@ final class AppModel {
         vault = v
         reload()
         accountEmail = v.accountEmail()
+        sync = accountEmail == nil ? .off : .idle
         withAnimation(.djie) { phase = .main }
+        if accountEmail != nil { syncNow() }
     }
 
     private func reload() {
         guard let vault else { return }
         hosts = vault.hosts()
         keys = vault.keys()
+        snippets = vault.snippets()
+        forwards = vault.forwards()
+        logs = vault.logs()
     }
 
-    func setAccount(_ email: String?) {
-        try? vault?.setAccountEmail(email: email)
-        accountEmail = email
+    /// Dipanggil setelah setiap perubahan data: muat ulang tampilan & jadwalkan sync.
+    private func changed(animated: Bool = true) {
+        if animated { withAnimation(.djie) { reload() } } else { reload() }
+        scheduleSync()
+    }
+
+    // MARK: Akun Google & sync
+
+    /// Login Google. Jika vault sudah ada di Drive, kembalikan `true` (perlu dipulihkan).
+    func signInGoogle() async throws -> Bool {
+        let r = try await GoogleAuth().signIn()
+        pendingAccountEmail = r.email
+        if vault != nil {
+            try vault?.setAccountEmail(email: r.email)
+            accountEmail = r.email
+            sync = .idle
+            syncNow()
+            return false
+        }
+        if let file = try await DriveClient.find() {
+            pendingRemoteBlob = try await DriveClient.download(file)
+            return true
+        }
+        return false
+    }
+
+    func disconnectGoogle() {
+        GoogleTokens.forget()
+        try? vault?.setAccountEmail(email: nil)
+        accountEmail = nil
+        remoteFile = nil
+        withAnimation(.djie) { sync = .off }
+    }
+
+    private func scheduleSync() {
+        guard accountEmail != nil else { return }
+        syncTask?.cancel()
+        syncTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2.5))
+            guard !Task.isCancelled else { return }
+            await self?.performSync()
+        }
+    }
+
+    func syncNow() {
+        guard accountEmail != nil else { return }
+        syncTask?.cancel()
+        syncTask = Task { [weak self] in await self?.performSync() }
+    }
+
+    private func performSync() async {
+        guard let vault else { return }
+        withAnimation(.djie) { sync = .syncing }
+        do {
+            let remote = try await DriveClient.find()
+            remoteFile = remote
+            if let remote {
+                let blob = try await DriveClient.download(remote)
+                let outcome = try vault.mergeRemote(blob: blob)
+                if outcome.localChanged { withAnimation(.djie) { reload() } }
+                if outcome.remoteOutdated { try await DriveClient.upload(try vault.encryptedBlob(), replacing: remote) }
+            } else {
+                try await DriveClient.upload(try vault.encryptedBlob(), replacing: nil)
+            }
+            withAnimation(.djie) { sync = .synced(Date()) }
+        } catch is CancellationError {
+        } catch {
+            withAnimation(.djie) { sync = .failed(error.localizedDescription) }
+        }
     }
 
     // MARK: Hosts
@@ -151,7 +259,7 @@ final class AppModel {
         guard let vault else { return nil }
         do {
             let saved = try vault.upsertHost(host: host)
-            withAnimation(.djie) { reload() }
+            changed()
             return saved
         } catch {
             flash(error.localizedDescription)
@@ -162,7 +270,7 @@ final class AppModel {
     func delete(_ host: Host) {
         try? vault?.deleteHost(id: host.id)
         selection.remove(host.id)
-        withAnimation(.djie) { reload() }
+        changed()
     }
 
     func host(id: String?) -> Host? { hosts.first { $0.id == id } }
@@ -173,43 +281,102 @@ final class AppModel {
     func generateKey(label: String) throws -> SshKey {
         guard let vault else { throw CoreError.NotFound }
         let k = try vault.generateKey(label: label)
-        withAnimation(.djie) { reload() }
+        changed()
         return k
     }
 
     func importKey(label: String, privateKey: String, passphrase: String?) throws {
         guard let vault else { return }
         _ = try vault.importKey(label: label, privateKey: privateKey, passphrase: passphrase)
-        withAnimation(.djie) { reload() }
+        changed()
     }
 
     func renameKey(_ key: SshKey, to label: String) {
         try? vault?.renameKey(id: key.id, label: label)
-        reload()
+        changed(animated: false)
     }
 
     func deleteKey(_ key: SshKey) {
         try? vault?.deleteKey(id: key.id)
-        withAnimation(.djie) { reload() }
+        changed()
+    }
+
+    // MARK: Snippets
+
+    func save(_ snippet: Snippet) {
+        do { _ = try vault?.upsertSnippet(snippet: snippet); changed() }
+        catch { flash(error.localizedDescription) }
+    }
+
+    func delete(_ snippet: Snippet) {
+        try? vault?.deleteSnippet(id: snippet.id)
+        changed()
+    }
+
+    /// Kirim perintah ke tab terminal yang sedang aktif.
+    func runInActiveSession(_ snippet: Snippet) {
+        guard let s = sessions.first(where: { $0.id == activeSessionID }) else { return }
+        s.send(snippet.command + "\n")
+    }
+
+    // MARK: Port forwarding
+
+    func save(_ forward: PortForward) {
+        do { _ = try vault?.upsertForward(forward: forward); changed() }
+        catch { flash(error.localizedDescription) }
+    }
+
+    func delete(_ forward: PortForward) {
+        tunnels.stop(forward.id)
+        try? vault?.deleteForward(id: forward.id)
+        changed()
+    }
+
+    func toggleTunnel(_ forward: PortForward) {
+        if tunnels.isRunning(forward.id) {
+            tunnels.stop(forward.id)
+        } else if let h = host(id: forward.hostId) {
+            tunnels.start(forward, host: h, key: key(id: h.keyId), jump: host(id: h.jumpHostId))
+        } else {
+            flash("Host untuk aturan ini sudah tidak ada")
+        }
+    }
+
+    // MARK: Logs
+
+    func logStart(_ host: Host) -> String? {
+        let id = try? vault?.startLog(hostId: host.id, hostLabel: host.title, address: host.address)
+        changed(animated: false)
+        return id
+    }
+
+    func logEnd(_ id: String?, code: Int32?) {
+        guard let id else { return }
+        try? vault?.finishLog(id: id, exitCode: code)
+        changed(animated: false)
+    }
+
+    func clearLogs() {
+        try? vault?.clearLogs()
+        changed()
     }
 
     // MARK: Sesi
 
-    func connect(_ ids: [String]) {
+    /// Buka satu tab per host. `run` = perintah yang dikirim setelah tersambung (dari snippet).
+    func connect(_ ids: [String], run: String? = nil) {
         let targets = ids.compactMap { id in hosts.first { $0.id == id } }
         guard !targets.isEmpty else { return }
-        var first: UUID?
         for (i, h) in targets.enumerated() {
             // Muncul satu per satu agar animasi tab terasa
             DispatchQueue.main.asyncAfter(deadline: .now() + Double(i) * 0.08) { [self] in
-                let s = TerminalSession(host: h, key: key(id: h.keyId), jump: host(id: h.jumpHostId))
+                let s = TerminalSession(host: h, key: key(id: h.keyId), jump: host(id: h.jumpHostId), run: run, model: self)
                 withAnimation(.djieSnappy) {
                     sessions.append(s)
-                    if i == 0 { activeSessionID = s.id; first = s.id }
+                    if i == 0 { activeSessionID = s.id }
                 }
             }
         }
-        _ = first
         selection.removeAll()
     }
 
@@ -255,7 +422,20 @@ extension Host {
 
     var title: String { label.isEmpty ? hostname : label }
     var address: String { "\(username)@\(hostname)" + (port == 22 ? "" : ":\(port)") }
+
+    /// Alamat yang disamarkan untuk tampilan (privasi saat berbagi layar).
+    func displayAddress(hidden: Bool) -> String {
+        hidden ? "\(username)@••••••••" : address
+    }
 }
 
 extension Host: Identifiable {}
 extension SshKey: Identifiable {}
+extension Snippet: Identifiable {}
+extension PortForward: Identifiable {}
+extension SessionLog: Identifiable {}
+
+/// Kunci pengaturan "sembunyikan alamat host".
+enum PrivacyKeys {
+    static let hideAddresses = "hideAddresses"
+}

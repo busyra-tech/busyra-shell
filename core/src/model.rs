@@ -82,6 +82,56 @@ pub struct SshKey {
     pub deleted: bool,
 }
 
+/// Perintah tersimpan yang bisa dijalankan ke satu atau banyak host.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+pub struct Snippet {
+    pub id: String,
+    pub label: String,
+    pub command: String,
+    pub updated_at: i64,
+    pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum ForwardKind {
+    /// `-L` : port lokal → tujuan lewat server
+    Local,
+    /// `-R` : port di server → tujuan di sisi lokal
+    Remote,
+    /// `-D` : proxy SOCKS lokal
+    Dynamic,
+}
+
+/// Aturan port forwarding.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+pub struct PortForward {
+    pub id: String,
+    pub label: String,
+    pub host_id: String,
+    pub kind: ForwardKind,
+    pub bind_address: String,
+    pub bind_port: u16,
+    pub dest_host: String,
+    pub dest_port: u16,
+    pub updated_at: i64,
+    pub deleted: bool,
+}
+
+/// Riwayat satu sesi SSH.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, uniffi::Record)]
+pub struct SessionLog {
+    pub id: String,
+    pub host_id: String,
+    pub host_label: String,
+    pub address: String,
+    pub started_at: i64,
+    pub ended_at: Option<i64>,
+    pub exit_code: Option<i32>,
+    pub updated_at: i64,
+    pub deleted: bool,
+}
+
 /// Isi vault yang dienkripsi.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct VaultData {
@@ -89,6 +139,12 @@ pub struct VaultData {
     pub hosts: Vec<Host>,
     #[serde(default)]
     pub keys: Vec<SshKey>,
+    #[serde(default)]
+    pub snippets: Vec<Snippet>,
+    #[serde(default)]
+    pub forwards: Vec<PortForward>,
+    #[serde(default)]
+    pub logs: Vec<SessionLog>,
     #[serde(default)]
     pub account_email: Option<String>,
 }
@@ -99,3 +155,32 @@ pub fn now_ms() -> i64 {
         .map(|d| d.as_millis() as i64)
         .unwrap_or(0)
 }
+
+/// Hasil penggabungan vault lokal dengan salinan di Google Drive.
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
+pub struct SyncOutcome {
+    /// Ada data baru dari Drive yang masuk ke vault lokal.
+    pub local_changed: bool,
+    /// Salinan di Drive tertinggal dan perlu di-upload ulang.
+    pub remote_outdated: bool,
+}
+
+/// Record yang bisa disinkronkan (punya id, waktu ubah, dan tombstone).
+pub trait Record: Clone {
+    fn id(&self) -> &str;
+    fn ts(&self) -> i64;
+    fn set_id(&mut self, id: String);
+    fn touch(&mut self, deleted: bool);
+}
+
+macro_rules! impl_record {
+    ($($t:ty),*) => {$(
+        impl Record for $t {
+            fn id(&self) -> &str { &self.id }
+            fn ts(&self) -> i64 { self.updated_at }
+            fn set_id(&mut self, id: String) { self.id = id; }
+            fn touch(&mut self, deleted: bool) { self.updated_at = now_ms(); self.deleted = deleted; }
+        }
+    )*};
+}
+impl_record!(Host, SshKey, Snippet, PortForward, SessionLog);

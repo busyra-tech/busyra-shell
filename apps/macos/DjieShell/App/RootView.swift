@@ -6,7 +6,7 @@ struct RootView: View {
     var body: some View {
         ZStack {
             switch model.phase {
-            case .welcome, .createPassword, .locked:
+            case .welcome, .createPassword, .restore, .locked:
                 OnboardingContainer()
                     .transition(.opacity.combined(with: .scale(scale: 1.04)))
             case .main:

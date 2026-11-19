@@ -18,15 +18,25 @@ final class TerminalSession: Identifiable {
 
     @ObservationIgnored private let key: SshKey?
     @ObservationIgnored private let jump: Host?
+    @ObservationIgnored private let run: String?
+    @ObservationIgnored private weak var model: AppModel?
+    @ObservationIgnored private var logID: String?
     @ObservationIgnored private var tempFiles: [URL] = []
     @ObservationIgnored private var delegate: Delegate?
     @ObservationIgnored private(set) lazy var view: DjieTerminalView = makeView()
 
-    init(host: Host, key: SshKey?, jump: Host?) {
+    init(host: Host, key: SshKey?, jump: Host?, run: String? = nil, model: AppModel? = nil) {
         self.host = host
         self.key = key
         self.jump = jump
+        self.run = run
+        self.model = model
         self.title = host.title
+    }
+
+    /// Kirim teks ke terminal (dipakai snippet).
+    func send(_ text: String) {
+        view.send(txt: text)
     }
 
     // MARK: Lifecycle
@@ -40,8 +50,9 @@ final class TerminalSession: Identifiable {
         v.onFirstData = { [weak self] in
             guard let self else { return }
             withAnimation(.djie) { self.status = .connected }
-            if let snippet = host.startupSnippet, !snippet.isEmpty {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { v.send(txt: snippet + "\n") }
+            let commands = [host.startupSnippet, run].compactMap { $0 }.filter { !$0.isEmpty }
+            for (i, cmd) in commands.enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6 + Double(i) * 0.3) { v.send(txt: cmd + "\n") }
             }
         }
         start(in: v)
@@ -53,6 +64,7 @@ final class TerminalSession: Identifiable {
         tempFiles = cmd.tempFiles
         v.resetFirstData()
         status = .connecting
+        logID = model?.logStart(host)
         v.startProcess(executable: "/usr/bin/ssh", args: cmd.args, environment: cmd.environment, execName: "ssh")
     }
 
@@ -63,7 +75,11 @@ final class TerminalSession: Identifiable {
     }
 
     func terminate() {
-        if case .disconnected = status {} else { view.terminate() }
+        if case .disconnected = status {} else {
+            view.terminate()
+            model?.logEnd(logID, code: nil)
+            logID = nil
+        }
         cleanup()
     }
 
@@ -71,6 +87,8 @@ final class TerminalSession: Identifiable {
         // SwiftTerm mengirim status mentah dari waitpid; ambil exit code-nya.
         let code = raw.map { $0 > 255 ? ($0 >> 8) & 0xFF : $0 }
         cleanup()
+        model?.logEnd(logID, code: code)
+        logID = nil
         withAnimation(.djie) { status = .disconnected(code) }
         view.feed(text: "\r\n\u{1b}[2m— sesi berakhir —\u{1b}[0m\r\n")
     }
@@ -117,8 +135,8 @@ struct SSHCommand {
     var environment: [String] = []
     var tempFiles: [URL] = []
 
-    init(host: Host, key: SshKey?, jump: Host?) {
-        args = [
+    init(host: Host, key: SshKey?, jump: Host?, extra: [String] = []) {
+        args = extra + [
             "-p", String(host.port),
             "-o", "ServerAliveInterval=30",
             // Terima host baru otomatis (TOFU), tolak jika fingerprint berubah.

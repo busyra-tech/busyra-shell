@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::crypto::{self, Key, SALT_LEN};
 use crate::keys;
-use crate::model::{Host, SshKey, VaultData, now_ms};
+use crate::model::{Host, PortForward, Record, SessionLog, Snippet, SshKey, SyncOutcome, VaultData, now_ms};
 use crate::CoreError;
 
 /// Vault terbuka (sudah di-unlock). Semua perubahan langsung ditulis ke disk terenkripsi.
@@ -143,6 +143,43 @@ impl Vault {
         self.persist(&data)
     }
 
+    // ---- Sync ----
+
+    /// Isi file vault terenkripsi apa adanya — ini yang di-upload ke Google Drive.
+    pub fn encrypted_blob(&self) -> Result<Vec<u8>, CoreError> {
+        Ok(fs::read(&self.path)?)
+    }
+
+    /// Gabungkan salinan vault dari Google Drive ke vault lokal.
+    ///
+    /// Per record (host / key): versi dengan `updated_at` terbaru menang, termasuk tombstone
+    /// penghapusan. Salinan Drive harus dibuat dengan master password yang sama (salt sama).
+    pub fn merge_remote(&self, blob: Vec<u8>) -> Result<SyncOutcome, CoreError> {
+        let salt = crypto::read_salt(&blob)?;
+        if salt != self.salt {
+            return Err(CoreError::KeyMismatch);
+        }
+        let plain = crypto::open(&self.key, &blob).map_err(|_| CoreError::KeyMismatch)?;
+        let remote: VaultData = serde_json::from_slice(&plain)?;
+
+        let mut data = self.data.lock().unwrap();
+        let results = [
+            merge_records(&mut data.hosts, remote.hosts),
+            merge_records(&mut data.keys, remote.keys),
+            merge_records(&mut data.snippets, remote.snippets),
+            merge_records(&mut data.forwards, remote.forwards),
+            merge_records(&mut data.logs, remote.logs),
+        ];
+        let outcome = SyncOutcome {
+            local_changed: results.iter().any(|r| r.0),
+            remote_outdated: results.iter().any(|r| r.1),
+        };
+        if outcome.local_changed {
+            self.persist(&data)?;
+        }
+        Ok(outcome)
+    }
+
     pub fn account_email(&self) -> Option<String> {
         self.data.lock().unwrap().account_email.clone()
     }
@@ -154,7 +191,123 @@ impl Vault {
     }
 }
 
+/// Snippet, port forwarding, dan log sesi.
+#[uniffi::export]
 impl Vault {
+    pub fn snippets(&self) -> Vec<Snippet> {
+        let mut v = active(&self.data.lock().unwrap().snippets);
+        v.sort_by_key(|s| s.label.to_lowercase());
+        v
+    }
+
+    pub fn upsert_snippet(&self, snippet: Snippet) -> Result<Snippet, CoreError> {
+        self.mutate(|d| upsert(&mut d.snippets, snippet))
+    }
+
+    pub fn delete_snippet(&self, id: String) -> Result<(), CoreError> {
+        self.mutate(|d| remove(&mut d.snippets, &id))
+    }
+
+    pub fn forwards(&self) -> Vec<PortForward> {
+        let mut v = active(&self.data.lock().unwrap().forwards);
+        v.sort_by_key(|f| f.label.to_lowercase());
+        v
+    }
+
+    pub fn upsert_forward(&self, forward: PortForward) -> Result<PortForward, CoreError> {
+        self.mutate(|d| upsert(&mut d.forwards, forward))
+    }
+
+    pub fn delete_forward(&self, id: String) -> Result<(), CoreError> {
+        self.mutate(|d| remove(&mut d.forwards, &id))
+    }
+
+    /// Riwayat sesi, terbaru di atas (maksimal 500 entri disimpan).
+    pub fn logs(&self) -> Vec<SessionLog> {
+        let mut v = active(&self.data.lock().unwrap().logs);
+        v.sort_by_key(|l| std::cmp::Reverse(l.started_at));
+        v
+    }
+
+    /// Catat sesi baru dimulai. Kembalikan id log untuk ditutup nanti.
+    pub fn start_log(&self, host_id: String, host_label: String, address: String) -> Result<String, CoreError> {
+        let log = SessionLog {
+            id: String::new(), host_id, host_label, address,
+            started_at: now_ms(), ended_at: None, exit_code: None, updated_at: 0, deleted: false,
+        };
+        self.mutate(|d| {
+            let saved = upsert(&mut d.logs, log)?;
+            // Batasi ukuran: buang log tertua (tombstone) jika lebih dari 500
+            let mut alive: Vec<(i64, String)> =
+                d.logs.iter().filter(|l| !l.deleted).map(|l| (l.started_at, l.id.clone())).collect();
+            if alive.len() > 500 {
+                alive.sort();
+                for (_, id) in alive.iter().take(alive.len() - 500) {
+                    remove(&mut d.logs, id)?;
+                }
+            }
+            Ok(saved.id)
+        })
+    }
+
+    pub fn finish_log(&self, id: String, exit_code: Option<i32>) -> Result<(), CoreError> {
+        self.mutate(|d| {
+            let l = d.logs.iter_mut().find(|l| l.id == id).ok_or(CoreError::NotFound)?;
+            l.ended_at = Some(now_ms());
+            l.exit_code = exit_code;
+            l.touch(false);
+            Ok(())
+        })
+    }
+
+    pub fn clear_logs(&self) -> Result<(), CoreError> {
+        self.mutate(|d| {
+            for l in d.logs.iter_mut().filter(|l| !l.deleted) {
+                l.touch(true);
+            }
+            Ok(())
+        })
+    }
+}
+
+fn active<T: Record>(list: &[T]) -> Vec<T>
+where
+    T: HasDeleted,
+{
+    list.iter().filter(|x| !x.is_deleted()).cloned().collect()
+}
+
+pub trait HasDeleted { fn is_deleted(&self) -> bool; }
+macro_rules! has_deleted { ($($t:ty),*) => {$( impl HasDeleted for $t { fn is_deleted(&self) -> bool { self.deleted } } )*}; }
+has_deleted!(Snippet, PortForward, SessionLog);
+
+/// Tambah (id kosong) atau ganti record.
+fn upsert<T: Record>(list: &mut Vec<T>, mut item: T) -> Result<T, CoreError> {
+    item.touch(false);
+    if item.id().is_empty() {
+        item.set_id(uuid::Uuid::new_v4().to_string());
+        list.push(item.clone());
+    } else {
+        let slot = list.iter_mut().find(|x| x.id() == item.id()).ok_or(CoreError::NotFound)?;
+        *slot = item.clone();
+    }
+    Ok(item)
+}
+
+fn remove<T: Record>(list: &mut [T], id: &str) -> Result<(), CoreError> {
+    list.iter_mut().find(|x| x.id() == id).ok_or(CoreError::NotFound)?.touch(true);
+    Ok(())
+}
+
+impl Vault {
+    /// Ubah data lalu langsung simpan terenkripsi.
+    fn mutate<R>(&self, f: impl FnOnce(&mut VaultData) -> Result<R, CoreError>) -> Result<R, CoreError> {
+        let mut data = self.data.lock().unwrap();
+        let out = f(&mut data)?;
+        self.persist(&data)?;
+        Ok(out)
+    }
+
     fn push_key(&self, key: SshKey) -> Result<SshKey, CoreError> {
         let mut data = self.data.lock().unwrap();
         if data.keys.iter().any(|k| !k.deleted && k.fingerprint == key.fingerprint) {
@@ -182,6 +335,32 @@ impl Vault {
         fs::rename(&tmp, &self.path)?;
         Ok(())
     }
+}
+
+/// Gabungkan `remote` ke `local` (last-write-wins per id).
+/// Mengembalikan (lokal berubah, remote tertinggal).
+fn merge_records<T: Record>(local: &mut Vec<T>, remote: Vec<T>) -> (bool, bool) {
+    let remote_ts: std::collections::HashMap<String, i64> =
+        remote.iter().map(|r| (r.id().to_string(), r.ts())).collect();
+    let mut local_changed = false;
+    for r in remote {
+        match local.iter_mut().find(|l| l.id() == r.id()) {
+            Some(l) if r.ts() > l.ts() => {
+                *l = r;
+                local_changed = true;
+            }
+            Some(_) => {}
+            None => {
+                local.push(r);
+                local_changed = true;
+            }
+        }
+    }
+    // Remote tertinggal jika ada record lokal yang belum ada di remote atau lebih baru.
+    let remote_outdated = local
+        .iter()
+        .any(|l| remote_ts.get(l.id()).is_none_or(|&t| l.ts() > t));
+    (local_changed, remote_outdated)
 }
 
 #[cfg(test)]
@@ -257,6 +436,79 @@ mod tests {
         let v2 = Vault::unlock(path.clone(), "rahasia123".into()).unwrap();
         assert!(v2.keys().is_empty());
         assert_eq!(v2.hosts().into_iter().find(|x| x.id == h.id).unwrap().key_id, None);
+        fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn sync_merge_last_write_wins() {
+        let a_path = tmp_path("sync-a");
+        let b_path = tmp_path("sync-b");
+        let a = Vault::create(a_path.clone(), "rahasia123".into()).unwrap();
+        let h1 = a.upsert_host(sample()).unwrap();
+
+        // Perangkat B memulihkan vault dari "Drive" (salinan file A)
+        fs::write(&b_path, a.encrypted_blob().unwrap()).unwrap();
+        let b = Vault::unlock(b_path.clone(), "rahasia123".into()).unwrap();
+        assert_eq!(b.merge_remote(a.encrypted_blob().unwrap()).unwrap(),
+                   SyncOutcome { local_changed: false, remote_outdated: false });
+
+        // B mengubah host & menambah host baru; A menambah host lain
+        std::thread::sleep(std::time::Duration::from_millis(3));
+        let mut edited = h1.clone();
+        edited.label = "prod-baru".into();
+        b.upsert_host(edited).unwrap();
+        let mut extra = sample();
+        extra.label = "dari-b".into();
+        b.upsert_host(extra).unwrap();
+        let mut other = sample();
+        other.label = "dari-a".into();
+        a.upsert_host(other).unwrap();
+
+        // A menerima perubahan B
+        let out = a.merge_remote(b.encrypted_blob().unwrap()).unwrap();
+        assert!(out.local_changed && out.remote_outdated);
+        let labels: Vec<String> = a.hosts().into_iter().map(|h| h.label).collect();
+        assert_eq!(labels, vec!["dari-a", "dari-b", "prod-baru"]);
+
+        // B menerima hasil gabungan A → identik, tidak perlu upload lagi
+        let out = b.merge_remote(a.encrypted_blob().unwrap()).unwrap();
+        assert_eq!(out, SyncOutcome { local_changed: true, remote_outdated: false });
+        assert_eq!(b.hosts(), a.hosts());
+
+        // Penghapusan ikut tersinkron
+        let gone = a.hosts()[0].id.clone();
+        a.delete_host(gone.clone()).unwrap();
+        b.merge_remote(a.encrypted_blob().unwrap()).unwrap();
+        assert!(b.hosts().iter().all(|h| h.id != gone));
+
+        // Vault dengan password lain ditolak
+        let c_path = tmp_path("sync-c");
+        let c = Vault::create(c_path.clone(), "passwordlain".into()).unwrap();
+        assert!(matches!(a.merge_remote(c.encrypted_blob().unwrap()), Err(CoreError::KeyMismatch)));
+        for p in [a_path, b_path, c_path] { fs::remove_file(p).ok(); }
+    }
+
+    #[test]
+    fn snippets_forwards_logs() {
+        use crate::model::ForwardKind;
+        let path = tmp_path("extras");
+        let v = Vault::create(path.clone(), "rahasia123".into()).unwrap();
+        let s = v.upsert_snippet(Snippet { id: String::new(), label: "disk".into(), command: "df -h".into(), updated_at: 0, deleted: false }).unwrap();
+        let f = v.upsert_forward(PortForward {
+            id: String::new(), label: "db".into(), host_id: "h".into(), kind: ForwardKind::Local,
+            bind_address: "127.0.0.1".into(), bind_port: 5433, dest_host: "localhost".into(), dest_port: 5432,
+            updated_at: 0, deleted: false,
+        }).unwrap();
+        let log = v.start_log("h".into(), "prod".into(), "root@x".into()).unwrap();
+        v.finish_log(log.clone(), Some(0)).unwrap();
+
+        let v2 = Vault::unlock(path.clone(), "rahasia123".into()).unwrap();
+        assert_eq!(v2.snippets(), vec![s.clone()]);
+        assert_eq!(v2.forwards(), vec![f]);
+        assert_eq!(v2.logs()[0].exit_code, Some(0));
+        v2.delete_snippet(s.id).unwrap();
+        v2.clear_logs().unwrap();
+        assert!(v2.snippets().is_empty() && v2.logs().is_empty());
         fs::remove_file(path).ok();
     }
 

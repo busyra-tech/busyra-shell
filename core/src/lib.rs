@@ -12,7 +12,7 @@ mod model;
 mod vault;
 
 pub use error::CoreError;
-pub use model::{AuthMethod, EnvVar, Host, SshKey};
+pub use model::{AuthMethod, EnvVar, ForwardKind, Host, PortForward, SessionLog, Snippet, SshKey, SyncOutcome};
 pub use vault::{Vault, vault_exists};
 
 uniffi::setup_scaffolding!();
