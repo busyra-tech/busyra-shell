@@ -80,6 +80,11 @@ final class SftpModel {
     var transfers: [Transfer] = []
     var error: String?
 
+    /// Item yang sedang di-drag di dalam app (untuk drop antarpanel / banyak file sekaligus).
+    @ObservationIgnored var dragging: (remote: Bool, paths: [String])?
+    /// Pilihan di panel server (dipakai saat banyak file di-drag ke panel Mac).
+    @ObservationIgnored var remoteSelection: Set<String> = []
+
     @ObservationIgnored private var client: SftpClient?
     @ObservationIgnored private var bridges: [UUID: ProgressBridge] = [:]
 
@@ -166,6 +171,15 @@ final class SftpModel {
         do { try await client.chmod(path: item.path, mode: mode); await refreshRemote() } catch { flashError(error) }
     }
 
+    /// Pindahkan item server ke folder server lain (drag di dalam panel server).
+    func moveRemote(_ paths: [String], into dir: String) async {
+        guard let client, !paths.isEmpty else { return }
+        for p in paths {
+            do { try await client.rename(from: p, to: join(dir, (p as NSString).lastPathComponent)) } catch { flashError(error) }
+        }
+        await refreshRemote()
+    }
+
     func deleteRemote(_ items: [FileItem]) async {
         guard let client else { return }
         for i in items {
@@ -204,9 +218,11 @@ final class SftpModel {
 
     // MARK: Transfer
 
-    func upload(_ paths: [String]) {
+    func upload(_ paths: [String]) { upload(paths, into: remotePath) }
+
+    /// Upload ke folder server tertentu (mis. saat file dilepas di atas sebuah folder).
+    func upload(_ paths: [String], into dir: String) {
         guard let client else { return }
-        let dir = remotePath
         for p in paths {
             let t = Transfer(kind: .upload, name: (p as NSString).lastPathComponent)
             start(t) { bridge in try await client.upload(local: p, remoteDir: dir, progress: bridge) } onDone: { [weak self] in
@@ -215,9 +231,10 @@ final class SftpModel {
         }
     }
 
-    func download(_ items: [FileItem]) {
+    func download(_ items: [FileItem]) { download(items, into: localPath) }
+
+    func download(_ items: [FileItem], into dir: String) {
         guard let client else { return }
-        let dir = localPath
         for i in items {
             let t = Transfer(kind: .download, name: i.name)
             start(t) { bridge in try await client.download(remote: i.path, localDir: dir, progress: bridge) } onDone: { [weak self] in
@@ -227,6 +244,40 @@ final class SftpModel {
     }
 
     func cancel(_ t: Transfer) { bridges[t.id]?.cancel() }
+
+    /// Dipanggil saat file server di-drag ke Finder: download ke folder sementara, kembalikan lokasinya.
+    func exportForDrag(_ item: FileItem) async throws -> URL {
+        guard let client else { throw CoreError.NotFound }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("djie-drag-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let t = Transfer(kind: .download, name: item.name)
+        let bridge = ProgressBridge(t)
+        bridges[t.id] = bridge
+        withAnimation(.djieSnappy) { transfers.insert(t, at: 0) }
+        defer { bridges[t.id] = nil }
+        do {
+            try await client.download(remote: item.path, localDir: dir.path, progress: bridge)
+            withAnimation(.djie) { t.state = .done; if t.total > 0 { t.done = t.total } }
+        } catch {
+            withAnimation(.djie) { t.state = .failed(error.localizedDescription) }
+            throw error
+        }
+        return dir.appendingPathComponent(item.name)
+    }
+
+    /// File dari Finder dilepas di panel Mac: salin ke folder yang sedang dibuka.
+    func copyIntoLocal(_ urls: [URL]) {
+        for u in urls where u.deletingLastPathComponent().path != localPath {
+            var dest = URL(fileURLWithPath: localPath).appendingPathComponent(u.lastPathComponent)
+            var n = 1
+            while FileManager.default.fileExists(atPath: dest.path) {
+                dest = URL(fileURLWithPath: localPath).appendingPathComponent("\(u.deletingPathExtension().lastPathComponent) (\(n))" + (u.pathExtension.isEmpty ? "" : ".\(u.pathExtension)"))
+                n += 1
+            }
+            try? FileManager.default.copyItem(at: u, to: dest)
+        }
+        reloadLocal()
+    }
 
     func clearFinished() {
         withAnimation(.djie) { transfers.removeAll { $0.state != .running } }
