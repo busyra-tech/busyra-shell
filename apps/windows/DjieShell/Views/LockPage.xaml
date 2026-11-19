@@ -15,7 +15,7 @@
         <StackPanel x:Name="Card" Width="400" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="14" Opacity="0">
             <Image Source="/Assets/logo.png" Width="84" Height="84" HorizontalAlignment="Center" />
             <TextBlock x:Name="Title" Text="Selamat datang di Djie Shell" FontSize="28" FontWeight="Bold" HorizontalAlignment="Center" TextAlignment="Center" />
-            <TextBlock x:Name="Subtitle" Text="Semua servermu, satu terminal." FontFamily="Cascadia Mono, Consolas" Opacity="0.7" HorizontalAlignment="Center" />
+            <TextBlock x:Name="Subtitle" Text="Semua servermu, satu terminal." FontFamily="Consolas" Opacity="0.7" HorizontalAlignment="Center" />
             <PasswordBox x:Name="Password" PlaceholderText="Master password" Margin="0,18,0,0" KeyDown="Password_KeyDown" />
             <PasswordBox x:Name="Confirm" PlaceholderText="Ulangi password" Visibility="Collapsed" KeyDown="Password_KeyDown" />
             <Button x:Name="Submit" Content="Buka vault" Style="{StaticResource PrimaryButton}" HorizontalAlignment="Stretch" Click="Submit_Click" />

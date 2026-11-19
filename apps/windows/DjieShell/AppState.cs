@@ -14,6 +14,10 @@ internal class AppState
         get
         {
             var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Djie Shell");
+#if DEBUG
+            // Tes: folder data terpisah agar vault asli tidak tersentuh
+            if (Environment.GetEnvironmentVariable("DJIE_DATA_DIR") is { Length: > 0 } test) dir = test;
+#endif
             Directory.CreateDirectory(dir);
             return dir;
         }
