@@ -1,6 +1,8 @@
 # Build djie-core untuk Windows (ARM64 + x64) dan buat binding C#.
 # Jalankan di Windows: powershell -ExecutionPolicy Bypass -File scripts\build-core-windows.ps1
-$ErrorActionPreference = "Stop"
+# Bukan "Stop": cargo menulis progres ke stderr, dan PowerShell 5.1 menganggapnya error.
+# Kegagalan dicek lewat $LASTEXITCODE.
+$ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $core = Join-Path $root "core"
 $app = Join-Path $root "apps\windows\DjieShell"
@@ -18,6 +20,7 @@ Pop-Location
 $bindgen = Join-Path $env:USERPROFILE ".cargo\bin\uniffi-bindgen-cs.exe"
 if (-not (Test-Path $bindgen)) {
     & $cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag "v0.12.0+v0.32.0"
+    if ($LASTEXITCODE -ne 0) { throw "install uniffi-bindgen-cs gagal" }
 }
 $gen = Join-Path $app "Core\Generated"
 New-Item -ItemType Directory -Force $gen | Out-Null
