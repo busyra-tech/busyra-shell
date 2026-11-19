@@ -33,8 +33,12 @@ if (-not (Test-Path $bindgen)) {
 }
 $gen = Join-Path $app "Core\Generated"
 New-Item -ItemType Directory -Force $gen | Out-Null
+# Dijalankan dari folder core: bindgen membaca `cargo metadata` untuk konfigurasi crate
+Push-Location $core
 & $bindgen --library (Join-Path $core "target\aarch64-pc-windows-msvc\release\djie_core.dll") --out-dir $gen
-if ($LASTEXITCODE -ne 0) { throw "uniffi-bindgen-cs gagal" }
+$bindgenExit = $LASTEXITCODE
+Pop-Location
+if ($bindgenExit -ne 0) { throw "uniffi-bindgen-cs gagal" }
 
 # DLL native per arsitektur
 foreach ($pair in @(@("arm64", "aarch64-pc-windows-msvc"), @("x64", "x86_64-pc-windows-msvc"))) {
