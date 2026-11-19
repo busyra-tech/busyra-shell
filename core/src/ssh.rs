@@ -62,7 +62,10 @@ impl client::Handler for Client {
 }
 
 fn known_hosts_path() -> Option<PathBuf> {
-    std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".ssh/known_hosts"))
+    // Windows tidak punya $HOME: pakai %USERPROFILE% (sama dengan OpenSSH Windows)
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(|h| PathBuf::from(h).join(".ssh").join("known_hosts"))
 }
 
 /// Tambah baris ke known_hosts dengan format yang sama seperti OpenSSH.
