@@ -19,7 +19,7 @@ required-features = ["bindgen"]
 bindgen = ["uniffi/cli"]
 
 [dependencies]
-uniffi = "0.32"
+uniffi = { version = "0.32", features = ["tokio"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
@@ -28,6 +28,10 @@ chacha20poly1305 = "0.11"
 getrandom = "0.3"
 uuid = { version = "1", features = ["v4"] }
 ssh-key = { version = "0.6.7", features = ["ed25519", "std"] }
+
+russh = "0.65"
+russh-sftp = "3"
+tokio = { version = "1", features = ["rt-multi-thread", "fs", "io-util", "sync", "time", "macros", "net"] }
 
 [profile.release]
 lto = true

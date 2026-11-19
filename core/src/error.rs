@@ -14,6 +14,14 @@ pub enum CoreError {
     InvalidKey { msg: String },
     #[error("File vault rusak: {msg}")]
     Corrupt { msg: String },
+    #[error("Koneksi SSH gagal: {msg}")]
+    Ssh { msg: String },
+    #[error("Login ditolak server — periksa username, password, atau key")]
+    AuthFailed,
+    #[error("Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti.")]
+    HostKeyChanged,
+    #[error("Transfer dibatalkan")]
+    Cancelled,
     #[error("Gagal membaca/menulis file: {msg}")]
     Io { msg: String },
 }

@@ -36,6 +36,14 @@ Mode demo (build Debug): tambahkan argumen `-DjieDemo` di scheme untuk membuka a
 cd core && cargo test
 ```
 
+Tes integrasi SFTP (menjalankan `sshd` bawaan macOS sementara di 127.0.0.1:2222, tanpa root):
+
+```bash
+./scripts/test-sftp.sh
+```
+
+Logo, ikon app, favicon, dan gambar share dibuat dari `scripts/render-brand.swift`.
+
 ## Login Google
 
 Isi `Config.googleClientID` di `apps/macos/DjieShell/App/Config.swift` dengan OAuth Client ID (tipe iOS) dari Google Cloud Console, dengan Drive API aktif.

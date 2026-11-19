@@ -1,0 +1,13 @@
+{
+  "name": "Djie Shell",
+  "short_name": "Djie Shell",
+  "description": "SSH client & SFTP native untuk Mac",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0c12",
+  "theme_color": "#0a0c12",
+  "icons": [
+    { "src": "assets/brand/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "assets/brand/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -20,7 +20,7 @@ struct MainView: View {
                     // Semua sesi tetap hidup walau tidak sedang ditampilkan
                     ForEach(model.sessions) { s in
                         let active = s.id == model.activeSessionID
-                        TerminalPane(session: s)
+                        TerminalPane(session: s, active: active)
                             .opacity(active ? 1 : 0)
                             .allowsHitTesting(active)
                             .zIndex(active ? 1 : 0)
@@ -58,6 +58,7 @@ struct SectionContent: View {
         case .hosts: HostsView()
         case .keychain: KeychainView()
         case .forwarding: ForwardingView()
+        case .sftp: SftpView()
         case .snippets: SnippetsView()
         case .knownHosts: KnownHostsView()
         case .logs: LogsView()
@@ -71,47 +72,40 @@ struct SectionContent: View {
 
 struct SidebarView: View {
     @Environment(AppModel.self) private var model
+    @Namespace private var ns
 
     var body: some View {
-        @Bindable var model = model
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                DjieLogo(size: 26)
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Djie Shell").font(.system(size: 15, weight: .semibold, design: .rounded)).lineLimit(1)
+            HStack(spacing: 11) {
+                DjieLogo(size: 34)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Djie Shell").font(.system(size: 15, weight: .bold, design: .rounded)).lineLimit(1)
                     HStack(spacing: 5) {
-                        Text("SSH Client").font(.system(size: 10)).foregroundStyle(.secondary)
+                        Text("SSH Client").font(.system(size: 10.5)).foregroundStyle(.secondary)
                         Text(AppVersion.current)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            .padding(.horizontal, 4).padding(.vertical, 1)
-                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(Theme.ink.opacity(0.2)))
-                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 5).padding(.vertical, 1)
+                            .background(Theme.accent.opacity(0.14), in: Capsule())
+                            .foregroundStyle(Theme.accent)
                     }
                 }
                 .fixedSize()
-                Spacer()
+                Spacer(minLength: 0)
                 AppearanceMenu().foregroundStyle(.secondary)
             }
             .padding(.horizontal, 16)
-            .padding(.top, 6)
-            .padding(.bottom, 12)
+            .padding(.top, 4)
+            .padding(.bottom, 18)
 
-            List(selection: Binding(
-                get: { model.activeSessionID == nil ? model.section : nil },
-                set: { if let s = $0 { model.section = s; model.showHome() } }
-            )) {
-                ForEach(Section.main) { s in
-                    Label(s.title, systemImage: s.icon)
-                        .badge(badge(for: s))
-                        .tag(s)
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 3) {
+                    SidebarHeader(text: "Workspace")
+                    ForEach(Section.main) { s in row(s) }
+                    SidebarHeader(text: "Komunitas").padding(.top, 14)
+                    ForEach(Section.community) { s in row(s) }
                 }
-                SwiftUI.Section("Komunitas") {
-                    ForEach(Section.community) { s in
-                        Label(s.title, systemImage: s.icon).tag(s)
-                    }
-                }
+                .padding(.horizontal, 10)
             }
-            .listStyle(.sidebar)
 
             if let u = model.update, !model.updateDismissed {
                 UpdateCard(update: u)
@@ -119,6 +113,16 @@ struct SidebarView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
             }
             AccountFooter()
+        }
+        .animation(.djieSnappy, value: model.section)
+        .animation(.djieSnappy, value: model.activeSessionID == nil)
+    }
+
+    private func row(_ s: Section) -> some View {
+        SidebarRow(section: s, selected: model.activeSessionID == nil && model.section == s,
+                   badge: badge(for: s), ns: ns) {
+            model.section = s
+            model.showHome()
         }
     }
 
@@ -129,6 +133,94 @@ struct SidebarView: View {
         case .snippets: model.snippets.count
         case .forwarding: model.forwards.count
         default: 0
+        }
+    }
+}
+
+struct SidebarHeader: View {
+    let text: String
+    var body: some View {
+        Text(text.uppercased())
+            .font(.system(size: 10, weight: .semibold))
+            .tracking(1.2)
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 10)
+            .padding(.bottom, 4)
+    }
+}
+
+/// Baris menu sidebar: ikon dalam kotak berwarna, sorotan aktif yang meluncur, hover lembut.
+struct SidebarRow: View {
+    let section: Section
+    let selected: Bool
+    let badge: Int
+    let ns: Namespace.ID
+    var action: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 11) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 7, style: .continuous)
+                        .fill(section.tint.gradient)
+                        .opacity(selected ? 1 : 0.9)
+                    Image(systemName: section.icon)
+                        .font(.system(size: 11.5, weight: .bold))
+                        .foregroundStyle(.white)
+                }
+                .frame(width: 24, height: 24)
+                .shadow(color: section.tint.opacity(selected ? 0.55 : 0), radius: 6, y: 2)
+                .scaleEffect(hover && !selected ? 1.06 : 1)
+
+                Text(section.title)
+                    .font(.system(size: 13, weight: selected ? .semibold : .medium))
+                    .foregroundStyle(selected ? .primary : .secondary)
+                Spacer(minLength: 0)
+                if badge > 0 {
+                    Text("\(badge)")
+                        .font(.system(size: 10.5, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
+                        .padding(.horizontal, 7).padding(.vertical, 2)
+                        .background(Theme.ink.opacity(selected ? 0.14 : 0.07), in: Capsule())
+                        .foregroundStyle(.secondary)
+                        .contentTransition(.numericText())
+                }
+            }
+            .padding(.horizontal, 8)
+            .frame(height: 36)
+            .background {
+                if selected {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .fill(Theme.ink.opacity(0.09))
+                        .overlay(alignment: .leading) {
+                            Capsule().fill(section.tint).frame(width: 3, height: 16).offset(x: -2)
+                        }
+                        .matchedGeometryEffect(id: "sidebarSel", in: ns)
+                } else if hover {
+                    RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Theme.ink.opacity(0.045))
+                }
+            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { h in withAnimation(.djieHover) { hover = h } }
+    }
+}
+
+extension Section {
+    /// Warna ikon tiap menu.
+    var tint: Color {
+        switch self {
+        case .hosts: Color(hex: "#3B82F6")
+        case .keychain: Color(hex: "#F59E0B")
+        case .forwarding: Color(hex: "#10B981")
+        case .sftp: Color(hex: "#06B6D4")
+        case .snippets: Color(hex: "#8B5CF6")
+        case .knownHosts: Color(hex: "#EC4899")
+        case .logs: Color(hex: "#64748B")
+        case .donate: Color(hex: "#EF4444")
+        case .about: Color(hex: "#6366F1")
         }
     }
 }
@@ -304,9 +396,12 @@ struct TabStrip: View {
         .padding(.horizontal, 10)
         .padding(.top, 6)
         .frame(height: 52)
-        .background(.bar)
+        .background {
+            Rectangle().fill(.bar)
+                .contentShape(Rectangle())
+                .gesture(WindowDragGesture())
+        }
         .overlay(alignment: .bottom) { Divider() }
-        .gesture(WindowDragGesture())
     }
 }
 
@@ -318,6 +413,13 @@ struct TabChip<Label: View>: View {
     @State private var hover = false
 
     var body: some View {
+        // Button sungguhan (bukan onTapGesture) supaya klik tidak tertelan gesture geser jendela
+        Button { withAnimation(.djieSnappy) { onSelect() } } label: { chip }
+            .buttonStyle(.plain)
+            .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
+    }
+
+    private var chip: some View {
         label()
             .padding(.horizontal, 10)
             .frame(height: 28)
@@ -333,8 +435,6 @@ struct TabChip<Label: View>: View {
             }
             .foregroundStyle(isActive ? .primary : .secondary)
             .contentShape(Rectangle())
-            .onTapGesture { withAnimation(.djieSnappy) { onSelect() } }
-            .onHover { h in withAnimation(.easeOut(duration: 0.12)) { hover = h } }
     }
 }
 

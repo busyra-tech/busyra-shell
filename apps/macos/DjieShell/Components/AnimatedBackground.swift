@@ -61,33 +61,41 @@ private struct DotGrid: View {
     }
 }
 
-/// Logo `>_` dengan kursor berkedip dan glow.
+/// Logo Djie Shell: squircle gelap, border gradien, simbol `>_` bergradien dengan glow;
+/// garis bawah kursor berkedip.
 struct DjieLogo: View {
     var size: CGFloat = 76
     @State private var blink = false
     @State private var glow = false
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
         ZStack {
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .fill(Theme.brandGradient)
-                .shadow(color: Theme.accent.opacity(glow ? 0.65 : 0.25), radius: glow ? 30 : 14)
-            RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
-                .strokeBorder(.white.opacity(0.35), lineWidth: 1)
-            HStack(spacing: size * 0.02) {
-                Text(">")
-                Rectangle()
-                    .frame(width: size * 0.2, height: size * 0.06)
-                    .offset(y: size * 0.14)
-                    .opacity(blink ? 0 : 1)
+            shape.fill(LinearGradient(colors: [Color(hex: "#151C2B"), Color(hex: "#080A10")], startPoint: .top, endPoint: .bottom))
+            shape.fill(RadialGradient(colors: [Theme.accent.opacity(0.45), .clear], center: UnitPoint(x: 0.35, y: -0.05),
+                                      startRadius: 0, endRadius: size * 0.75))
+            shape.strokeBorder(Theme.brandGradient, lineWidth: max(1, size * 0.03))
+            ZStack(alignment: .topLeading) {
+                Path { p in
+                    p.move(to: CGPoint(x: size * 0.25, y: size * 0.29))
+                    p.addLine(to: CGPoint(x: size * 0.46, y: size * 0.50))
+                    p.addLine(to: CGPoint(x: size * 0.25, y: size * 0.71))
+                }
+                .stroke(Theme.brandGradient, style: StrokeStyle(lineWidth: size * 0.095, lineCap: .round, lineJoin: .round))
+                Capsule()
+                    .fill(Theme.brandGradient)
+                    .frame(width: size * 0.25, height: size * 0.095)
+                    .offset(x: size * 0.50, y: size * 0.66)
+                    .opacity(blink ? 0.25 : 1)
             }
-            .font(.system(size: size * 0.42, weight: .heavy, design: .monospaced))
-            .foregroundStyle(Color(hex: "#071214"))
+            .frame(width: size, height: size, alignment: .topLeading)
+            .shadow(color: Theme.accent.opacity(glow ? 0.9 : 0.5), radius: size * 0.08)
         }
         .frame(width: size, height: size)
+        .shadow(color: Theme.accent.opacity(glow ? 0.35 : 0.15), radius: size * 0.2)
         .onAppear {
-            withAnimation(.easeInOut(duration: 0.55).repeatForever()) { blink = true }
-            withAnimation(.easeInOut(duration: 2.2).repeatForever(autoreverses: true)) { glow = true }
+            withAnimation(.easeInOut(duration: 0.6).repeatForever()) { blink = true }
+            withAnimation(.easeInOut(duration: 2.4).repeatForever(autoreverses: true)) { glow = true }
         }
     }
 }

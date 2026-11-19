@@ -363,11 +363,15 @@ struct HostTile: View {
             Rectangle().fill(hover || selected ? Theme.cardHover : Theme.card)
             // Sorotan halus yang mengikuti kursor
             if hover {
-                RadialGradient(colors: [color.opacity(0.18), .clear], center: .topLeading,
-                               startRadius: 0, endRadius: layout == .grid ? 220 : 320)
-                    .offset(x: mouse.x, y: mouse.y)
-                    .allowsHitTesting(false)
-                    .transition(.opacity)
+                GeometryReader { geo in
+                    // Pusat gradien mengikuti kursor (tanpa menggeser view-nya)
+                    RadialGradient(colors: [color.opacity(0.20), color.opacity(0.06), .clear],
+                                   center: UnitPoint(x: geo.size.width > 0 ? mouse.x / geo.size.width : 0.5,
+                                                     y: geo.size.height > 0 ? mouse.y / geo.size.height : 0.5),
+                                   startRadius: 0, endRadius: layout == .grid ? 200 : 300)
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
             }
             // Garis warna host di sisi kiri (list) / atas (grid)
             if layout == .grid {
@@ -409,6 +413,7 @@ struct HostTile: View {
     @ViewBuilder
     private var menu: some View {
         Button("Connect") { model.connect([host.id]) }
+        Button("Buka SFTP") { Task { await model.openSftp(host) } }
         Button("Edit") { model.editingHost = host }
         Button("Duplikat") { duplicate() }
         Button(selected ? "Batal pilih" : "Pilih") { toggle() }

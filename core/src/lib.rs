@@ -9,10 +9,14 @@ mod crypto;
 mod error;
 mod keys;
 mod model;
+mod sftp;
+mod ssh;
 mod vault;
 
 pub use error::CoreError;
 pub use model::{AuthMethod, EnvVar, ForwardKind, Host, PortForward, SessionLog, Snippet, SshKey, SyncOutcome};
+pub use sftp::{RemoteEntry, SftpClient, TransferProgress};
+pub use ssh::SshTarget;
 pub use vault::{Vault, vault_exists};
 
 uniffi::setup_scaffolding!();

@@ -10,15 +10,16 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, forwarding, snippets, knownHosts, logs, donate, about
+    case hosts, keychain, forwarding, sftp, snippets, knownHosts, logs, donate, about
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .keychain, .forwarding, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.hosts, .keychain, .forwarding, .sftp, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
         case .hosts: "Hosts"
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
+        case .sftp: "SFTP"
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
         case .logs: "Logs"
@@ -31,6 +32,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .hosts: "server.rack"
         case .keychain: "key.horizontal.fill"
         case .forwarding: "arrow.right.arrow.left"
+        case .sftp: "folder.fill"
         case .snippets: "curlybraces"
         case .knownHosts: "touchid"
         case .logs: "clock.fill"
@@ -78,6 +80,7 @@ final class AppModel {
     var update: AvailableUpdate?
     var updateDismissed = false
     let tunnels = TunnelManager()
+    let sftp = SftpModel()
 
     private var vault: Vault?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -125,6 +128,20 @@ final class AppModel {
             local.label = "localhost"; local.hostname = "127.0.0.1"; local.auth = .agent
             local.username = NSUserName(); local.color = "#F2A65A"; local.terminalTheme = "ember"
             if let l = try? v.upsertHost(host: local) { reload(); connect([l.id]) }
+        }
+        let env = ProcessInfo.processInfo.environment
+        if args.contains("-DjieDemoSftp"), let port = env["DJIE_SFTP_PORT"].flatMap(UInt16.init),
+           let pem = env["DJIE_SFTP_KEY"].flatMap({ try? String(contentsOfFile: $0, encoding: .utf8) }),
+           let k = try? v.importKey(label: "tes-sftp", privateKey: pem, passphrase: nil) {
+            var h = Host.blank()
+            h.label = "sftp-lokal"; h.hostname = "127.0.0.1"; h.port = port; h.username = NSUserName()
+            h.auth = .key; h.keyId = k.id; h.color = "#5B9CF5"
+            if let saved = try? v.upsertHost(host: h) {
+                reload()
+                sftp.localPath = env["DJIE_SFTP_LOCAL"] ?? sftp.localPath
+                sftp.reloadLocal()
+                Task { await openSftp(saved); if let r = env["DJIE_SFTP_REMOTE"] { await sftp.openRemote(r) } }
+            }
         }
         if args.contains("-DjieDemoLockCycle") {
             phase = .welcome
@@ -175,6 +192,7 @@ final class AppModel {
     }
 
     func lock() {
+        Task { await sftp.disconnect() }
         sessions.forEach { $0.terminate() }
         tunnels.stopAll()
         syncTask?.cancel()
@@ -384,6 +402,16 @@ final class AppModel {
         } else {
             flash("Host untuk aturan ini sudah tidak ada")
         }
+    }
+
+    // MARK: SFTP
+
+    func openSftp(_ host: Host) async {
+        withAnimation(.djieSnappy) {
+            section = .sftp
+            activeSessionID = nil
+        }
+        await sftp.connect(host, key: key(id: host.keyId))
     }
 
     // MARK: Logs

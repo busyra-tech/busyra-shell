@@ -4,12 +4,13 @@ import SwiftUI
 struct TerminalPane: View {
     @Environment(AppModel.self) private var model
     let session: TerminalSession
+    var active = true
 
     var body: some View {
         let theme = TerminalThemes.def(session.themeID)
         ZStack {
             Color(hex: theme.bg)
-            TerminalRepresentable(session: session)
+            TerminalRepresentable(session: session, active: active)
                 .padding(.leading, 10).padding(.top, 6)
                 .opacity(session.status == .connecting ? 0.25 : 1)
                 .blur(radius: session.status == .connecting ? 2 : 0)
@@ -89,6 +90,7 @@ struct ConnectingOverlay: View {
 
 struct TerminalRepresentable: NSViewRepresentable {
     let session: TerminalSession
+    var active = true
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -105,5 +107,11 @@ struct TerminalRepresentable: NSViewRepresentable {
         return container
     }
 
-    func updateNSView(_ nsView: NSView, context: Context) {}
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // View AppKit tetap menangkap klik walau transparan — sembunyikan tab yang tidak aktif
+        nsView.isHidden = !active
+        if active {
+            DispatchQueue.main.async { session.view.window?.makeFirstResponder(session.view) }
+        }
+    }
 }
