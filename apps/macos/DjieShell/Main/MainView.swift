@@ -120,8 +120,9 @@ struct AccountFooter: View {
         case .off: "Lokal saja"
         case .idle: "Siap sync"
         case .syncing: "Menyinkronkan…"
-        case .synced(let d): "Tersinkron \(d.formatted(.relative(presentation: .named)))"
+        case .synced(let d): Date().timeIntervalSince(d) < 60 ? "Tersinkron" : "Sinkron \(d.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)))"
         case .failed: "Sync gagal — klik untuk ulang"
+        case .needsLogin: "Masuk ulang Google"
         }
     }
 
@@ -139,6 +140,7 @@ struct AccountFooter: View {
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
                     Text(statusText)
                         .font(.system(size: 11))
+                        .minimumScaleFactor(0.85)
                         .foregroundStyle(isFailed ? AnyShapeStyle(.orange) : AnyShapeStyle(.secondary))
                         .lineLimit(1)
                         .contentTransition(.opacity)
@@ -148,6 +150,8 @@ struct AccountFooter: View {
             Menu {
                 if model.accountEmail == nil {
                     Button("Hubungkan Google Drive…") { Task { await connect() } }
+                } else if model.sync == .needsLogin {
+                    Button("Masuk ulang Google…") { Task { await connect() } }
                 } else {
                     Button("Sinkronkan sekarang") { model.syncNow() }
                     Divider()
@@ -166,14 +170,16 @@ struct AccountFooter: View {
         .background(Theme.ink.opacity(hover ? 0.06 : 0.03), in: RoundedRectangle(cornerRadius: 10))
         .contentShape(Rectangle())
         .onTapGesture {
-            if model.accountEmail == nil { Task { await connect() } } else { model.syncNow() }
+            if model.accountEmail == nil || model.sync == .needsLogin { Task { await connect() } } else { model.syncNow() }
         }
         .help(failureMessage ?? (model.accountEmail == nil ? "Hubungkan Google Drive untuk sync" : "Klik untuk sinkronkan sekarang"))
         .padding(10)
         .onHover { h in withAnimation(.djieHover) { hover = h } }
     }
 
-    private var isFailed: Bool { if case .failed = model.sync { true } else { false } }
+    private var isFailed: Bool {
+        switch model.sync { case .failed, .needsLogin: true; default: false }
+    }
     private var failureMessage: String? { if case .failed(let m) = model.sync { m } else { nil } }
 
     private func connect() async {
@@ -201,7 +207,7 @@ struct SyncIcon: View {
                     .rotationEffect(.degrees(spin ? 360 : 0))
                     .onAppear { withAnimation(.linear(duration: 1).repeatForever(autoreverses: false)) { spin = true } }
                     .onDisappear { spin = false }
-            case .failed: Image(systemName: "exclamationmark.icloud.fill")
+            case .failed, .needsLogin: Image(systemName: "exclamationmark.icloud.fill")
             }
         }
         .font(.system(size: 12, weight: .bold))

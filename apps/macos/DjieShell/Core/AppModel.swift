@@ -36,6 +36,8 @@ enum Section: String, CaseIterable, Identifiable {
 
 enum SyncState: Equatable {
     case off, idle, syncing, synced(Date), failed(String)
+    /// Token Google tidak ada / kedaluwarsa — perlu login ulang.
+    case needsLogin
 }
 
 /// State utama app. Semua data persisten lewat `Vault` (djie-core, Rust).
@@ -233,6 +235,10 @@ final class AppModel {
 
     private func performSync() async {
         guard let vault else { return }
+        guard GoogleTokens.hasRefreshToken else {
+            withAnimation(.djie) { sync = .needsLogin }
+            return
+        }
         withAnimation(.djie) { sync = .syncing }
         do {
             let remote = try await DriveClient.find()
@@ -247,6 +253,8 @@ final class AppModel {
             }
             withAnimation(.djie) { sync = .synced(Date()) }
         } catch is CancellationError {
+        } catch DriveError.notSignedIn {
+            withAnimation(.djie) { sync = .needsLogin }
         } catch {
             withAnimation(.djie) { sync = .failed(error.localizedDescription) }
         }
