@@ -13,3 +13,9 @@ apps/macos/DjieShell/Core/Generated/
 xcuserdata/
 DerivedData/
 
+
+# Windows (dibuat dari scripts/build-core-windows.ps1)
+apps/windows/DjieShell/Core/Generated/
+apps/windows/DjieShell/Native/
+apps/windows/**/bin/
+apps/windows/**/obj/

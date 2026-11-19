@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.22621.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>DjieShell</RootNamespace>
+    <AssemblyName>DjieShell</AssemblyName>
+    <Platforms>ARM64;x64</Platforms>
+    <RuntimeIdentifiers>win-arm64;win-x64</RuntimeIdentifiers>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <SelfContained>true</SelfContained>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <ApplicationIcon>Assets\djie.ico</ApplicationIcon>
+    <Version>0.1.0</Version>
+    <Product>Djie Shell</Product>
+    <Company>Adjie Kurniawan</Company>
+    <!-- Kode binding hasil generate tidak perlu memicu warning -->
+    <NoWarn>$(NoWarn);CS8618;CS8625;CS8600;CS8602;CS8603;CS8604;CS0618</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.7.*" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- djie_core.dll sesuai arsitektur build -->
+    <None Include="Native\arm64\djie_core.dll" Condition="'$(Platform)' == 'ARM64'" Link="djie_core.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Native\x64\djie_core.dll" Condition="'$(Platform)' == 'x64'" Link="djie_core.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
