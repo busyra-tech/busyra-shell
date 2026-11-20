@@ -157,16 +157,11 @@
   .pills { display: flex; gap: 4px; margin: 26px auto 0; padding: 4px; border: 1px solid var(--line); border-radius: 999px; width: max-content; max-width: 100%; overflow-x: auto; background: var(--panel); }
   .pills button { font: 600 13px var(--f-body); border: 0; background: none; color: var(--ink-2); padding: 8px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: background .25s, color .25s; }
   .pills button.on { background: var(--grad); color: #06110f; }
-  /* Showcase: di desktop, screenshot menempel & berganti mengikuti scroll, lalu lanjut ke bagian berikutnya */
+  /* Showcase: screenshot berganti otomatis (carousel) */
   .showcase { position: relative; }
   .showcase .pin { position: relative; }
   .showcase .bar { height: 3px; max-width: 220px; margin: 14px auto 0; border-radius: 3px; background: var(--line); overflow: hidden; }
-  .showcase .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--grad); }
-  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
-    .showcase.scroll { height: calc(100vh + var(--slides, 10) * 32vh); }
-    .showcase.scroll .pin { position: sticky; top: 64px; height: calc(100vh - 64px); display: flex; flex-direction: column; justify-content: center; }
-    .showcase.scroll .stage { margin-top: 0; width: min(1080px, calc((100vh - 230px) * 1.55)); }
-  }
+  .showcase .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--grad); transition: width .5s ease; }
   /* Video promo */
   .video-wrap { position: relative; max-width: 1080px; margin: 44px auto 0; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: #000; aspect-ratio: 16 / 9; }
   .video-wrap video { width: 100%; height: 100%; display: block; }
@@ -686,63 +681,35 @@ try {
   if (l && l !== "id") setLang(l);
 } catch (e) {}
 
-// Showcase screenshot: desktop = berganti mengikuti scroll (menempel), HP = putar otomatis
+// Showcase screenshot: carousel otomatis; klik pill = pilih & jeda sebentar
 const img = document.getElementById("winImg");
 const pills = [...document.querySelectorAll("#pills button")];
 const showcase = document.getElementById("showcase");
 const bar = showcase.querySelector(".bar");
-let shotIdx = 0;
+let shotIdx = 0, pauseUntil = 0;
 function showShot(i) {
+  bar.style.setProperty("--p", (i + 1) / pills.length);
   if (i === shotIdx) return;
   shotIdx = i;
   pills.forEach((x, j) => x.classList.toggle("on", j === i));
-  pills[i].scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  const row = document.getElementById("pills");
+  row.scrollTo({ left: pills[i].offsetLeft - row.clientWidth / 2 + pills[i].offsetWidth / 2, behavior: "smooth" });
   img.classList.add("swap");
   const next = new Image();
   next.onload = () => setTimeout(() => { img.src = next.src; img.classList.remove("swap"); }, 160);
   next.src = "assets/screens/" + pills[i].dataset.shot + ".jpg";
 }
 pills.forEach(p => { const pre = new Image(); pre.src = "assets/screens/" + p.dataset.shot + ".jpg"; });
-const scrollMode = matchMedia("(min-width: 900px) and (prefers-reduced-motion: no-preference)");
-showcase.style.setProperty("--slides", pills.length);
-function trackProgress() {
-  const r = showcase.getBoundingClientRect(), len = showcase.offsetHeight - innerHeight + 64;
-  return Math.min(1, Math.max(0, (64 - r.top) / Math.max(1, len)));
+pills.forEach((b, i) => b.addEventListener("click", () => { pauseUntil = Date.now() + 9000; showShot(i); }));
+bar.style.setProperty("--p", 1 / pills.length);
+if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  setInterval(() => {
+    if (Date.now() < pauseUntil || document.hidden) return;
+    const r = showcase.getBoundingClientRect();
+    if (r.bottom < 0 || r.top > innerHeight) return;
+    showShot((shotIdx + 1) % pills.length);
+  }, 3200);
 }
-function onShowcaseScroll() {
-  if (!showcase.classList.contains("scroll")) return;
-  const p = trackProgress();
-  bar.style.setProperty("--p", p);
-  showShot(Math.min(pills.length - 1, Math.floor(p * pills.length)));
-}
-let auto = null, pauseUntil = 0;
-function setupShowcase() {
-  showcase.classList.toggle("scroll", scrollMode.matches);
-  clearInterval(auto);
-  if (!scrollMode.matches) {
-    auto = setInterval(() => {
-      if (Date.now() < pauseUntil || document.hidden) return;
-      const r = showcase.getBoundingClientRect();
-      if (r.bottom < 0 || r.top > innerHeight) return;
-      showShot((shotIdx + 1) % pills.length);
-      bar.style.setProperty("--p", (shotIdx + 1) / pills.length);
-    }, 3200);
-  }
-  onShowcaseScroll();
-}
-pills.forEach((b, i) => b.addEventListener("click", () => {
-  if (showcase.classList.contains("scroll")) {
-    const len = showcase.offsetHeight - innerHeight + 64;
-    const top = showcase.getBoundingClientRect().top + scrollY - 64 + ((i + 0.5) / pills.length) * len;
-    scrollTo({ top, behavior: "smooth" });
-  } else {
-    pauseUntil = Date.now() + 9000;
-    showShot(i);
-  }
-}));
-addEventListener("scroll", onShowcaseScroll, { passive: true });
-scrollMode.addEventListener("change", setupShowcase);
-setupShowcase();
 
 // Video promo: tombol putar besar, lalu kontrol bawaan
 const promo = document.getElementById("promo"), promoWrap = document.getElementById("promoWrap");
