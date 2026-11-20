@@ -156,7 +156,7 @@ cd core && cargo test
 **Rilis** — push tag versi; GitHub Actions membuat draft release berisi DMG macOS dan `Setup.exe` Windows.
 
 ```bash
-git tag v0.2.0 && git push origin v0.2.0
+git tag v0.3.0 && git push origin v0.3.0
 ```
 
 Konsep & arsitektur lengkap: [CONCEPT.md](CONCEPT.md)
