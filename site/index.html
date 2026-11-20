@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Tim: berbagi host terenkripsi ke rekan kerja", "Server lokal: Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Tim: berbagi host terenkripsi ke rekan kerja", "Server lokal: Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB", "Docker: container, image & Compose lewat SSH", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -503,6 +503,23 @@
     </div>
   </section>
 
+  <section class="feat wrap" id="docker">
+    <div class="split">
+      <div class="copy reveal">
+        <span class="eyebrow" data-i18n="dk.eye">Docker · segera di v0.5</span>
+        <h2 style="margin:16px 0 18px" data-i18n="dk.t">Docker di semua server,<br />satu layar.</h2>
+        <p data-i18n="dk.p">Lihat dan kelola container, image, dan proyek Compose — di komputermu atau di server mana pun lewat SSH. Tanpa expose port Docker, tanpa install agent.</p>
+        <div class="spec">
+          <div><span class="k">Container</span><span class="v" data-i18n="dk.v1">Start, stop, restart, hapus, dikelompokkan per proyek Compose</span></div>
+          <div><span class="k" data-i18n="dk.k2">Live</span><span class="v" data-i18n="dk.v2">CPU & RAM tiap container, log yang ikut berjalan</span></div>
+          <div><span class="k">Shell</span><span class="v" data-i18n="dk.v3">Satu klik buka terminal di dalam container</span></div>
+          <div><span class="k">Compose</span><span class="v" data-i18n="dk.v4">Up, restart, stop, down per proyek; image bisa dibersihkan</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="assets/screens/docker.jpg" alt="Halaman Docker di Djie Shell: container per proyek Compose dengan CPU dan RAM live" loading="lazy" width="1600" height="900" /></div>
+    </div>
+  </section>
+
   <section class="feat wrap" id="keychain">
     <div class="split rev">
       <div class="copy reveal">
@@ -727,6 +744,9 @@ const EN = {
   "sf.h3": "Edit files right on the server", "sf.p": "Double-click a text file to open it in the built-in editor — line numbers, find, and save with ⌘S / Ctrl+S. Djie Shell warns you if someone else changed the file before you save.",
   "sf.k7": "Built-in editor", "sf.v7": "Configs, scripts, .env, logs — CRLF/LF line endings preserved", "sf.k8": "Open with", "sf.v8": "VS Code, Sublime, Notepad++, Preview, or any app on your computer",
   "sf.k9": "Auto-save", "sf.v9": "Every time you save in that app, the file is uploaded to the server",
+  "dk.eye": "Docker · coming in v0.5", "dk.t": "Docker on every server,<br />one screen.", "dk.p": "View and manage containers, images, and Compose projects — on your computer or any server over SSH. No exposed Docker port, no agent to install.",
+  "dk.v1": "Start, stop, restart, remove, grouped by Compose project", "dk.k2": "Live", "dk.v2": "CPU & RAM per container, logs that follow along",
+  "dk.v3": "Open a terminal inside a container in one click", "dk.v4": "Up, restart, stop, down per project; clean up images",
   "sl.eye": "Local Server", "sl.t": "A local server,<br />in one click.", "sl.p": "Run Apache or Nginx with PHP, plus MySQL, PostgreSQL, and MongoDB on your computer — like MAMP / XAMPP. Components download automatically the first time you use them, no manual installs.",
   "sl.k1": "Web", "sl.v1": "Apache or Nginx + PHP 8.4 — for Laravel, WordPress, and other PHP projects", "sl.v2": "MySQL 8.4, PostgreSQL 17, MongoDB 8 — open them straight in the Database page",
   "sl.k3": "Tidy", "sl.v3": "Configurable ports, 127.0.0.1 only, everything stops when the app closes", "sl.k4": "Download on demand", "sl.v4": "Only the components you use; macOS's built-in Apache is used as is",

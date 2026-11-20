@@ -7,6 +7,7 @@
 
 mod crypto;
 mod db;
+mod docker;
 mod error;
 mod keys;
 mod model;
@@ -19,6 +20,7 @@ mod team;
 mod vault;
 
 pub use error::CoreError;
+pub use docker::{ComposeProject, DockerClient, DockerContainer, DockerImage, DockerInfo, DockerStat};
 pub use db::{DbFilter, DbSession, DbTable, QueryResult};
 pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, HostProxy, PortForward, ProxyKind, SessionLog, Snippet, SshKey, SyncOutcome};
 pub use proxy::proxy_stdio;

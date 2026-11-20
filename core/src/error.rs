@@ -36,6 +36,8 @@ pub enum CoreError {
     Team { msg: String },
     #[error("{msg}")]
     Stack { msg: String },
+    #[error("Docker: {msg}")]
+    Docker { msg: String },
 }
 
 impl From<std::io::Error> for CoreError {

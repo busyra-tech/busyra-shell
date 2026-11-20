@@ -118,6 +118,7 @@ internal static class Errors
         CoreException.GoogleAuth => "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan.",
         CoreException.GoogleScope => "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive.",
         CoreException.Team t => $"Tim: {t.msg}",
+        CoreException.Docker dk => dk.msg.Length > 0 ? char.ToUpper(dk.msg[0]) + dk.msg[1..] : dk.msg,
         CoreException.Stack st => st.msg.Length > 0 ? char.ToUpper(st.msg[0]) + st.msg[1..] : st.msg,
         _ => e.Message
     };

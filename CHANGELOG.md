@@ -6,6 +6,16 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 
 ---
 
+## [Unreleased]
+
+### Baru
+- **🐳 Docker** — kelola Docker di komputer ini atau di server mana pun lewat SSH, tanpa expose port Docker
+  - Container dikelompokkan per proyek Compose: start, stop, restart, pause, hapus
+  - CPU & RAM live tiap container, log yang ikut berjalan (300 – 5.000 baris)
+  - Satu klik buka shell di dalam container (tab SSH, atau terminal lokal)
+  - Proyek Compose: up, restart, stop, down; daftar & hapus image
+  - Mendukung Docker Desktop, OrbStack, Rancher, Colima; di server otomatis mencoba `sudo -n` bila user belum di grup `docker`
+
 ## [0.4.0] — 2026-11-20
 
 Tiga fitur besar: server lokal ala MAMP, berbagi host ke tim, dan edit file langsung di server. 🎬 [Video pengenalan](https://masadjie.github.io/djie-shell/#video)
@@ -76,6 +86,7 @@ Rilis pertama (macOS).
 - **Sync Google Drive** (folder tersembunyi `drive.appdata`), halaman Akun, mode gelap & terang
 - Website dengan kebijakan privasi & ketentuan
 
+[Unreleased]: https://github.com/masadjie/djie-shell/compare/v0.4.0...main
 [0.4.0]: https://github.com/masadjie/djie-shell/releases/tag/v0.4.0
 [0.3.0]: https://github.com/masadjie/djie-shell/releases/tag/v0.3.0
 [0.2.0]: https://github.com/masadjie/djie-shell/releases/tag/v0.2.0

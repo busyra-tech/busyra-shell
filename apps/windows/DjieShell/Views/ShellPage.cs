@@ -413,6 +413,7 @@ internal sealed class ShellPage : Grid
             Section.Sftp => new SftpPage(),
             Section.Database => new DatabasePage(),
             Section.LocalServer => new StackPage(),
+            Section.Docker => new DockerPage(),
             Section.Snippets => new SnippetsPage(),
             Section.KnownHosts => new KnownHostsPage(),
             Section.Logs => new LogsPage(),

@@ -6,7 +6,7 @@
 
 **Semua servermu, satu terminal.**
 
-SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
+SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
 Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)
@@ -59,6 +59,7 @@ Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
 | 🧱 [Server Lokal](#-server-lokal) | Apache / Nginx + PHP, MySQL, PostgreSQL, MongoDB | ✅ | ✅ |
 | 👥 [Tim](#-tim) | Berbagi host terenkripsi ke rekan kerja | ✅ | ✅ |
 | 📁 [SFTP](#-sftp) | Dua panel, drag & drop, editor bawaan, buka dengan app lain | ✅ | ✅ |
+| 🐳 [Docker](#-docker) · *segera* | Container, image & Compose — lokal atau di server lewat SSH | v0.5 | v0.5 |
 | 🗄️ [Database](#️-database-ala-phpmyadmin) | 8 engine + 15 layanan cloud, cari ala phpMyAdmin | ✅ | ✅ |
 | 🔑 [Keychain, tunnel & proxy](#-keychain-tunnel--proxy) | SSH key, port forwarding, SOCKS5/HTTP proxy, snippets | ✅ | ✅ |
 | 🔒 [Keamanan & sync](#-keamanan--sync) | Vault terenkripsi, sync Google Drive, Touch ID / Windows Hello | ✅ | ✅ |
@@ -115,6 +116,22 @@ Dua panel berdampingan: komputermu di kiri, server di kanan. Seret file atau fol
   </tr>
 </table>
 
+### 🐳 Docker
+
+> Hadir di **v0.5** — sudah ada di kode sumber, belum masuk rilis.
+
+Kelola Docker di komputermu atau di server mana pun lewat SSH — tanpa expose port Docker, tanpa install agent.
+
+| | |
+|---|---|
+| **Container** | Start, stop, restart, pause, hapus — dikelompokkan per proyek Compose |
+| **Live** | CPU & RAM tiap container, log yang ikut berjalan |
+| **Shell** | Satu klik buka terminal di dalam container |
+| **Compose & image** | Up, restart, stop, down per proyek; hapus image yang tidak dipakai |
+| **Akses** | Bila user SSH belum di grup `docker`, otomatis mencoba `sudo -n` |
+
+<img src="site/assets/screens/docker.jpg" alt="Halaman Docker: container per proyek Compose dengan CPU & RAM live" width="900" />
+
 ### 🗄️ Database ala phpMyAdmin
 
 MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus 15 preset layanan (RDS, Supabase, Neon, PlanetScale, TiDB, Atlas, Upstash, …) — langsung, TLS, atau lewat tunnel SSH.
@@ -170,6 +187,7 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 
 | Versi | Tanggal | Sorotan |
 |---|---|---|
+| [*Berikutnya*](CHANGELOG.md#unreleased) | — | Docker: container, image & Compose lokal atau lewat SSH |
 | [**0.4.0**](CHANGELOG.md#040--2026-11-20) | 20 Nov 2026 | Server Lokal (Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB), Tim, edit file SFTP & buka dengan app lain |
 | [0.3.0](CHANGELOG.md#030--2026-11-20) | 20 Nov 2026 | Info server dengan grafik live CPU, RAM, jaringan, storage |
 | [0.2.0](CHANGELOG.md#020--2026-11-20) | 20 Nov 2026 | Versi Windows, proxy SOCKS5/HTTP, database ala phpMyAdmin, terminal lokal |
@@ -180,7 +198,7 @@ Detail lengkap tiap versi: **[CHANGELOG.md](CHANGELOG.md)** · Semua file instal
 ## Development
 
 ```
-core/              djie-core (Rust): vault, SSH/SFTP, proxy, database, Tim, Server Lokal — diekspor via UniFFI
+core/              djie-core (Rust): vault, SSH/SFTP, proxy, database, Docker, Tim, Server Lokal — diekspor via UniFFI
 apps/macos/        App macOS (SwiftUI + SwiftTerm), project dibuat dengan XcodeGen
 apps/windows/      App Windows (WinUI 3 + WebView2/xterm.js + ConPTY), installer Inno Setup
 scripts/           Build core, installer Windows, tes integrasi, Google Drive tiruan

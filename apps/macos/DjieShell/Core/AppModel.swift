@@ -10,9 +10,9 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, team, keychain, forwarding, sftp, database, localServer, snippets, knownHosts, logs, donate, about, account
+    case hosts, team, keychain, forwarding, sftp, database, localServer, docker, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .docker, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
@@ -23,6 +23,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .sftp: "SFTP"
         case .database: "Database"
         case .localServer: "Server Lokal"
+        case .docker: "Docker"
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
         case .logs: "Logs"
@@ -40,6 +41,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .sftp: "folder.fill"
         case .database: "cylinder.split.1x2.fill"
         case .localServer: "square.stack.3d.up.fill"
+        case .docker: "shippingbox.fill"
         case .snippets: "curlybraces"
         case .knownHosts: "touchid"
         case .logs: "clock.fill"
@@ -102,6 +104,7 @@ final class AppModel {
     let tunnels = TunnelManager()
     let sftp = SftpModel()
     let stack = StackModel()
+    let docker = DockerModel()
 
     private var vault: Vault?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -275,6 +278,12 @@ final class AppModel {
         }
         // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL,
         // DJIE_DEMO_TEAM=admin (buat tim, bagikan 2 host, undang DJIE_DEMO_TEAM_INVITE) atau member (gabung undangan pertama)
+        // DJIE_DEMO_DOCKER=1 : buka halaman Docker (Mac ini); DJIE_DEMO_DOCKER_TAB=images|compose
+        if env["DJIE_DEMO_DOCKER"] != nil {
+            section = .docker
+            if let t = env["DJIE_DEMO_DOCKER_TAB"].flatMap(DockerModel.Tab.init(rawValue:)) { docker.tab = t }
+            if let q = env["DJIE_DEMO_DOCKER_QUERY"] { docker.query = q }
+        }
         // DJIE_DEMO_STACK=web,postgres : nyalakan layanan Server Lokal (folder DJIE_STACK_ROOT)
         if let list = env["DJIE_DEMO_STACK"] {
             section = .localServer
