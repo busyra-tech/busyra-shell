@@ -5,7 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")/../core"
 [ -f "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
 T=$(mktemp -d /tmp/djie-sftp-test.XXXXXX)
-trap 'kill $(cat "$T/sshd.pid" 2>/dev/null) 2>/dev/null || true; rm -rf "$T"' EXIT
+PROXY_PID=
+trap 'kill $(cat "$T/sshd.pid" 2>/dev/null) $PROXY_PID 2>/dev/null || true; rm -rf "$T"' EXIT
+# Proxy tes (SOCKS5 :21080, HTTP :23128) untuk koneksi lewat proxy
+python3 ../scripts/test-proxy.py 21080 23128 djie proxy-pw "$T/proxy.log" & PROXY_PID=$!
 ssh-keygen -q -t ed25519 -N "" -f "$T/hostkey"
 ssh-keygen -q -t ed25519 -N "" -f "$T/client"
 cp "$T/client.pub" "$T/authorized_keys"
@@ -25,4 +28,5 @@ CFG
 sleep 1
 mkdir -p "$T/home"
 RUSTUP_HOME="$HOME/.rustup" CARGO_HOME="$HOME/.cargo" HOME="$T/home" DJIE_TEST_PORT=2222 DJIE_TEST_KEY="$T/client" DJIE_TEST_ROOT="$T" \
+  DJIE_TEST_PROXY_PORTS=21080,23128 DJIE_TEST_PROXY_LOG="$T/proxy.log" \
   cargo test --release --test sftp_local -- --nocapture

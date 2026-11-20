@@ -4,7 +4,7 @@
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use djie_core::{SftpClient, SshTarget, TransferProgress};
+use djie_core::{HostProxy, ProxyKind, SftpClient, SshTarget, TransferProgress};
 
 struct P { last: AtomicU64, cancel: AtomicBool }
 impl TransferProgress for P {
@@ -19,13 +19,33 @@ async fn sftp_roundtrip() {
     let root = std::env::var("DJIE_TEST_ROOT").unwrap();
     let target = SshTarget {
         hostname: "127.0.0.1".into(), port: port.parse().unwrap(), username: std::env::var("USER").unwrap(),
-        password: None, private_key: Some(key), passphrase: None, use_agent: false,
+        password: None, private_key: Some(key), passphrase: None, use_agent: false, proxy: None,
     };
 
     // Password salah & tanpa key → AuthFailed
     let mut bad = target.clone();
     bad.private_key = None; bad.password = Some("salah".into());
     assert!(matches!(SftpClient::connect(bad).await, Err(djie_core::CoreError::AuthFailed)));
+
+    // Lewat proxy SOCKS5 & HTTP (scripts/test-proxy.py), termasuk login proxy yang salah
+    if let Ok(pp) = std::env::var("DJIE_TEST_PROXY_PORTS") {
+        let (socks, http) = pp.split_once(',').unwrap();
+        for (kind, port) in [(ProxyKind::Socks5, socks), (ProxyKind::Http, http)] {
+            let mut via = target.clone();
+            via.proxy = Some(HostProxy { kind, host: "127.0.0.1".into(), port: port.parse().unwrap(),
+                                         username: Some("djie".into()), password: Some("proxy-pw".into()) });
+            let c = SftpClient::connect(via.clone()).await.unwrap_or_else(|e| panic!("{kind:?}: {e}"));
+            assert!(!c.home().await.unwrap().is_empty());
+            via.proxy.as_mut().unwrap().password = Some("salah".into());
+            match SftpClient::connect(via).await {
+                Err(djie_core::CoreError::Proxy { msg }) => assert!(msg.contains("login") || msg.contains("ditolak"), "{msg}"),
+                other => panic!("{kind:?}: harusnya error proxy, dapat {:?}", other.map(|_| ())),
+            }
+        }
+        let log = std::fs::read_to_string(std::env::var("DJIE_TEST_PROXY_LOG").unwrap()).unwrap();
+        eprintln!("proxy ok:\n{log}");
+        assert!(log.contains(&format!("socks 127.0.0.1:{port}")) && log.contains(&format!("http 127.0.0.1:{port}")), "{log}");
+    }
 
     let c = SftpClient::connect(target).await.expect("connect");
     assert!(!c.home().await.unwrap().is_empty());

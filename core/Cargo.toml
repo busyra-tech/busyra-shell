@@ -1,6 +1,6 @@
 [package]
 name = "djie-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Djie Shell shared core: vault, models, SSH, sync"
 license = "MIT"
@@ -31,7 +31,7 @@ ssh-key = { version = "0.6.7", features = ["ed25519", "std"] }
 
 russh = "0.65"
 russh-sftp = "3"
-tokio = { version = "1", features = ["rt-multi-thread", "fs", "io-util", "sync", "time", "macros", "net"] }
+tokio = { version = "1", features = ["rt-multi-thread", "fs", "io-util", "io-std", "sync", "time", "macros", "net"] }
 
 tokio-postgres = "0.7"
 postgres-native-tls = "0.5"

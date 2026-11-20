@@ -10,13 +10,15 @@ mod db;
 mod error;
 mod keys;
 mod model;
+mod proxy;
 mod sftp;
 mod ssh;
 mod vault;
 
 pub use error::CoreError;
-pub use db::{DbSession, DbTable, QueryResult};
-pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, PortForward, SessionLog, Snippet, SshKey, SyncOutcome};
+pub use db::{DbFilter, DbSession, DbTable, QueryResult};
+pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, HostProxy, PortForward, ProxyKind, SessionLog, Snippet, SshKey, SyncOutcome};
+pub use proxy::proxy_stdio;
 pub use sftp::{RemoteEntry, SftpClient, TransferProgress};
 pub use ssh::SshTarget;
 pub use vault::{Vault, vault_exists};

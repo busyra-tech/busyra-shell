@@ -50,6 +50,9 @@ pub struct Host {
     /// Host lain yang dipakai sebagai jump host (ProxyJump).
     #[serde(default)]
     pub jump_host_id: Option<String>,
+    /// Konek lewat proxy SOCKS5 / HTTP (mis. jaringan kantor).
+    #[serde(default)]
+    pub proxy: Option<HostProxy>,
     #[serde(default)]
     pub env: Vec<EnvVar>,
     #[serde(default = "default_charset")]
@@ -60,6 +63,25 @@ pub struct Host {
     /// Epoch milidetik.
     pub updated_at: i64,
     pub deleted: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, uniffi::Enum)]
+#[serde(rename_all = "lowercase")]
+pub enum ProxyKind {
+    Socks5,
+    Http,
+}
+
+/// Proxy yang dipakai untuk mencapai server SSH. Password ikut terenkripsi di vault.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, uniffi::Record)]
+pub struct HostProxy {
+    pub kind: ProxyKind,
+    pub host: String,
+    pub port: u16,
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
 }
 
 fn default_charset() -> String {

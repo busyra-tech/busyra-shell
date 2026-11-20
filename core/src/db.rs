@@ -29,6 +29,18 @@ pub struct QueryResult {
     pub truncated: bool,
 }
 
+/// Satu syarat pencarian (tab "Cari" ala phpMyAdmin).
+///
+/// `op`: `=`, `!=`, `>`, `>=`, `<`, `<=`, `LIKE`, `LIKE %...%`, `NOT LIKE`, `NOT LIKE %...%`,
+/// `IN (...)`, `NOT IN (...)`, `BETWEEN`, `NOT BETWEEN`, `IS NULL`, `IS NOT NULL`, `= ''`, `!= ''`.
+/// Syarat dengan nilai kosong diabaikan (kecuali operator tanpa nilai).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct DbFilter {
+    pub column: String,
+    pub op: String,
+    pub value: String,
+}
+
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct DbTable {
     pub schema: String,
@@ -245,15 +257,38 @@ impl DbSession {
 
     /// Query halaman data tabel (LIMIT/OFFSET sesuai engine).
     pub fn page_sql(&self, schema: String, table: String, limit: u32, offset: u64) -> String {
+        self.search_sql(schema, table, vec![], false, limit, offset)
+    }
+
+    /// Query halaman data dengan syarat pencarian. `any`: gabung syarat dengan OR (cari di semua kolom),
+    /// selain itu AND (form "Cari" per kolom).
+    pub fn search_sql(&self, schema: String, table: String, filters: Vec<DbFilter>, any: bool, limit: u32, offset: u64) -> String {
         let q = self.qualified(&schema, &table);
+        let w = self.where_sql(&filters, any);
         match self.engine {
-            DbEngine::Sqlserver if offset == 0 => format!("SELECT TOP {limit} * FROM {q}"),
-            DbEngine::Sqlserver => format!("SELECT * FROM {q} ORDER BY (SELECT NULL) OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY"),
+            DbEngine::Sqlserver if offset == 0 => format!("SELECT TOP {limit} * FROM {q}{w}"),
+            DbEngine::Sqlserver => format!("SELECT * FROM {q}{w} ORDER BY (SELECT NULL) OFFSET {offset} ROWS FETCH NEXT {limit} ROWS ONLY"),
             DbEngine::Redis => format!("TYPE {}", quote_arg(&table)),
             DbEngine::Mongodb => format!("db.{table}.find({{}})"),
-            _ if offset == 0 => format!("SELECT * FROM {q} LIMIT {limit}"),
-            _ => format!("SELECT * FROM {q} LIMIT {limit} OFFSET {offset}"),
+            _ if offset == 0 => format!("SELECT * FROM {q}{w} LIMIT {limit}"),
+            _ => format!("SELECT * FROM {q}{w} LIMIT {limit} OFFSET {offset}"),
         }
+    }
+
+    /// Satu halaman hasil pencarian.
+    pub async fn search(&self, schema: String, table: String, filters: Vec<DbFilter>, any: bool, limit: u32, offset: u64) -> Result<QueryResult, CoreError> {
+        if !self.engine_is_sql() {
+            return Err(db_err("pencarian per kolom hanya untuk database SQL"));
+        }
+        self.run(self.search_sql(schema, table, filters, any, limit, offset)).await
+    }
+
+    /// Jumlah baris yang cocok dengan pencarian.
+    pub async fn count_search(&self, schema: String, table: String, filters: Vec<DbFilter>, any: bool) -> Result<u64, CoreError> {
+        if !self.engine_is_sql() { return Ok(0); }
+        let sql = format!("SELECT COUNT(*) FROM {}{}", self.qualified(&schema, &table), self.where_sql(&filters, any));
+        let r = self.run(sql).await?;
+        Ok(r.rows.first().and_then(|row| row.first().cloned().flatten()).and_then(|v| v.parse().ok()).unwrap_or(0))
     }
 
     /// Lihat isi tabel / key / koleksi. Redis memilih perintah sesuai tipe key.
@@ -294,6 +329,59 @@ impl DbSession {
             DbEngine::Clickhouse => format!("`{}`", s.replace('\\', "\\\\").replace('`', "\\`")),
             DbEngine::Sqlserver => format!("[{}]", s.replace(']', "]]")),
             _ => format!("\"{}\"", s.replace('"', "\"\"")),
+        }
+    }
+
+    /// Klausa ` WHERE ...` dari syarat pencarian (kosong jika tidak ada syarat yang berlaku).
+    fn where_sql(&self, filters: &[DbFilter], any: bool) -> String {
+        let parts: Vec<String> = filters.iter().filter_map(|f| self.condition(f)).collect();
+        if parts.is_empty() {
+            return String::new();
+        }
+        format!(" WHERE {}", parts.iter().map(|p| format!("({p})")).collect::<Vec<_>>().join(if any { " OR " } else { " AND " }))
+    }
+
+    fn condition(&self, f: &DbFilter) -> Option<String> {
+        let c = self.ident(&f.column);
+        // LIKE pada kolom angka/tanggal: ubah ke teks dulu di engine yang ketat tipe
+        let text = match self.engine {
+            DbEngine::Postgres => format!("CAST({c} AS TEXT)"),
+            DbEngine::Sqlserver => format!("CAST({c} AS NVARCHAR(MAX))"),
+            DbEngine::Clickhouse => format!("toString({c})"),
+            _ => c.clone(),
+        };
+        let v = f.value.as_str();
+        let list = || v.split(',').map(|x| self.lit(x.trim())).collect::<Vec<_>>().join(", ");
+        let pair = || {
+            let (a, b) = v.split_once(',').or_else(|| v.to_ascii_uppercase().find(" AND ").map(|i| (&v[..i], &v[i + 5..])))?;
+            Some((self.lit(a.trim()), self.lit(b.trim())))
+        };
+        Some(match f.op.as_str() {
+            "IS NULL" => format!("{c} IS NULL"),
+            "IS NOT NULL" => format!("{c} IS NOT NULL"),
+            "= ''" => format!("{c} = ''"),
+            "!= ''" => format!("{c} <> ''"),
+            _ if v.is_empty() => return None,
+            // "%...%" = cari teks: tanpa beda huruf besar/kecil di semua engine
+            "LIKE %...%" => format!("{text} {} {}", self.ilike(), self.lit(&format!("%{v}%"))),
+            "NOT LIKE %...%" => format!("{text} NOT {} {}", self.ilike(), self.lit(&format!("%{v}%"))),
+            "LIKE" => format!("{text} LIKE {}", self.lit(v)),
+            "NOT LIKE" => format!("{text} NOT LIKE {}", self.lit(v)),
+            "IN (...)" => format!("{c} IN ({})", list()),
+            "NOT IN (...)" => format!("{c} NOT IN ({})", list()),
+            "BETWEEN" => { let (a, b) = pair()?; format!("{c} BETWEEN {a} AND {b}") }
+            "NOT BETWEEN" => { let (a, b) = pair()?; format!("{c} NOT BETWEEN {a} AND {b}") }
+            "!=" => format!("{c} <> {}", self.lit(v)),
+            op @ ("=" | ">" | ">=" | "<" | "<=") => format!("{c} {op} {}", self.lit(v)),
+            _ => return None,
+        })
+    }
+
+    /// LIKE yang tidak membedakan huruf besar/kecil (MySQL/SQLite/SQL Server sudah begitu secara bawaan).
+    fn ilike(&self) -> &'static str {
+        match self.engine {
+            DbEngine::Postgres | DbEngine::Clickhouse => "ILIKE",
+            _ => "LIKE",
         }
     }
 

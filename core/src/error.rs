@@ -16,6 +16,8 @@ pub enum CoreError {
     Corrupt { msg: String },
     #[error("Koneksi SSH gagal: {msg}")]
     Ssh { msg: String },
+    #[error("Proxy: {msg}")]
+    Proxy { msg: String },
     #[error("Login ditolak server — periksa username, password, atau key")]
     AuthFailed,
     #[error("Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti.")]

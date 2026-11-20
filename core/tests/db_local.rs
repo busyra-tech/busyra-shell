@@ -1,6 +1,6 @@
 //! Tes integrasi database. Dijalankan lewat scripts/test-db.sh (container Docker sementara).
 
-use djie_core::{DbConnection, DbEngine, DbSession, SshTarget};
+use djie_core::{DbConnection, DbEngine, DbFilter, DbSession, SshTarget};
 
 fn conn(engine: DbEngine, port: u16, user: &str, pw: &str, db: &str) -> DbConnection {
     DbConnection {
@@ -29,6 +29,17 @@ async fn roundtrip(s: &DbSession, create: &str) {
     assert_eq!(s.count_rows(t.schema.clone(), "djie_t".into()).await.unwrap(), 2);
     let p2 = s.page(t.schema.clone(), "djie_t".into(), 1, 1).await.unwrap();
     assert_eq!(p2.rows.len(), 1);
+    // Tab "Cari": LIKE tanpa beda huruf besar/kecil, LIKE di kolom angka, IS NULL, IN, OR di semua kolom
+    let f = |c: &str, op: &str, v: &str| DbFilter { column: c.into(), op: op.into(), value: v.into() };
+    let ids = |r: djie_core::QueryResult| r.rows.iter().map(|row| row[0].clone().unwrap()).collect::<Vec<_>>();
+    let sch = t.schema.clone();
+    let find = |fs: Vec<DbFilter>, any: bool| s.search(sch.clone(), "djie_t".into(), fs, any, 50, 0);
+    assert_eq!(ids(find(vec![f("nama", "LIKE %...%", "HAL")], false).await.unwrap()), vec!["1"]);
+    assert_eq!(ids(find(vec![f("id", "LIKE %...%", "2")], false).await.unwrap()), vec!["2"]);
+    assert_eq!(ids(find(vec![f("nama", "IS NULL", "")], false).await.unwrap()), vec!["2"]);
+    assert_eq!(ids(find(vec![f("id", "IN (...)", "1,2"), f("nama", "=", "halo")], false).await.unwrap()), vec!["1"]);
+    assert_eq!(ids(find(vec![f("id", "LIKE %...%", "alo"), f("nama", "LIKE %...%", "alo")], true).await.unwrap()), vec!["1"]);
+    assert_eq!(s.count_search(sch.clone(), "djie_t".into(), vec![f("id", ">=", "1")], false).await.unwrap(), 2);
     assert!(s.run("SELECT * FROM tabel_tidak_ada".into()).await.is_err());
 }
 
@@ -70,7 +81,7 @@ async fn databases() {
     let key = std::fs::read_to_string(std::env::var("DJIE_TEST_KEY").unwrap()).unwrap();
     let ssh = SshTarget {
         hostname: "127.0.0.1".into(), port: 2224, username: std::env::var("USER").unwrap(),
-        password: None, private_key: Some(key), passphrase: None, use_agent: false,
+        password: None, private_key: Some(key), passphrase: None, use_agent: false, proxy: None,
     };
     let tun = DbSession::connect(conn(DbEngine::Postgres, 55432, "postgres", "rahasia", "postgres"), Some(ssh)).await.expect("tunnel connect");
     let r = tun.run("SELECT count(*) AS n FROM djie_t".into()).await.unwrap();

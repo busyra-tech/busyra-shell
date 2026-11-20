@@ -402,6 +402,7 @@ mod tests {
             agent_forwarding: false,
             startup_snippet: None,
             jump_host_id: None,
+            proxy: None,
             env: vec![],
             charset: "UTF-8".into(),
             terminal_theme: None,

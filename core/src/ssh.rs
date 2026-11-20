@@ -22,6 +22,8 @@ pub struct SshTarget {
     pub passphrase: Option<String>,
     /// Coba SSH agent sistem (SSH_AUTH_SOCK).
     pub use_agent: bool,
+    /// Sambung lewat proxy SOCKS5 / HTTP.
+    pub proxy: Option<crate::model::HostProxy>,
 }
 
 /// Handler russh: memverifikasi kunci server terhadap ~/.ssh/known_hosts.
@@ -115,10 +117,20 @@ pub async fn connect(t: &SshTarget) -> Result<Handle<Client>, CoreError> {
     let changed = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let handler = Client { host: t.hostname.clone(), port: t.port, key_changed: changed.clone() };
 
-    let connecting = client::connect(config, (t.hostname.as_str(), t.port), handler);
-    let mut h = match tokio::time::timeout(Duration::from_secs(20), connecting).await {
-        Err(_) => return Err(CoreError::Ssh { msg: "waktu koneksi habis (20 detik)".into() }),
-        Ok(Err(e)) => {
+    let connecting = async {
+        match &t.proxy {
+            Some(p) => {
+                let stream = crate::proxy::open(p, &t.hostname, t.port).await.map_err(Err)?;
+                client::connect_stream(config, stream, handler).await.map_err(Ok)
+            }
+            None => client::connect(config, (t.hostname.as_str(), t.port), handler).await.map_err(Ok),
+        }
+    };
+    let mut h = match tokio::time::timeout(Duration::from_secs(30), connecting).await {
+        Err(_) => return Err(CoreError::Ssh { msg: "waktu koneksi habis (30 detik)".into() }),
+        // Gagal di proxy: teruskan pesan proxy apa adanya
+        Ok(Err(Err(e))) => return Err(e),
+        Ok(Err(Ok(e))) => {
             if changed.load(std::sync::atomic::Ordering::SeqCst) {
                 return Err(CoreError::HostKeyChanged);
             }
