@@ -72,7 +72,7 @@ internal static class GoogleAuth
         var q = new Dictionary<string, string>
         {
             ["client_id"] = Config.GoogleClientID, ["redirect_uri"] = Redirect, ["response_type"] = "code",
-            ["scope"] = "openid email profile https://www.googleapis.com/auth/drive.appdata",
+            ["scope"] = "openid email profile https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file",
             ["code_challenge"] = challenge, ["code_challenge_method"] = "S256",
             ["access_type"] = "offline", ["prompt"] = "consent", ["state"] = state,
         };
@@ -114,6 +114,7 @@ internal static class GoogleAuth
             root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null,
             root.TryGetProperty("access_token", out var at) ? at.GetString() : null,
             root.TryGetProperty("expires_in", out var ex) ? ex.GetDouble() : 3600);
+        GoogleTokens.MarkDriveFileScope(root.TryGetProperty("scope", out var sc) && (sc.GetString() ?? "").Contains("auth/drive.file"));
         App.Window?.BringToFront();
         return new Result(email.GetString()!,
             claims.RootElement.TryGetProperty("name", out var n) ? n.GetString() : null,
@@ -154,6 +155,10 @@ internal static class GoogleTokens
 
     public static bool HasRefreshToken => CredentialStore.Read(Target) != null;
 
+    /// <summary>Login Google sudah mengizinkan drive.file (file Tim). Login lama hanya punya drive.appdata.</summary>
+    public static bool HasDriveFileScope => Settings.Bool(Settings.DriveFileScope, false);
+    public static void MarkDriveFileScope(bool granted) => Settings.Set(Settings.DriveFileScope, granted);
+
     public static void Store(string? refresh, string? access, double expiresIn)
     {
         if (refresh != null) CredentialStore.Save(Target, Encoding.UTF8.GetBytes(refresh));
@@ -164,6 +169,7 @@ internal static class GoogleTokens
     {
         _access = null;
         _expiry = DateTime.MinValue;
+        MarkDriveFileScope(false);
         CredentialStore.Delete(Target);
     }
 

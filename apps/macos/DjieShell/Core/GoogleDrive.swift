@@ -11,6 +11,10 @@ enum GoogleTokens {
 
     static var hasRefreshToken: Bool { readRefreshToken() != nil }
 
+    /// Login Google sudah mengizinkan drive.file (file Tim). Login lama hanya punya drive.appdata.
+    static var hasDriveFileScope: Bool { UserDefaults.standard.bool(forKey: "google.driveFile") }
+    static func markDriveFileScope(_ granted: Bool) { UserDefaults.standard.set(granted, forKey: "google.driveFile") }
+
     static func store(refreshToken: String?, accessToken: String?, expiresIn: Double?) {
         if let refreshToken { saveRefreshToken(refreshToken) }
         if let accessToken {
@@ -22,6 +26,7 @@ enum GoogleTokens {
     static func forget() {
         accessToken = nil
         expiry = .distantPast
+        markDriveFileScope(false)
         SecItemDelete(query as CFDictionary)
     }
 

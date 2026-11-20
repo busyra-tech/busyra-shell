@@ -6,7 +6,7 @@
 
 **Semua servermu, satu terminal.**
 
-SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, database ala phpMyAdmin, SSH key, port forwarding, dan proxy dalam satu app. Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
+SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, database ala phpMyAdmin, SSH key, port forwarding, proxy, dan berbagi host ke tim dalam satu app. Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)
 [![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-5B9CF5)](LICENSE)
@@ -50,6 +50,16 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
 
 <img src="site/assets/screens/server-info.jpg" alt="Panel Info server dengan grafik live" width="900" />
+
+### 👥 Tim
+
+Admin memilih host yang dibagikan lalu mengundang email rekan kerja dari dalam Djie Shell. Rekan cukup klik **Tim → Gabung tim** — host (lengkap dengan password & SSH key) langsung muncul di daftar Hosts mereka, read-only.
+
+- Disimpan sebagai satu file terenkripsi di Google Drive admin — tanpa akun Djie Shell, tanpa server kami
+- Kunci tim dibungkus per anggota (X25519) dan isi tim ditandatangani admin (Ed25519)
+- Admin mengubah host → anggota ikut terupdate; anggota dikeluarkan → izin Drive dicabut dan kunci tim diganti
+
+<img src="site/assets/screens/team.jpg" alt="Halaman Tim: anggota dan host yang dibagikan" width="900" />
 
 ### 🗄️ Database ala phpMyAdmin
 

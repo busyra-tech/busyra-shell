@@ -39,7 +39,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
             .init(name: "client_id", value: clientID),
             .init(name: "redirect_uri", value: redirect),
             .init(name: "response_type", value: "code"),
-            .init(name: "scope", value: "openid email profile https://www.googleapis.com/auth/drive.appdata"),
+            .init(name: "scope", value: "openid email profile https://www.googleapis.com/auth/drive.appdata https://www.googleapis.com/auth/drive.file"),
             .init(name: "code_challenge", value: challenge),
             .init(name: "code_challenge_method", value: "S256"),
             .init(name: "access_type", value: "offline"),
@@ -78,6 +78,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         }
         GoogleTokens.store(refreshToken: token.refresh_token, accessToken: token.access_token,
                            expiresIn: token.expires_in)
+        GoogleTokens.markDriveFileScope(token.scope?.contains("auth/drive.file") == true)
         return Result(email: email, name: claims["name"] as? String, picture: claims["picture"] as? String,
                       refreshToken: token.refresh_token)
     }
@@ -91,6 +92,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         let refresh_token: String?
         let access_token: String?
         let expires_in: Double?
+        let scope: String?
     }
 
     /// Isi (claims) ID token Google: email, name, picture.

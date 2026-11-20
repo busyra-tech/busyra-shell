@@ -206,7 +206,7 @@ struct HostTile: View {
             HStack(alignment: .top) {
                 icon(size: 46)
                 Spacer()
-                if hover && model.selection.isEmpty {
+                if hover && model.selection.isEmpty && !host.isTeam {
                     HStack(spacing: 4) {
                         IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
                         IconButton(symbol: "doc.on.doc", help: "Duplikat") { duplicate() }
@@ -275,7 +275,7 @@ struct HostTile: View {
                 .frame(width: 90, alignment: .leading)
             statusChip.frame(width: 130, alignment: .trailing)
             HStack(spacing: 4) {
-                IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
+                if !host.isTeam { IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host } }
                 connectButton
             }
             .opacity(hover || selected ? 1 : 0.35)
@@ -292,7 +292,7 @@ struct HostTile: View {
                                : AnyShapeStyle(LinearGradient(colors: [color, color.opacity(0.65)], startPoint: .topLeading, endPoint: .bottomTrailing)))
             RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
                 .strokeBorder(.white.opacity(0.25), lineWidth: 1)
-            Image(systemName: selected ? "checkmark" : "server.rack")
+            Image(systemName: selected ? "checkmark" : host.isTeam ? "person.2.fill" : "server.rack")
                 .font(.system(size: size * 0.38, weight: .bold))
                 .foregroundStyle(.black.opacity(0.72))
                 .contentTransition(.symbolEffect(.replace))
@@ -414,8 +414,12 @@ struct HostTile: View {
     private var menu: some View {
         Button("Connect") { model.connect([host.id]) }
         Button("Buka SFTP") { Task { await model.openSftp(host) } }
-        Button("Edit") { model.editingHost = host }
-        Button("Duplikat") { duplicate() }
+        if host.isTeam {
+            Text("Host tim · hanya admin yang bisa mengubah")
+        } else {
+            Button("Edit") { model.editingHost = host }
+            Button("Duplikat") { duplicate() }
+        }
         Button(selected ? "Batal pilih" : "Pilih") { toggle() }
         Divider()
         Button("Salin alamat") {
@@ -423,8 +427,10 @@ struct HostTile: View {
             NSPasteboard.general.setString(host.address, forType: .string)
             model.flash("Alamat disalin")
         }
-        Divider()
-        Button("Hapus", role: .destructive) { model.delete(host) }
+        if !host.isTeam {
+            Divider()
+            Button("Hapus", role: .destructive) { model.delete(host) }
+        }
     }
 
     private func duplicate() {

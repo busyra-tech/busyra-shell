@@ -28,6 +28,12 @@ pub enum CoreError {
     Cancelled,
     #[error("Gagal membaca/menulis file: {msg}")]
     Io { msg: String },
+    #[error("Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan.")]
+    GoogleAuth,
+    #[error("Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google lalu centang izin Google Drive.")]
+    GoogleScope,
+    #[error("Tim: {msg}")]
+    Team { msg: String },
 }
 
 impl From<std::io::Error> for CoreError {

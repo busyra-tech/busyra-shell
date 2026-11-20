@@ -91,6 +91,7 @@ internal static class Settings
     public const string ProfileName = "profile.name";
     public const string ProfilePicture = "profile.picture";
     public const string DbShowTree = "db.showTree";
+    public const string DriveFileScope = "google.driveFile";
     public const string LocalShell = "terminal.localShell";   // shell bawaan tab terminal lokal        // daftar database & tabel di kiri
 }
 
@@ -114,6 +115,9 @@ internal static class Errors
         CoreException.Db d => $"Database: {d.msg}",
         CoreException.Cancelled => "Transfer dibatalkan",
         CoreException.Io io => $"Gagal membaca/menulis file: {io.msg}",
+        CoreException.GoogleAuth => "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan.",
+        CoreException.GoogleScope => "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive.",
+        CoreException.Team t => $"Tim: {t.msg}",
         _ => e.Message
     };
 }
@@ -278,6 +282,9 @@ internal static class HostExt
         Port: 22, Username: "root", Auth: AuthMethod.Password, Password: null, KeyId: null,
         AgentForwarding: false, StartupSnippet: null, JumpHostId: null, Proxy: null, Env: [],
         Charset: "UTF-8", TerminalTheme: null, UpdatedAt: 0, Deleted: false);
+
+    /// <summary>Host dari tim yang diikuti — hanya admin tim yang bisa mengubah.</summary>
+    public static bool IsTeam(this Host h) => h.Id.StartsWith("team:");
 
     public static string Title(this Host h) => string.IsNullOrEmpty(h.Label) ? h.Hostname : h.Label;
     public static string Address(this Host h) => $"{h.Username}@{h.Hostname}" + (h.Port == 22 ? "" : $":{h.Port}");

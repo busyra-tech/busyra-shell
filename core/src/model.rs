@@ -207,6 +207,11 @@ pub struct VaultData {
     pub databases: Vec<DbConnection>,
     #[serde(default)]
     pub account_email: Option<String>,
+    /// Pasangan kunci untuk Tim (dibuat sekali, ikut tersinkron ke perangkat sendiri).
+    #[serde(default)]
+    pub identity: Option<crate::team::Identity>,
+    #[serde(default)]
+    pub teams: Vec<crate::team::TeamState>,
 }
 
 pub fn now_ms() -> i64 {

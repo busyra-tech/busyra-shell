@@ -142,7 +142,7 @@ struct HostEditor: View {
             FieldRow(icon: "square.stack.3d.up") {
                 TextField("Grup", text: Binding(get: { h.group ?? "" }, set: { h.group = $0 }))
                     .textFieldStyle(.plain)
-                let groups = Set(model.hosts.compactMap(\.group)).sorted()
+                let groups = Set(model.ownHosts.compactMap(\.group)).sorted()
                 if !groups.isEmpty {
                     Menu {
                         ForEach(groups, id: \.self) { g in Button(g) { h.group = g } }
@@ -285,7 +285,7 @@ struct HostEditor: View {
                     FieldRow(icon: "point.3.connected.trianglepath.dotted") {
                         Picker("Host Chaining", selection: $h.jumpHostId) {
                             Text("Tanpa jump host").tag(String?.none)
-                            ForEach(model.hosts.filter { $0.id != h.id }) { j in
+                            ForEach(model.ownHosts.filter { $0.id != h.id }) { j in
                                 Text(j.title).tag(Optional(j.id))
                             }
                         }

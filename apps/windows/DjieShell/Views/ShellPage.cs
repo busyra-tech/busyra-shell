@@ -157,7 +157,7 @@ internal sealed class ShellPage : Grid
 
     private int Badge(Section s) => s switch
     {
-        Section.Hosts => M.Hosts.Length, Section.Keychain => M.Keys.Length, Section.Snippets => M.Snippets.Length,
+        Section.Hosts => M.Hosts.Length, Section.Team => M.Teams.Length, Section.Keychain => M.Keys.Length, Section.Snippets => M.Snippets.Length,
         Section.Forwarding => M.Forwards.Length, Section.Database => M.Databases.Length, _ => 0,
     };
 
@@ -407,6 +407,7 @@ internal sealed class ShellPage : Grid
         FrameworkElement page = M.Section switch
         {
             Section.Hosts => new HostsPage(),
+            Section.Team => new TeamPage(),
             Section.Keychain => new KeychainPage(),
             Section.Forwarding => new ForwardingPage(),
             Section.Sftp => new SftpPage(),

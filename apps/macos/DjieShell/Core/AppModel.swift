@@ -10,13 +10,14 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, keychain, forwarding, sftp, database, snippets, knownHosts, logs, donate, about, account
+    case hosts, team, keychain, forwarding, sftp, database, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .keychain, .forwarding, .sftp, .database, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
         case .hosts: "Hosts"
+        case .team: "Tim"
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
         case .sftp: "SFTP"
@@ -32,6 +33,7 @@ enum Section: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .hosts: "server.rack"
+        case .team: "person.2.fill"
         case .keychain: "key.horizontal.fill"
         case .forwarding: "arrow.right.arrow.left"
         case .sftp: "folder.fill"
@@ -64,6 +66,12 @@ final class AppModel {
     var forwards: [PortForward] = []
     var logs: [SessionLog] = []
     var databases: [DbConnection] = []
+    /// Tim yang dimiliki / diikuti, key milik host tim, dan undangan yang belum diterima.
+    var teams: [TeamInfo] = []
+    var teamKeys: [SshKey] = []
+    var teamInvites: [TeamInvite] = []
+    var teamBusy = false
+    var teamError: String?
     /// Koneksi database yang sedang dibuka di workspace.
     var dbWorkspace: DbWorkspace?
     var accountEmail: String?
@@ -95,6 +103,7 @@ final class AppModel {
     private var vault: Vault?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
     @ObservationIgnored private var remoteFile: DriveClient.RemoteFile?
+    @ObservationIgnored private var teamTimer: Task<Void, Never>?
 
     init() {
         phase = vaultExists(path: Config.vaultPath) ? .locked : .welcome
@@ -261,6 +270,24 @@ final class AppModel {
                 }
             }
         }
+        // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL,
+        // DJIE_DEMO_TEAM=admin (buat tim, bagikan 2 host, undang DJIE_DEMO_TEAM_INVITE) atau member (gabung undangan pertama)
+        if let role = env["DJIE_DEMO_TEAM"] {
+            section = .team
+            startTeamTimer()
+            Task {
+                if role == "admin" {
+                    guard await createTeam(name: env["DJIE_DEMO_TEAM_NAME"] ?? "Tim Ops"), let t = teams.first else { return }
+                    await shareHosts(t, ids: Array(hs.prefix(2).map(\.id)))
+                    for e in (env["DJIE_DEMO_TEAM_INVITE"] ?? "").split(separator: ",") {
+                        _ = await inviteToTeam(teams.first!, email: String(e))
+                    }
+                } else {
+                    await refreshInvites()
+                    if let inv = teamInvites.first { _ = await joinTeam(fileId: inv.fileId) }
+                }
+            }
+        }
         if args.contains("-DjieDemoLockCycle") {
             phase = .welcome
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [self] in open(v) }
@@ -314,6 +341,8 @@ final class AppModel {
         sessions.forEach { $0.terminate() }
         tunnels.stopAll()
         syncTask?.cancel()
+        teamTimer?.cancel()
+        teams = []; teamKeys = []; teamInvites = []; teamError = nil
         sessions = []
         activeSessionID = nil
         vault = nil
@@ -330,6 +359,7 @@ final class AppModel {
         withAnimation(.djie) { phase = .main }
         if accountEmail != nil { syncNow() }
         Task { await checkForUpdates(manual: false) }
+        startTeamTimer()
     }
 
     /// Cek rilis baru. `manual` = dipanggil dari menu, tampilkan hasil walau sudah terbaru.
@@ -345,7 +375,10 @@ final class AppModel {
 
     private func reload() {
         guard let vault else { return }
-        hosts = vault.hosts()
+        teams = vault.teams()
+        // Host tim ikut tampil di daftar host (read-only); key-nya disimpan terpisah dari Keychain.
+        hosts = vault.hosts() + vault.teamHosts()
+        teamKeys = vault.teamKeys()
         keys = vault.keys()
         snippets = vault.snippets()
         forwards = vault.forwards()
@@ -457,6 +490,7 @@ final class AppModel {
                 try await DriveClient.upload(try vault.encryptedBlob(), replacing: nil)
             }
             withAnimation(.djie) { sync = .synced(Date()) }
+            if !teams.isEmpty { await syncTeams() }
         } catch is CancellationError {
         } catch DriveError.notSignedIn {
             withAnimation(.djie) { sync = .needsLogin }
@@ -470,6 +504,7 @@ final class AppModel {
     @discardableResult
     func save(_ host: Host) -> Host? {
         guard let vault else { return nil }
+        guard !host.isTeam else { flash("Host tim hanya bisa diubah admin tim"); return nil }
         do {
             let saved = try vault.upsertHost(host: host)
             // Tab yang sedang terbuka untuk host ini langsung memakai tema baru
@@ -485,13 +520,16 @@ final class AppModel {
     }
 
     func delete(_ host: Host) {
+        guard !host.isTeam else { flash("Host tim hanya bisa diubah admin tim"); return }
         try? vault?.deleteHost(id: host.id)
         selection.remove(host.id)
         changed()
     }
 
     func host(id: String?) -> Host? { hosts.first { $0.id == id } }
-    func key(id: String?) -> SshKey? { keys.first { $0.id == id } }
+    func key(id: String?) -> SshKey? { keys.first { $0.id == id } ?? teamKeys.first { $0.id == id } }
+    /// Host pribadi saja (tanpa host tim).
+    var ownHosts: [Host] { hosts.filter { !$0.isTeam } }
 
     // MARK: Keychain
 
@@ -703,6 +741,140 @@ final class AppModel {
         withAnimation(.djieSnappy) { activeSessionID = nil }
     }
 
+    // MARK: Tim
+
+    /// Akun Google sudah memberi izin drive.file (dibutuhkan untuk file Tim).
+    var teamReady: Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["DJIE_TEST_DRIVE_TOKEN"] != nil { return true }
+        #endif
+        return accountEmail != nil && GoogleTokens.hasDriveFileScope
+    }
+
+    private func driveToken() async throws -> String {
+        #if DEBUG
+        if let t = ProcessInfo.processInfo.environment["DJIE_TEST_DRIVE_TOKEN"] { return t }
+        #endif
+        return try await GoogleTokens.validAccessToken()
+    }
+
+    /// Jalankan operasi Tim dengan token Google; error ditampilkan di halaman Tim.
+    @discardableResult
+    private func teamCall<T>(quiet: Bool = false, _ op: (Vault, String) async throws -> T) async -> T? {
+        guard let vault else { return nil }
+        if !quiet { teamBusy = true }
+        defer { if !quiet { teamBusy = false } }
+        do {
+            let r = try await op(vault, try await driveToken())
+            if !quiet { teamError = nil }
+            withAnimation(.djie) { reload() }
+            return r
+        } catch CoreError.GoogleScope {
+            GoogleTokens.markDriveFileScope(false)
+            teamError = CoreError.GoogleScope.djieMessage
+        } catch DriveError.notSignedIn, CoreError.GoogleAuth {
+            withAnimation(.djie) { sync = .needsLogin }
+            teamError = CoreError.GoogleAuth.djieMessage
+        } catch {
+            if !quiet { teamError = error.djieMessage }
+        }
+        return nil
+    }
+
+    func createTeam(name: String) async -> Bool {
+        guard let email = teamEmail else { return false }
+        let ok = await teamCall { v, t in try await v.teamCreate(token: t, name: name, myEmail: email) } != nil
+        if ok { flash("Tim \(name) dibuat") }
+        return ok
+    }
+
+    func inviteToTeam(_ team: TeamInfo, email: String) async -> Bool {
+        let ok = await teamCall { v, t in try await v.teamInvite(token: t, teamId: team.id, email: email) } != nil
+        if ok { flash("Undangan dikirim ke \(email)") }
+        return ok
+    }
+
+    func removeFromTeam(_ team: TeamInfo, email: String) async {
+        if await teamCall({ v, t in try await v.teamRemoveMember(token: t, teamId: team.id, email: email) }) != nil {
+            flash("\(email) dikeluarkan · kunci tim diganti")
+        }
+    }
+
+    func shareHosts(_ team: TeamInfo, ids: [String]) async {
+        await teamCall { v, t in try await v.teamShareHosts(token: t, teamId: team.id, hostIds: ids) }
+    }
+
+    func refreshInvites() async {
+        if let list = await teamCall(quiet: true, { v, t in try await v.teamFindInvites(token: t) }) {
+            withAnimation(.djie) { teamInvites = list }
+        }
+    }
+
+    func joinTeam(fileId: String) async -> Bool {
+        guard let email = teamEmail else { return false }
+        let id = Self.fileId(from: fileId)
+        guard let info = await teamCall({ v, t in try await v.teamJoin(token: t, fileId: id, myEmail: email) }) else { return false }
+        teamInvites.removeAll { $0.fileId == id }
+        flash(info.status == .active ? "Bergabung ke \(info.name)" : "Bergabung ke \(info.name) · menunggu admin")
+        return true
+    }
+
+    func leaveTeam(_ team: TeamInfo) async {
+        if await teamCall({ v, t in try await v.teamLeave(token: t, teamId: team.id) }) != nil {
+            flash(team.isOwner ? "Tim \(team.name) dihapus" : "Keluar dari \(team.name)")
+        }
+    }
+
+    /// Sinkron semua tim (diam-diam; error per tim tampil di kartunya).
+    func syncTeams() async {
+        guard teamReady, !teams.isEmpty else { return }
+        await teamCall(quiet: true) { v, t in try await v.teamSync(token: t) }
+    }
+
+    /// Minta izin drive.file: login ulang Google dengan scope baru.
+    func grantTeamAccess() async {
+        do {
+            _ = try await signInGoogle()
+            teamError = GoogleTokens.hasDriveFileScope ? nil : "Izin Google Drive belum dicentang. Coba lagi dan centang izin Drive."
+        } catch GoogleAuth.AuthError.cancelled {
+        } catch {
+            teamError = error.djieMessage
+        }
+    }
+
+    private var teamEmail: String? {
+        #if DEBUG
+        if let e = ProcessInfo.processInfo.environment["DJIE_TEST_DRIVE_EMAIL"] { return e }
+        #endif
+        guard let e = accountEmail else { teamError = "Masuk dengan Google dulu untuk memakai Tim"; return nil }
+        return e
+    }
+
+    /// Terima id file atau link Google Drive (…/d/<id>/… atau ?id=<id>).
+    static func fileId(from text: String) -> String {
+        let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let r = t.range(of: #"/d/([A-Za-z0-9_-]+)"#, options: .regularExpression) {
+            return String(t[r].dropFirst(3))
+        }
+        if let c = URLComponents(string: t), let id = c.queryItems?.first(where: { $0.name == "id" })?.value { return id }
+        return t
+    }
+
+    private func startTeamTimer() {
+        teamTimer?.cancel()
+        teamTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                var every = 60.0
+                #if DEBUG
+                every = ProcessInfo.processInfo.environment["DJIE_TEAM_SYNC_SECS"].flatMap(Double.init) ?? every
+                #endif
+                try? await Task.sleep(for: .seconds(every))
+                guard let self, self.phase == .main else { continue }
+                await self.syncTeams()
+            }
+        }
+    }
+
     func flash(_ message: String) {
         withAnimation(.djie) { toast = message }
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) { [self] in
@@ -712,6 +884,9 @@ final class AppModel {
 }
 
 extension Host {
+    /// Host dari tim yang diikuti (hanya admin tim yang bisa mengubah).
+    var isTeam: Bool { id.hasPrefix("team:") }
+
     static func blank() -> Host {
         Host(id: "", hostname: "", label: "", group: nil, tags: [], color: Theme.hostColors[0],
              port: 22, username: "root", auth: .password, password: nil, keyId: nil,

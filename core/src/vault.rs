@@ -13,7 +13,7 @@ pub struct Vault {
     path: PathBuf,
     key: Key,
     salt: [u8; SALT_LEN],
-    data: Mutex<VaultData>,
+    pub(crate) data: Mutex<VaultData>,
 }
 
 #[uniffi::export]
@@ -170,6 +170,8 @@ impl Vault {
             merge_records(&mut data.forwards, remote.forwards),
             merge_records(&mut data.logs, remote.logs),
             merge_records(&mut data.databases, remote.databases),
+            merge_records(&mut data.teams, remote.teams),
+            crate::team::merge_identity(&mut data.identity, remote.identity),
         ];
         let outcome = SyncOutcome {
             local_changed: results.iter().any(|r| r.0),
@@ -340,7 +342,7 @@ impl Vault {
     }
 
     /// Tulis atomik: file sementara lalu rename.
-    fn persist(&self, data: &VaultData) -> Result<(), CoreError> {
+    pub(crate) fn persist(&self, data: &VaultData) -> Result<(), CoreError> {
         if let Some(dir) = self.path.parent() {
             fs::create_dir_all(dir)?;
         }

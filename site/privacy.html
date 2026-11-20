@@ -22,7 +22,7 @@
 <div class="wrap">
   <a href="./">← Djie Shell</a>
   <h1>Kebijakan Privasi</h1>
-  <p class="muted">Terakhir diperbarui: 19 November 2026</p>
+  <p class="muted">Terakhir diperbarui: 20 November 2026</p>
 
   <p>Djie Shell adalah aplikasi SSH client untuk macOS dan Windows. Kebijakan ini menjelaskan data apa yang diproses aplikasi dan bagaimana data itu dilindungi.</p>
   <h2>Data yang disimpan</h2>
@@ -32,7 +32,9 @@
   <ul>
     <li><code>openid</code> dan <code>email</code> — untuk mengetahui alamat email akunmu dan menampilkannya di aplikasi.</li>
     <li><code>drive.appdata</code> — untuk menyimpan salinan vault terenkripsi di folder data aplikasi tersembunyi di Google Drive milikmu sendiri, agar bisa disinkronkan antar perangkat. Izin ini tidak memberi akses ke file lain di Google Drive-mu.</li>
+    <li><code>drive.file</code> — hanya untuk fitur <b>Tim</b>: membuat file tim di Google Drive admin, membagikannya ke email anggota yang diundang, dan membuka file tim yang dipilih anggota di halaman <a href="team.html">Gabung tim</a>. Izin ini hanya mencakup file yang dibuat atau dipilih lewat Djie Shell, bukan seluruh Google Drive-mu.</li>
   </ul>
+  <p>Isi file tim (host, password, dan SSH key yang dibagikan admin) dienkripsi end-to-end dengan kunci tim yang hanya dimiliki anggota. Google hanya melihat alamat email anggota yang diundang (untuk izin berbagi file) dan isi yang sudah terenkripsi.</p>
   <p>Data yang disimpan di Google Drive selalu dalam bentuk terenkripsi. Tanpa master password, isinya tidak bisa dibaca oleh siapa pun, termasuk pengembang dan Google.</p>
   <h2>Yang tidak kami lakukan</h2>
   <ul>

@@ -76,3 +76,23 @@ pub fn open(key: &Key, blob: &[u8]) -> Result<Vec<u8>, CoreError> {
         .decrypt(&XNonce::from(nonce), Payload { msg: ct, aad })
         .map_err(|_| CoreError::WrongPassword)
 }
+
+/// Enkripsi tanpa header vault (dipakai file Tim): `nonce:24 | ciphertext`.
+pub fn seal_raw(key: &Key, aad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+    let nonce: [u8; NONCE_LEN] = random();
+    let ct = XChaCha20Poly1305::new(key.into())
+        .encrypt(&XNonce::from(nonce), Payload { msg: plaintext, aad })
+        .expect("enkripsi gagal");
+    let mut out = nonce.to_vec();
+    out.extend_from_slice(&ct);
+    out
+}
+
+pub fn open_raw(key: &Key, aad: &[u8], blob: &[u8]) -> Option<Vec<u8>> {
+    if blob.len() < NONCE_LEN {
+        return None;
+    }
+    let (nonce, ct) = blob.split_at(NONCE_LEN);
+    let nonce: [u8; NONCE_LEN] = nonce.try_into().ok()?;
+    XChaCha20Poly1305::new(key.into()).decrypt(&XNonce::from(nonce), Payload { msg: ct, aad }).ok()
+}

@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Tim: berbagi host terenkripsi ke rekan kerja", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -277,6 +277,7 @@
     <nav class="links">
       <a href="#video">Video</a>
       <a href="#hosts">Hosts</a>
+      <a href="#tim" data-i18n="nav.team">Tim</a>
       <a href="#sftp">SFTP</a>
       <a href="#database">Database</a>
       <a href="#forwarding">Forwarding</a>
@@ -380,6 +381,23 @@
         </div>
       </div>
       <div class="shot reveal"><img src="assets/screens/editor.jpg" alt="Editor host" loading="lazy" width="1600" height="1032" /></div>
+    </div>
+  </section>
+
+  <section class="feat wrap" id="tim">
+    <div class="split">
+      <div class="copy reveal">
+        <span class="eyebrow" data-i18n="tm.eye">Tim</span>
+        <h2 style="margin:16px 0 18px" data-i18n="tm.t">Satu tim,<br />satu daftar server.</h2>
+        <p data-i18n="tm.p">Admin memilih host yang dibagikan lalu mengundang email rekan kerja. Rekan cukup klik <b>Gabung tim</b> — host langsung muncul di Djie Shell mereka, siap connect.</p>
+        <div class="spec">
+          <div><span class="k" data-i18n="tm.k1">Undang email</span><span class="v" data-i18n="tm.v1">Google mengirim email undangan; tanpa akun Djie Shell, tanpa server kami</span></div>
+          <div><span class="k" data-i18n="tm.k2">Terenkripsi</span><span class="v" data-i18n="tm.v2">Host, password & SSH key dienkripsi end-to-end — Google hanya menyimpan ciphertext</span></div>
+          <div><span class="k" data-i18n="tm.k3">Selalu terbaru</span><span class="v" data-i18n="tm.v3">Admin mengubah host, semua anggota ikut terupdate otomatis</span></div>
+          <div><span class="k" data-i18n="tm.k4">Keluarkan</span><span class="v" data-i18n="tm.v4">Akses dicabut dan kunci tim langsung diganti</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="assets/screens/team.jpg" alt="Halaman Tim di Djie Shell: anggota dan host yang dibagikan" loading="lazy" width="1300" height="838" /></div>
     </div>
   </section>
 
@@ -644,6 +662,9 @@ const EN = {
   "hero.dl": "Download for Mac", "hero.dlw": "Download for Windows", "hero.more": "See features", "chip.2": "Google Drive sync", "chip.3": "Connect many hosts at once", "pill.light": "Light mode",
   "st.1u": "servers", "st.1": "No Djie Shell servers. Your data never passes through us.", "st.2": "XChaCha20-Poly1305 key derived from your master password.",
   "st.3u": "click", "st.3": "Pick many hosts and connect to all of them in one click.", "st.4": "Native SwiftUI &amp; WinUI 3 — not a wrapped web page.",
+  "nav.team": "Teams", "tm.eye": "Teams", "tm.t": "One team,<br />one server list.", "tm.p": "The admin picks which hosts to share and invites teammates by email. Teammates just click <b>Join team</b> — the hosts show up in their Djie Shell, ready to connect.",
+  "tm.k1": "Invite by email", "tm.v1": "Google sends the invitation; no Djie Shell account, no servers of ours", "tm.k2": "Encrypted", "tm.v2": "Hosts, passwords & SSH keys are end-to-end encrypted — Google only stores ciphertext",
+  "tm.k3": "Always current", "tm.v3": "When the admin edits a host, every member gets the update automatically", "tm.k4": "Remove", "tm.v4": "Access is revoked and the team key is rotated right away",
   "h.t": "Every server,<br />neatly on one screen.", "h.lead": "Grid or list, grouped, with a card color of your choice. Double-click to connect, or select several hosts and connect to all of them at once — one tab per host.",
   "h.h3": "Quick to find, quick to connect", "h.p": "A pulsing “Connected” badge marks active hosts, and every card shows when you last connected.",
   "h.v1": "⌘/Ctrl-click to select, then Connect all", "h.k2": "Authentication", "h.v2": "Password, SSH key, or SSH agent",

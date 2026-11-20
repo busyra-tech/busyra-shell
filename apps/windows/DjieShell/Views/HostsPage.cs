@@ -141,7 +141,7 @@ internal sealed class HostsPage : PageBase
             Width = size, Height = size, CornerRadius = new CornerRadius(size * 0.28),
             Background = selected ? Theme.BrandGradient : Theme.TintGradient(h.Color),
             BorderBrush = Theme.Brush("#FFFFFF", 0.25), BorderThickness = new Thickness(1),
-            Child = new FontIcon { Glyph = selected ? G.Check : G.Server, FontSize = size * 0.38, Foreground = Theme.Brush("#000000", 0.72) }
+            Child = new FontIcon { Glyph = selected ? G.Check : h.IsTeam() ? G.People : G.Server, FontSize = size * 0.38, Foreground = Theme.Brush("#000000", 0.72) }
         };
         var icon = new Grid { Width = size, Height = size, Children = { iconBox } };
         if (live)
@@ -159,6 +159,7 @@ internal sealed class HostsPage : PageBase
         connect.Padding = new Thickness(10, 4, 10, 5);
         ToolTipService.SetToolTip(connect, "Connect");
         var edit = Ui.IconBtn(G.Edit, "Edit", () => M.Edit(h));
+        if (h.IsTeam()) { edit.Visibility = Visibility.Collapsed; ToolTipService.SetToolTip(edit, null); }
 
         var tags = Ui.Row(5);
         foreach (var t in h.Tags.Take(grid ? 3 : 4))
@@ -172,7 +173,7 @@ internal sealed class HostsPage : PageBase
         UIElement content;
         if (grid)
         {
-            var actions = Ui.Row(2, edit, Ui.IconBtn(G.Copy, "Duplikat", () => Duplicate(h)));
+            var actions = Ui.Row(2, edit, h.IsTeam() ? null : Ui.IconBtn(G.Copy, "Duplikat", () => Duplicate(h)));
             actions.Opacity = 0;
             var chip = StatusChip(h, live);
             var top = Ui.Columns("Auto,*,Auto", 8, icon, new Border(), new Grid { Children = { chip, actions } });
@@ -250,10 +251,16 @@ internal sealed class HostsPage : PageBase
         }
         Item("Connect", G.Bolt, () => M.Connect([h.Id]));
         Item("Buka SFTP", G.Folder, () => _ = M.OpenSftp(h));
-        Item("Edit", G.Edit, () => M.Edit(h));
-        Item("Duplikat", G.Copy, () => Duplicate(h));
+        if (h.IsTeam())
+            f.Items.Add(new MenuFlyoutItem { Text = "Host tim · hanya admin yang bisa mengubah", IsEnabled = false, Icon = new FontIcon { Glyph = G.People } });
+        else
+        {
+            Item("Edit", G.Edit, () => M.Edit(h));
+            Item("Duplikat", G.Copy, () => Duplicate(h));
+        }
         f.Items.Add(new MenuFlyoutSeparator());
         Item("Salin alamat", G.Link, () => { Ui.CopyText(h.Address()); M.Flash("Alamat disalin"); });
+        if (h.IsTeam()) return f;
         f.Items.Add(new MenuFlyoutSeparator());
         var del = new MenuFlyoutItem { Text = "Hapus", Icon = new FontIcon { Glyph = G.Delete }, Foreground = Theme.Brush("#E5484D") };
         del.Click += async (_, _) => { if (await Ui.Confirm($"Hapus host “{h.Title()}”?", "Host akan dihapus dari vault di semua perangkat yang tersinkron.")) M.Delete(h); };

@@ -19,6 +19,9 @@ extension Error {
         case .Db(let msg): return "Database: \(msg)"
         case .Cancelled: return "Dibatalkan"
         case .Io(let msg): return "Gagal membaca/menulis file: \(msg)"
+        case .GoogleAuth: return "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan."
+        case .GoogleScope: return "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive."
+        case .Team(let msg): return "Tim: \(msg)"
         }
     }
 }

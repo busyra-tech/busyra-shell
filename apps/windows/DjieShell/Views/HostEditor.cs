@@ -138,7 +138,7 @@ internal sealed class HostEditor : Grid
     {
         var label = Ui.Field("Label", _h.Label);
         label.TextChanged += (_, _) => _h = _h with { Label = label.Text };
-        var groups = M.Hosts.Select(x => x.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Cast<string>().ToList();
+        var groups = M.OwnHosts.Select(x => x.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Cast<string>().ToList();
         var group = new AutoSuggestBox { PlaceholderText = "Grup", Text = _h.Group ?? "" };
         group.TextChanged += (s, a) =>
         {
@@ -278,7 +278,7 @@ internal sealed class HostEditor : Grid
 
         var jump = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Tanpa jump host" };
         jump.Items.Add(new ComboBoxItem { Content = "Tanpa jump host", Tag = "" });
-        foreach (var x in M.Hosts.Where(x => x.Id != _h.Id)) jump.Items.Add(new ComboBoxItem { Content = x.Title(), Tag = x.Id });
+        foreach (var x in M.OwnHosts.Where(x => x.Id != _h.Id)) jump.Items.Add(new ComboBoxItem { Content = x.Title(), Tag = x.Id });
         jump.SelectedItem = jump.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == (_h.JumpHostId ?? "")) ?? jump.Items[0];
         jump.SelectionChanged += (_, _) => { var id = (jump.SelectedItem as ComboBoxItem)?.Tag as string; _h = _h with { JumpHostId = string.IsNullOrEmpty(id) ? null : id }; };
 
