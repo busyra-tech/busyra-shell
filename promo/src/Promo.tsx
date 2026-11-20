@@ -1,7 +1,7 @@
 import React from "react";
-import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from "remotion";
 import VO from "./vo-durations.json";
-import NARRATION from "../narration.json";
+import WORDS from "./words.json";
 import { AppleIcon, AppWindow, Background, C, Callout, Cursor, Eyebrow, Fade, FONT, GRAD, Kinetic, Logo, MONO, useProgress, useSpring, WindowsIcon } from "./ui";
 
 // Durasi minimum tiap scene (frame, 30 fps); diperpanjang agar narasi (public/vo/*.mp3) muat.
@@ -68,60 +68,80 @@ export const Promo: React.FC = () => {
 
 type P = { d: number };
 
-// Caption: kalimat narasi dipecah per frasa (titik/koma/tanda tanya), lama tampil sebanding panjang teks
-const TEXT: Record<string, string> = Object.fromEntries(NARRATION as [string, string][]);
-function chunks(text: string): string[] {
-  const parts = text.match(/[^.,!?]+[.,!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [text];
-  const out: string[] = [];
-  for (const p of parts) {
-    const prev = out[out.length - 1];
-    // Gabungkan frasa pendek agar caption tidak berkedip
-    if (prev && (prev.length < 18 || p.length < 12) && prev.length + p.length < 58) out[out.length - 1] = `${prev} ${p}`;
-    else out.push(p);
-  }
+/** Video vertikal (9:16)? */
+const useV = () => {
+  const { width, height } = useVideoConfig();
+  return height > width;
+};
+
+// Caption karaoke: timing tiap kata dari forced alignment ElevenLabs (src/words.json)
+type Word = { w: string; s: number; e: number };
+function lines(words: Word[], max: number): Word[][] {
+  const out: Word[][] = [];
+  let cur: Word[] = [];
+  words.forEach((w, i) => {
+    cur.push(w);
+    const punct = /[.,!?]$/.test(w.w);
+    const rest = words.length - i - 1;
+    // Putus di tanda baca atau saat penuh; hindari sisa satu kata sendirian
+    if ((punct && cur.length >= 2) || cur.length >= max || (punct && rest === 0)) {
+      if (rest === 1 && cur.length < max + 1) return;
+      out.push(cur);
+      cur = [];
+    }
+  });
+  if (cur.length) out.push(cur);
   return out;
 }
 const Captions: React.FC<{ name: string }> = ({ name }) => {
   const frame = useCurrentFrame();
-  const text = TEXT[name];
-  const dur = ((VO as Record<string, number>)[name] ?? 0) * 30;
-  if (!text || !dur) return null;
-  const list = chunks(text);
-  const total = list.reduce((a, c) => a + c.length, 0);
-  let t = 0;
-  const spans = list.map((c) => {
-    const from = t;
-    t += (c.length / total) * dur;
-    return { c, from, to: t };
+  const v = useV();
+  const words = (WORDS as Record<string, Word[]>)[name];
+  if (!words?.length) return null;
+  const t = frame / 30;
+  const ls = lines(words, v ? 4 : 6);
+  const idx = ls.findIndex((l, i) => {
+    const start = l[0].s - 0.08;
+    const end = i + 1 < ls.length ? ls[i + 1][0].s - 0.08 : l[l.length - 1].e + 0.5;
+    return t >= start && t < end;
   });
-  const cur = spans.find((s) => frame >= s.from && frame < s.to + 4);
-  if (!cur) return null;
-  const local = frame - cur.from;
-  const o = interpolate(local, [0, 5], [0, 1], { extrapolateRight: "clamp" }) * interpolate(frame, [cur.to - 2, cur.to + 4], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
-  const y = interpolate(local, [0, 6], [12, 0], { extrapolateRight: "clamp" });
+  if (idx < 0) return null;
+  const line = ls[idx];
+  const local = t - (line[0].s - 0.08);
+  const end = idx + 1 < ls.length ? ls[idx + 1][0].s - 0.08 : line[line.length - 1].e + 0.5;
+  const o = Math.min(1, local / 0.12) * (idx + 1 < ls.length ? 1 : Math.min(1, (end - t) / 0.2));
+  const pop = interpolate(local, [0, 0.15], [0.94, 1], { extrapolateRight: "clamp" });
   return (
-    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 54, pointerEvents: "none" }}>
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: v ? 250 : 54, pointerEvents: "none" }}>
       <div
         style={{
-          maxWidth: 1500,
-          padding: "14px 30px",
-          borderRadius: 18,
-          background: "rgba(5,7,10,0.72)",
+          maxWidth: v ? 960 : 1560,
+          padding: v ? "18px 30px" : "14px 30px",
+          borderRadius: 20,
+          background: "rgba(5,7,10,0.74)",
           border: "1px solid rgba(255,255,255,0.1)",
           backdropFilter: "blur(10px)",
-          color: "#fff",
           fontFamily: FONT,
-          fontSize: 40,
-          fontWeight: 650,
+          fontSize: v ? 56 : 42,
+          fontWeight: 700,
           letterSpacing: "-0.01em",
           textAlign: "center",
-          lineHeight: 1.25,
+          lineHeight: 1.22,
           opacity: o,
-          transform: `translateY(${y}px)`,
+          transform: `scale(${pop})`,
           boxShadow: "0 20px 50px -20px rgba(0,0,0,0.8)",
         }}
       >
-        {cur.c}
+        {line.map((w, i) => {
+          const active = t >= w.s - 0.03 && t < w.e + 0.05;
+          const spoken = t >= w.e;
+          return (
+            <span key={i} style={{ color: active ? C.teal : spoken ? "#fff" : "rgba(255,255,255,0.55)", transition: "none" }}>
+              {w.w}
+              {i < line.length - 1 ? " " : ""}
+            </span>
+          );
+        })}
       </div>
     </AbsoluteFill>
   );
@@ -172,17 +192,22 @@ const NOTES: [number, number, number, string][] = [
   [72, 62, 6, "pw staging\nada di grup WA"],
   [50, 70, -4, "key .pem-nya\ndi laptop siapa?"],
 ];
+// Posisi untuk video vertikal (x%, y%)
+const TERMS_V: [number, number][] = [[30, 10], [70, 17], [34, 27], [66, 38], [32, 50], [68, 61], [30, 72], [66, 82]];
+const NOTES_V: [number, number][] = [[74, 30], [24, 41], [72, 70]];
 const TERM_AT = (i: number) => 6 + i * 11;
 const NOTE_AT = (i: number) => 70 + i * 14;
 
 const Chaos: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const textAt = d - 95;
   const dim = interpolate(frame, [textAt - 10, textAt + 10], [1, 0.25], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <Wrap d={d}>
       <AbsoluteFill style={{ opacity: dim }}>
-        {TERMS.map(([x, y, rot, title, l1, l2], i) => {
+        {TERMS.map(([hx, hy, rot, title, l1, l2], i) => {
+          const [x, y] = v ? TERMS_V[i] : [hx, hy];
           const at = TERM_AT(i);
           const s = useSpring(at, 11);
           const shake = frame >= at && frame < at + 10 ? Math.sin((frame - at) * 2.6) * (10 - (frame - at)) * 0.8 : 0;
@@ -194,8 +219,8 @@ const Chaos: React.FC<P> = ({ d }) => {
                 position: "absolute",
                 left: `${x}%`,
                 top: `${y}%`,
-                width: 520,
-                transform: `translate(-50%,-50%) translateX(${shake}px) rotate(${rot}deg) scale(${0.5 + 0.5 * s})`,
+                width: v ? 500 : 520,
+                transform: `translate(-50%,-50%) translateX(${shake}px) rotate(${rot}deg) scale(${(0.5 + 0.5 * s) * (v ? 0.92 : 1)})`,
                 opacity: s,
                 borderRadius: 14,
                 overflow: "hidden",
@@ -219,7 +244,8 @@ const Chaos: React.FC<P> = ({ d }) => {
             </div>
           );
         })}
-        {NOTES.map(([x, y, rot, text], i) => {
+        {NOTES.map(([hx, hy, rot, text], i) => {
+          const [x, y] = v ? NOTES_V[i] : [hx, hy];
           const s = useSpring(NOTE_AT(i), 10);
           return (
             <div
@@ -248,9 +274,9 @@ const Chaos: React.FC<P> = ({ d }) => {
       </AbsoluteFill>
       {frame >= textAt - 4 && (
         <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 26 }}>
-          <Kinetic text="Ribet, kan?" delay={textAt} size={150} gradientWords={["Ribet,"]} />
+          <Kinetic text="Ribet, kan?" delay={textAt} size={v ? 140 : 150} gradientWords={["Ribet,"]} />
           <Fade delay={textAt + 14}>
-            <div style={{ fontFamily: MONO, fontSize: 32, color: C.ink2 }}>12 server · 12 password · akses SSH di mana-mana</div>
+            <div style={{ fontFamily: MONO, fontSize: v ? 34 : 32, color: C.ink2, textAlign: "center", maxWidth: v ? 820 : undefined, lineHeight: 1.4 }}>12 server · 12 password · akses SSH di mana-mana</div>
           </Fade>
         </AbsoluteFill>
       )}
@@ -261,15 +287,26 @@ const Chaos: React.FC<P> = ({ d }) => {
 // 1. Masalah: terlalu banyak aplikasi
 const Problem: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
-  const chips: [string, string, number, number][] = [
-    ["Terminal", "⌨", 16, 22],
-    ["Klien FTP", "📁", 78, 18],
-    ["phpMyAdmin", "🗄", 12, 70],
-    ["Catatan password", "🔑", 80, 72],
-    ["Proxy & VPN", "🌐", 50, 12],
-    ["Tunnel SSH", "⇄", 30, 86],
-    ["Snippet di notes", "{ }", 68, 88],
-  ];
+  const v = useV();
+  const chips: [string, string, number, number][] = v
+    ? [
+        ["Terminal", "⌨", 28, 14],
+        ["Klien FTP", "📁", 72, 22],
+        ["phpMyAdmin", "🗄", 30, 31],
+        ["Catatan password", "🔑", 64, 62],
+        ["Proxy & VPN", "🌐", 72, 70],
+        ["Tunnel SSH", "⇄", 28, 67],
+        ["Snippet di notes", "{ }", 50, 90],
+      ]
+    : [
+        ["Terminal", "⌨", 16, 22],
+        ["Klien FTP", "📁", 78, 18],
+        ["phpMyAdmin", "🗄", 12, 70],
+        ["Catatan password", "🔑", 80, 72],
+        ["Proxy & VPN", "🌐", 50, 12],
+        ["Tunnel SSH", "⇄", 30, 86],
+        ["Snippet di notes", "{ }", 68, 88],
+      ];
   const gather = useProgress(d - 40, d - 6);
   return (
     <Wrap d={d}>
@@ -306,8 +343,8 @@ const Problem: React.FC<P> = ({ d }) => {
           </div>
         );
       })}
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: 1 - gather }}>
-        <Kinetic text="Satu server, terlalu banyak aplikasi?" delay={30} size={88} gradientWords={["banyak", "aplikasi?"]} />
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", opacity: 1 - gather, padding: v ? "0 70px" : 0 }}>
+        <Kinetic text="Satu server, terlalu banyak aplikasi?" delay={30} size={v ? 92 : 88} gradientWords={["banyak", "aplikasi?"]} />
       </AbsoluteFill>
     </Wrap>
   );
@@ -351,25 +388,42 @@ const FeatureLayout: React.FC<{
   grad: string[];
   lines: string[];
   children: React.ReactNode;
-}> = ({ d, eyebrow, color = C.teal, title, grad, lines, children }) => (
-  <Wrap d={d}>
-    <div style={{ position: "absolute", left: 110, top: 0, bottom: 0, width: 640, display: "flex", flexDirection: "column", justifyContent: "center", gap: 30 }}>
-      <Eyebrow color={color}>{eyebrow}</Eyebrow>
-      <Kinetic text={title} delay={6} size={74} gradientWords={grad} align="left" />
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 8 }}>
-        {lines.map((l, i) => (
-          <Fade key={l} delay={26 + i * 8}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", fontSize: 29, color: C.ink2, lineHeight: 1.35 }}>
-              <span style={{ color, marginTop: 2 }}>✓</span>
-              {l}
-            </div>
-          </Fade>
-        ))}
-      </div>
+}> = ({ d, eyebrow, color = C.teal, title, grad, lines, children }) => {
+  const v = useV();
+  const bullets = (
+    <div style={{ display: "flex", flexDirection: "column", gap: v ? 14 : 16, marginTop: 8 }}>
+      {lines.map((l, i) => (
+        <Fade key={l} delay={26 + i * 8}>
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start", fontSize: v ? 32 : 29, color: C.ink2, lineHeight: 1.35 }}>
+            <span style={{ color, marginTop: 2 }}>✓</span>
+            {l}
+          </div>
+        </Fade>
+      ))}
     </div>
-    {children}
-  </Wrap>
-);
+  );
+  if (v)
+    return (
+      <Wrap d={d}>
+        <div style={{ position: "absolute", left: 70, right: 70, top: 150, display: "flex", flexDirection: "column", alignItems: "center", gap: 24, textAlign: "center" }}>
+          <Eyebrow color={color}>{eyebrow}</Eyebrow>
+          <Kinetic text={title} delay={6} size={78} gradientWords={grad} align="center" />
+        </div>
+        <div style={{ position: "absolute", left: 100, right: 100, top: 1250 }}>{bullets}</div>
+        {children}
+      </Wrap>
+    );
+  return (
+    <Wrap d={d}>
+      <div style={{ position: "absolute", left: 110, top: 0, bottom: 0, width: 640, display: "flex", flexDirection: "column", justifyContent: "center", gap: 30 }}>
+        <Eyebrow color={color}>{eyebrow}</Eyebrow>
+        <Kinetic text={title} delay={6} size={74} gradientWords={grad} align="left" />
+        {bullets}
+      </div>
+      {children}
+    </Wrap>
+  );
+};
 
 /** Jendela yang masuk dari kanan lalu melayang pelan. */
 const SlideWindow: React.FC<{ src: string; d: number; width?: number; aspect?: number; zoomTo?: number; origin?: string; glow?: string; top?: number }> = ({
@@ -383,8 +437,17 @@ const SlideWindow: React.FC<{ src: string; d: number; width?: number; aspect?: n
   top = 160,
 }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const s = useSpring(4, 18);
   const zoom = interpolate(frame, [40, d - 20], [1, zoomTo], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  if (v) {
+    // Vertikal: jendela di tengah, masuk dari bawah
+    return (
+      <div style={{ position: "absolute", left: 40, top: 560 + (1 - s) * 260 + Math.sin(frame / 40) * 6, opacity: s }}>
+        <AppWindow src={src} width={1000} aspect={aspect} rotateX={6 - s * 3} zoom={zoom} origin={origin} glow={glow} />
+      </div>
+    );
+  }
   return (
     <div style={{ position: "absolute", left: 820 + (1 - s) * 500, top: top + Math.sin(frame / 40) * 6, opacity: s }}>
       <AppWindow src={src} width={width} aspect={aspect} rotateY={-14 + (1 - s) * -20} rotateX={4} zoom={zoom} origin={origin} glow={glow} />
@@ -393,7 +456,9 @@ const SlideWindow: React.FC<{ src: string; d: number; width?: number; aspect?: n
 };
 
 // 3. Hosts
-const Hosts: React.FC<P> = ({ d }) => (
+const Hosts: React.FC<P> = ({ d }) => {
+  const v = useV();
+  return (
   <FeatureLayout
     d={d}
     eyebrow="Hosts"
@@ -402,15 +467,17 @@ const Hosts: React.FC<P> = ({ d }) => (
     lines={["Grup, tag & warna kartu bebas", "Pilih banyak host, connect sekaligus", "Password, SSH key, atau agent"]}
   >
     <SlideWindow src="hosts.jpg" d={d} />
-    <Callout text="Connect semua" icon="⚡" delay={70} style={{ left: 1290, top: 820 }} />
-    <Callout text="Production · Staging" icon="▦" color={C.blue} delay={84} style={{ left: 1560, top: 300 }} />
-    <Cursor path={[{ f: 50, x: 1900, y: 900 }, { f: 80, x: 1520, y: 560, click: true }, { f: 120, x: 1700, y: 690, click: true }]} />
+    <Callout text="Connect semua" icon="⚡" delay={70} style={v ? { left: 560, top: 1080 } : { left: 1290, top: 820 }} />
+    <Callout text="Production · Staging" icon="▦" color={C.blue} delay={84} style={v ? { left: 90, top: 520 } : { left: 1560, top: 300 }} />
+    {!v && <Cursor path={[{ f: 50, x: 1900, y: 900 }, { f: 80, x: 1520, y: 560, click: true }, { f: 120, x: 1700, y: 690, click: true }]} />}
   </FeatureLayout>
-);
+  );
+};
 
 // 4. Terminal (SSH + lokal)
 const Terminal: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const cmd = "ssh deploy@prod-api";
   const typed = cmd.slice(0, Math.max(0, Math.floor((frame - 40) / 2)));
   return (
@@ -423,7 +490,7 @@ const Terminal: React.FC<P> = ({ d }) => {
       lines={["zsh di Mac · PowerShell, CMD, WSL di Windows", "Autocomplete dari riwayat & snippet", "7 tema terminal, multi-tab"]}
     >
       <SlideWindow src="local-mac.png" d={d} aspect={903 / 1400} glow={C.blue} />
-      <Fade delay={36} style={{ position: "absolute", left: 1000, top: 830 }}>
+      <Fade delay={36} style={{ position: "absolute", left: v ? 150 : 1000, top: v ? 1060 : 830 }}>
         <div
           style={{
             fontFamily: MONO,
@@ -447,6 +514,7 @@ const Terminal: React.FC<P> = ({ d }) => {
 // 5. SFTP
 const Sftp: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   return (
     <FeatureLayout
       d={d}
@@ -464,8 +532,8 @@ const Sftp: React.FC<P> = ({ d }) => {
             key={i}
             style={{
               position: "absolute",
-              left: 1060 + t * 560,
-              top: 480 + i * 70 - Math.sin(t * Math.PI) * 120,
+              left: v ? 200 + t * 600 : 1060 + t * 560,
+              top: (v ? 760 : 480) + i * 70 - Math.sin(t * Math.PI) * 120,
               opacity: t > 0 && t < 1 ? 1 : 0,
               fontSize: 48,
               filter: "drop-shadow(0 10px 20px rgba(0,0,0,0.6))",
@@ -475,7 +543,7 @@ const Sftp: React.FC<P> = ({ d }) => {
           </div>
         );
       })}
-      <Callout text="3 file · 12,4 MB/s" icon="⇅" delay={100} style={{ left: 1420, top: 860 }} />
+      <Callout text="3 file · 12,4 MB/s" icon="⇅" delay={100} style={v ? { left: 560, top: 1060 } : { left: 1420, top: 860 }} />
     </FeatureLayout>
   );
 };
@@ -483,6 +551,7 @@ const Sftp: React.FC<P> = ({ d }) => {
 // 6. Database
 const Database: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const swap = interpolate(frame, [130, 150], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return (
     <FeatureLayout
@@ -499,14 +568,15 @@ const Database: React.FC<P> = ({ d }) => {
       <div style={{ opacity: swap }}>
         <SlideWindow src="database-search.jpg" d={d} glow={C.orange} />
       </div>
-      <Cursor path={[{ f: 60, x: 1900, y: 1000 }, { f: 95, x: 1690, y: 700 }, { f: 120, x: 1790, y: 940, click: true }]} />
-      <Callout text="“kopi” di semua kolom" icon="⌕" color={C.orange} delay={150} style={{ left: 1300, top: 860 }} />
+      {!v && <Cursor path={[{ f: 60, x: 1900, y: 1000 }, { f: 95, x: 1690, y: 700 }, { f: 120, x: 1790, y: 940, click: true }]} />}
+      <Callout text="“kopi” di semua kolom" icon="⌕" color={C.orange} delay={150} style={v ? { left: 480, top: 1080 } : { left: 1300, top: 860 }} />
     </FeatureLayout>
   );
 };
 
 // 7. Keychain, tunnel, proxy
 const Tools: React.FC<P> = ({ d }) => {
+  const v = useV();
   const cards: [string, string, string, string, number][] = [
     ["keychain.jpg", "SSH Key", "Ed25519 sekali klik", C.orange, 1032 / 1600],
     ["forwarding.jpg", "Port Forwarding", "Local, remote, SOCKS", C.green, 1032 / 1600],
@@ -514,19 +584,42 @@ const Tools: React.FC<P> = ({ d }) => {
   ];
   return (
     <Wrap d={d}>
-      <div style={{ position: "absolute", top: 90, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+      <div style={{ position: "absolute", top: v ? 150 : 90, left: v ? 70 : 0, right: v ? 70 : 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
         <Eyebrow color={C.purple}>Keychain · Tunnel · Proxy</Eyebrow>
-        <Kinetic text="Semua alat jaringan, siap pakai." delay={6} size={74} gradientWords={["siap", "pakai."]} />
+        <Kinetic text="Semua alat jaringan, siap pakai." delay={6} size={v ? 78 : 74} gradientWords={["siap", "pakai."]} />
       </div>
-      <div style={{ position: "absolute", top: 360, left: 0, right: 0, display: "flex", justifyContent: "center", alignItems: "flex-start", gap: 46 }}>
+      <div
+        style={{
+          position: "absolute",
+          top: v ? 520 : 360,
+          left: 0,
+          right: 0,
+          display: "flex",
+          flexDirection: v ? "column" : "row",
+          justifyContent: "center",
+          alignItems: v ? "center" : "flex-start",
+          gap: v ? 34 : 46,
+        }}
+      >
         {cards.map(([src, title, sub, color, aspect], i) => {
           const s = useSpring(20 + i * 10, 15);
-          const w = aspect > 1 ? 300 : 520;
+          const w = v ? (aspect > 1 ? 240 : 440) : aspect > 1 ? 300 : 520;
           return (
-            <div key={src} style={{ transform: `translateY(${(1 - s) * 140}px)`, opacity: s, display: "flex", flexDirection: "column", gap: 22, alignItems: "center" }}>
+            <div
+              key={src}
+              style={{
+                transform: `translateY(${(1 - s) * 140}px)`,
+                opacity: s,
+                display: "flex",
+                flexDirection: v ? "row" : "column",
+                gap: v ? 34 : 22,
+                alignItems: "center",
+                width: v ? 900 : undefined,
+              }}
+            >
               <AppWindow src={src} width={w} aspect={aspect > 1 ? 1.12 : aspect} glow={color} position={aspect > 1 ? "50% 86%" : "50% 50%"} />
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 34, fontWeight: 700, color: C.ink }}>{title}</div>
+              <div style={{ textAlign: v ? "left" : "center" }}>
+                <div style={{ fontSize: v ? 40 : 34, fontWeight: 700, color: C.ink }}>{title}</div>
                 <div style={{ fontSize: 24, color: C.ink2, marginTop: 6 }}>{sub}</div>
               </div>
             </div>
@@ -540,6 +633,7 @@ const Tools: React.FC<P> = ({ d }) => {
 // 8. Keamanan
 const Security: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const lock = useSpring(4, 10);
   const shackle = interpolate(frame, [40, 56], [-26, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   const items: [string, string][] = [
@@ -550,7 +644,7 @@ const Security: React.FC<P> = ({ d }) => {
   ];
   return (
     <Wrap d={d}>
-      <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", gap: 40 }}>
+      <AbsoluteFill style={{ alignItems: "center", justifyContent: v ? "flex-start" : "center", gap: 40, padding: v ? "330px 70px 0" : 0 }}>
         <div style={{ transform: `scale(${lock})`, opacity: lock, position: "relative", width: 170, height: 190 }}>
           <div
             style={{
@@ -566,8 +660,8 @@ const Security: React.FC<P> = ({ d }) => {
           />
           <div style={{ position: "absolute", left: 0, top: 80, width: 170, height: 110, borderRadius: 26, background: GRAD, boxShadow: `0 30px 80px -20px ${C.teal}` }} />
         </div>
-        <Kinetic text="Kuncinya cuma kamu yang pegang." delay={20} size={78} gradientWords={["kamu"]} />
-        <div style={{ display: "flex", gap: 22, flexWrap: "wrap", justifyContent: "center", maxWidth: 1500 }}>
+        <Kinetic text="Kuncinya cuma kamu yang pegang." delay={20} size={v ? 84 : 78} gradientWords={["kamu"]} />
+        <div style={{ display: "flex", gap: 22, flexWrap: "wrap", justifyContent: "center", maxWidth: v ? 900 : 1500, flexDirection: v ? "column" : "row", alignItems: "center" }}>
           {items.map(([t, c], i) => (
             <Fade key={t} delay={50 + i * 7}>
               <div
@@ -577,7 +671,7 @@ const Security: React.FC<P> = ({ d }) => {
                   border: `1px solid ${c}55`,
                   background: `${c}14`,
                   color: C.ink,
-                  fontSize: 27,
+                  fontSize: v ? 32 : 27,
                   fontWeight: 600,
                 }}
               >
@@ -594,8 +688,27 @@ const Security: React.FC<P> = ({ d }) => {
 // 9. Mac & Windows
 const Platforms: React.FC<P> = ({ d }) => {
   const frame = useCurrentFrame();
+  const v = useV();
   const a = useSpring(6, 16);
   const b = useSpring(16, 16);
+  const label = { marginTop: 22, textAlign: "center" as const, fontSize: 30, fontWeight: 700, color: C.ink, display: "flex", gap: 12, justifyContent: "center", alignItems: "center" };
+  if (v)
+    return (
+      <Wrap d={d}>
+        <div style={{ position: "absolute", top: 150, left: 70, right: 70, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+          <Eyebrow color={C.blue}>macOS · Windows</Eyebrow>
+          <Kinetic text="Native di Mac & Windows." delay={4} size={82} gradientWords={["Mac", "Windows."]} />
+        </div>
+        <div style={{ position: "absolute", left: 150, top: 420 + Math.sin(frame / 35) * 6, transform: `translateX(${(1 - a) * -300}px)`, opacity: a }}>
+          <AppWindow src="hosts.jpg" width={780} glow={C.teal} />
+          <div style={label}><AppleIcon /> macOS · SwiftUI</div>
+        </div>
+        <div style={{ position: "absolute", left: 150, top: 1010 + Math.cos(frame / 35) * 6, transform: `translateX(${(1 - b) * 300}px)`, opacity: b }}>
+          <AppWindow src="db-win.png" width={780} aspect={1640 / 2560} glow={C.blue} />
+          <div style={label}><WindowsIcon /> Windows · WinUI 3</div>
+        </div>
+      </Wrap>
+    );
   return (
     <Wrap d={d}>
       <div style={{ position: "absolute", top: 90, left: 0, right: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
@@ -619,6 +732,7 @@ const Platforms: React.FC<P> = ({ d }) => {
 
 // 10. Ajakan
 const Cta: React.FC<P> = ({ d }) => {
+  const v = useV();
   const s = useSpring(0, 12);
   const btn = useSpring(34, 14);
   return (
@@ -629,9 +743,9 @@ const Cta: React.FC<P> = ({ d }) => {
         </div>
         <Kinetic text="Djie Shell" delay={8} size={120} />
         <Fade delay={22} style={{ marginTop: 16 }}>
-          <div style={{ fontSize: 36, color: C.ink2 }}>Gratis · open source · tanpa iklan</div>
+          <div style={{ fontSize: v ? 40 : 36, color: C.ink2 }}>Gratis · open source · tanpa iklan</div>
         </Fade>
-        <div style={{ display: "flex", gap: 26, marginTop: 56, transform: `scale(${0.7 + 0.3 * btn})`, opacity: btn }}>
+        <div style={{ display: "flex", flexDirection: v ? "column" : "row", gap: 26, marginTop: 56, transform: `scale(${0.7 + 0.3 * btn})`, opacity: btn }}>
           <div style={{ padding: "26px 44px", borderRadius: 20, background: GRAD, color: "#06110f", fontSize: 32, fontWeight: 700, boxShadow: `0 30px 70px -20px ${C.teal}`, display: "flex", gap: 14, alignItems: "center" }}>
             <AppleIcon size={32} /> Download untuk Mac
           </div>
