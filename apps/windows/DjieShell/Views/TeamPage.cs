@@ -160,7 +160,7 @@ internal sealed class TeamPage : PageBase
         var members = Ui.Col(0);
         foreach (var m in t.Members)
         {
-            var status = Ui.Text(m.IsAdmin ? "Admin" : m.Status == MemberStatus.Joined ? "Aktif" : "Menunggu bergabung", 11,
+            var status = Ui.Text(m.IsAdmin ? "Admin" : m.Status == MemberStatus.Joined ? "Aktif" : "Belum bergabung di Djie Shell", 11,
                 fg: m.IsAdmin || m.Status == MemberStatus.Joined ? Theme.Text2 : Theme.Brush(Theme.Orange));
             UIElement? remove = m.IsAdmin ? null : Ui.IconBtn(G.RemovePerson, "Keluarkan dari tim", async () =>
             {
@@ -190,7 +190,7 @@ internal sealed class TeamPage : PageBase
         email.TextChanged += (s, e) => _inviteDrafts[t.Id] = email.Text;
         email.KeyDown += async (s, e) => { if (e.Key == Windows.System.VirtualKey.Enter) await DoInvite(); };
         var left = Ui.Col(10, Ui.Caps("Anggota"), members, Ui.Columns("*,Auto", 8, email, invite),
-            Ui.Text("Google mengirim email undangan. Rekan cukup klik Tim → Gabung tim di Djie Shell.", 11, fg: Theme.Text3, wrap: true));
+            Ui.Text("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang.", 11, fg: Theme.Text3, wrap: true));
 
         // Host dibagikan
         var shared = M.OwnHosts.Where(h => t.SharedHostIds.Contains(h.Id)).ToList();

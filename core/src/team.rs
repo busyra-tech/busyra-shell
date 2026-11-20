@@ -731,9 +731,13 @@ impl Vault {
         }
         let drive = Drive::new(token);
         let msg = format!(
-            "{} mengundangmu ke tim \"{}\" di Djie Shell. Untuk bergabung: buka Djie Shell → Tim → Gabung tim, \
-             lalu ikuti petunjuknya ({JOIN_PAGE}). Host & password di tim ini terenkripsi end-to-end.",
-            state.owner_email, state.name
+            "Kamu diundang ke tim \"{}\" di Djie Shell 👋\n\n\
+             Cara bergabung:\n\
+             1. Buka Djie Shell → Tim → Gabung tim\n\
+             2. Ikuti petunjuknya, atau buka: {JOIN_PAGE}\n\n\
+             Belum punya Djie Shell? Unduh gratis: https://masadjie.github.io/djie-shell/\n\
+             🔒 Host & password di tim ini terenkripsi end-to-end.",
+            state.name
         );
         drive.share(&state.file_id, &email, &msg).await?;
         state.members.push(MemberEntry { email, role: "member".into(), box_pub: None, wrapped: None });
@@ -791,8 +795,16 @@ impl Vault {
             r => r?,
         };
         let (file, doc) = parse_file(&bytes)?;
+        let me = norm_email(&my_email);
+        if norm_email(&doc.owner_email) == me {
+            return Err(team_err(format!(
+                "\"{}\" adalah tim milikmu — kamu adminnya. Rekan bergabung dari Djie Shell di perangkat mereka, \
+                 yang masuk dengan akun Google yang kamu undang",
+                doc.name
+            )));
+        }
         if self.data.lock().unwrap().teams.iter().any(|t| !t.deleted && t.id == doc.team_id) {
-            return Err(team_err("kamu sudah bergabung di tim ini"));
+            return Err(team_err(format!("kamu sudah bergabung di tim \"{}\"", doc.name)));
         }
         let mut state = TeamState {
             id: doc.team_id.clone(),
@@ -815,7 +827,10 @@ impl Vault {
             deleted: false,
         };
         if !doc.members.iter().any(|m| norm_email(&m.email) == state.my_email) {
-            return Err(team_err(format!("{} belum diundang ke tim \"{}\"", state.my_email, doc.name)));
+            return Err(team_err(format!(
+                "akun {} tidak diundang ke tim \"{}\". Masuk ke Djie Shell dengan akun Google yang menerima email undangan",
+                state.my_email, doc.name
+            )));
         }
         if let Some(req) = member_apply(&mut state, &ident, &file, &doc)? {
             let mut file = file;

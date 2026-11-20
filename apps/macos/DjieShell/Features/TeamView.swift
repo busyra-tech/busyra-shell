@@ -265,7 +265,7 @@ private struct TeamCard: View {
                             MemberAvatar(email: m.email)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(m.email).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
-                                Text(m.isAdmin ? "Admin" : m.status == .joined ? "Aktif" : "Menunggu bergabung")
+                                Text(m.isAdmin ? "Admin" : m.status == .joined ? "Aktif" : "Belum bergabung di Djie Shell")
                                     .font(.system(size: 11))
                                     .foregroundStyle(m.isAdmin || m.status == .joined ? .secondary : Color.orange)
                             }
@@ -286,7 +286,7 @@ private struct TeamCard: View {
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(!inviteEmail.contains("@") || model.teamBusy)
                 }
-                Text("Google mengirim email undangan. Rekan cukup klik Tim → Gabung tim di Djie Shell.")
+                Text("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang.")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
