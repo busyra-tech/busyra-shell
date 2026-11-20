@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Djie Shell — SSH Client & SFTP Gratis untuk Mac</title>
-<meta name="description" content="Djie Shell adalah SSH client native untuk macOS: kelola banyak server, SFTP drag & drop, SSH key, port forwarding, snippet, dan sync terenkripsi lewat Google Drive. Gratis dan open source." />
-<meta name="keywords" content="SSH client Mac, SFTP Mac, terminal SSH, aplikasi SSH gratis, alternatif Termius, SSH key manager, port forwarding, macOS" />
+<title>Djie Shell — SSH Client & SFTP Gratis untuk Mac & Windows</title>
+<meta name="description" content="Djie Shell adalah SSH client native untuk macOS dan Windows: kelola banyak server, SFTP drag & drop, database ala phpMyAdmin, proxy SOCKS5/HTTP, SSH key, port forwarding, snippet, dan sync terenkripsi lewat Google Drive. Gratis dan open source." />
+<meta name="keywords" content="SSH client Mac, SFTP Mac, terminal SSH, aplikasi SSH gratis, alternatif Termius, SSH key manager, port forwarding, macOS, SSH client Windows, SFTP Windows, phpMyAdmin desktop, terminal Windows" />
 <meta name="author" content="Adjie Kurniawan" />
 <meta name="robots" content="index, follow, max-image-preview:large" />
 <link rel="canonical" href="https://masadjie.github.io/djie-shell/" />
@@ -22,14 +22,14 @@
 <meta property="og:locale" content="id_ID" />
 <meta property="og:locale:alternate" content="en_US" />
 <meta property="og:url" content="https://masadjie.github.io/djie-shell/" />
-<meta property="og:title" content="Djie Shell — SSH Client & SFTP Gratis untuk Mac" />
+<meta property="og:title" content="Djie Shell — SSH Client & SFTP Gratis untuk Mac & Windows" />
 <meta property="og:description" content="Semua servermu, satu terminal. SSH, SFTP, keychain, port forwarding, dan sync terenkripsi. Gratis, tanpa iklan, tanpa server." />
 <meta property="og:image" content="https://masadjie.github.io/djie-shell/assets/brand/og.jpg" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta property="og:image:alt" content="Logo Djie Shell dan tulisan Semua servermu, satu terminal." />
 <meta name="twitter:card" content="summary_large_image" />
-<meta name="twitter:title" content="Djie Shell — SSH Client & SFTP Gratis untuk Mac" />
+<meta name="twitter:title" content="Djie Shell — SSH Client & SFTP Gratis untuk Mac & Windows" />
 <meta name="twitter:description" content="Semua servermu, satu terminal. Gratis, tanpa iklan, tanpa server." />
 <meta name="twitter:image" content="https://masadjie.github.io/djie-shell/assets/brand/og.jpg" />
 
@@ -38,9 +38,9 @@
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Djie Shell",
-  "operatingSystem": "macOS 15+",
+  "operatingSystem": "macOS 15+, Windows 10, Windows 11",
   "applicationCategory": "DeveloperApplication",
-  "description": "SSH client native untuk macOS dengan SFTP, keychain SSH, port forwarding, snippet, dan sync terenkripsi lewat Google Drive.",
+  "description": "SSH client native untuk macOS dan Windows dengan SFTP, keychain SSH, port forwarding, snippet, dan sync terenkripsi lewat Google Drive.",
   "url": "https://masadjie.github.io/djie-shell/",
   "downloadUrl": "https://github.com/masadjie/djie-shell/releases/latest",
   "image": "https://masadjie.github.io/djie-shell/assets/brand/icon-512.png",
@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -88,7 +88,8 @@
   .lead { color: var(--ink-2); font-size: 18px; max-width: 620px; }
   .grad-text { background: linear-gradient(110deg, #2fc4a8, #4d8ff0, #8f6ef0, #4d8ff0, #2fc4a8); -webkit-background-clip: text; background-clip: text; color: transparent; }
 
-  header.top { position: sticky; top: 0; z-index: 50; backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); background: color-mix(in srgb, var(--paper) 78%, transparent); border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); }
+  header.top { position: sticky; top: 0; z-index: 50; margin-bottom: -65px; background: transparent; border-bottom: 1px solid transparent; transition: background .3s, border-color .3s, backdrop-filter .3s; }
+  header.top.scrolled { backdrop-filter: saturate(160%) blur(16px); -webkit-backdrop-filter: saturate(160%) blur(16px); background: color-mix(in srgb, var(--paper) 72%, transparent); border-bottom-color: color-mix(in srgb, var(--line) 60%, transparent); }
   .bar { display: flex; align-items: center; gap: 14px; height: 64px; }
   .brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
   .logo { width: 34px; height: 34px; border-radius: 10px; background: var(--grad); display: grid; place-items: center; font: 800 14px var(--f-mono); color: #071214; box-shadow: 0 6px 20px -6px color-mix(in srgb, var(--teal) 70%, transparent); }
@@ -118,7 +119,7 @@
   .btn.sm { padding: 10px 16px; font-size: 14px; }
   .btn.wa { background: #25d366; color: #052e16; border: 0; padding: 10px 16px; font-size: 14px; }
 
-  .hero { position: relative; text-align: center; padding: 80px 0 40px; overflow: hidden; isolation: isolate; }
+  .hero { position: relative; text-align: center; padding: 145px 0 40px; overflow: hidden; isolation: isolate; }
   .hero::before { content: ""; position: absolute; inset: -20% -10% auto; height: 720px; background:
       radial-gradient(40% 50% at 30% 30%, color-mix(in srgb, var(--teal) 22%, transparent), transparent 70%),
       radial-gradient(35% 45% at 70% 25%, color-mix(in srgb, var(--violet) 20%, transparent), transparent 70%);
@@ -138,7 +139,7 @@
   .hero .lead { margin: 0 auto 30px; }
   .cta { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
   .meta { margin-top: 18px; font: 400 12px var(--f-mono); color: var(--ink-3); }
-  .meta span + span::before { content: "·"; margin: 0 10px; }
+  .meta > span + span::before { content: "·"; margin: 0 10px; }
   .typed::after { content: "▍"; color: var(--teal); animation: blink 1s steps(1) infinite; margin-left: 2px; }
   @keyframes blink { 50% { opacity: 0; } }
 
@@ -205,6 +206,16 @@
   .release dl { margin: 18px 0 22px; }
   .release dl div { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
   .release dt { color: var(--ink-3); } .release dd { margin: 0; font-weight: 600; }
+  .btn.ghost { background: none; border-color: transparent; color: var(--ink-2); }
+  .btn.ghost:hover { color: var(--ink); }
+  #heroWin { order: 2; } #heroMac { order: 1; } .cta .ghost { order: 3; }
+  .os-win #heroWin { order: 1; } .os-win #heroMac { order: 2; }
+  .ostabs { margin: 0 0 22px; }
+  .ospane[hidden] { display: none; }
+  .install .card h3 { display: flex; align-items: center; gap: 10px; }
+  .install .card h3 svg { width: 20px; height: 20px; }
+  .arch { font-size: 13px; color: var(--ink-3); margin-top: 14px; }
+  .arch a { color: var(--ink-2); }
   .soon { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--ink-3); margin-top: 14px; }
 
   .faq { margin-top: 36px; border-top: 1px solid var(--line); }
@@ -247,13 +258,14 @@
   <div class="wrap bar">
     <a class="brand" href="#">
       <img class="logo-img" src="assets/brand/favicon.svg" alt="" width="34" height="34" />
-      <span><b>Djie Shell</b><small data-i18n="brand.sub">SSH Client untuk Mac</small></span>
+      <span><b>Djie Shell</b><small data-i18n="brand.sub">SSH Client untuk Mac &amp; Windows</small></span>
     </a>
     <span class="ver" id="ver">0.1</span>
     <nav class="links">
       <a href="#hosts">Hosts</a>
       <a href="#keychain">Keychain</a>
       <a href="#sftp">SFTP</a>
+      <a href="#database">Database</a>
       <a href="#forwarding">Forwarding</a>
       <a href="#keamanan" data-i18n="nav.sec">Keamanan</a>
       <a href="#install">Install</a>
@@ -279,15 +291,13 @@
     <div class="wrap">
       <span class="eyebrow fade-up d1" data-i18n="hero.eyebrow">SSH client native · gratis · open source</span>
       <h1><span class="ln"><span class="grad-text" data-i18n="hero.t1">Semua servermu,</span></span><span class="ln"><span data-i18n="hero.t2">satu terminal.</span></span></h1>
-      <p class="lead fade-up d2" data-i18n="hero.lead">Kelola host, SFTP, SSH key, port forwarding, dan snippet dalam satu app Mac yang cepat dan indah. Semua data terenkripsi, tersinkron lewat Google Drive milikmu sendiri.</p>
+      <p class="lead fade-up d2" data-i18n="hero.lead">Kelola host, SFTP, database, SSH key, port forwarding, dan snippet dalam satu app native yang cepat dan indah — untuk Mac dan Windows. Semua data terenkripsi, tersinkron lewat Google Drive milikmu sendiri.</p>
       <div class="cta fade-up d3">
-        <a class="btn primary" id="dlMain" href="https://github.com/masadjie/djie-shell/releases/latest">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg>
-          <span data-i18n="hero.dl">Download untuk Mac</span>
-        </a>
-        <a class="btn" href="#hosts" data-i18n="hero.more">Lihat fitur</a>
+        <a class="btn primary" id="heroMac" href="https://github.com/masadjie/djie-shell/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="hero.dl">Download untuk Mac</span></a>
+        <a class="btn" id="heroWin" href="https://github.com/masadjie/djie-shell/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.4 4.6v6.9H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v6.9L3 18.4zM11.4 12.5H21V21l-9.6-1.4z"/></svg><span data-i18n="hero.dlw">Download untuk Windows</span></a>
+        <a class="btn ghost" href="#hosts" data-i18n="hero.more">Lihat fitur</a>
       </div>
-      <div class="meta fade-up d4"><span id="dmgSize">DMG ±7 MB</span><span>macOS 15+</span><span>Apple Silicon &amp; Intel</span></div>
+      <div class="meta fade-up d4"><span>macOS 15+ · <span class="sizeMac">DMG ±7 MB</span></span><span>Windows 10/11 · <span class="sizeWin">EXE ±50 MB</span></span><span>MIT · open source</span></div>
 
       <div class="stage reveal" id="stage">
         <div class="chip c1"><i>●</i><span>XChaCha20 + Argon2id</span></div>
@@ -301,6 +311,7 @@
         <button data-shot="editor">Editor</button>
         <button data-shot="keychain">Keychain</button>
         <button data-shot="sftp">SFTP</button>
+        <button data-shot="database">Database</button>
         <button data-shot="forwarding">Forwarding</button>
         <button data-shot="snippets">Snippets</button>
         <button data-shot="logs">Logs</button>
@@ -314,7 +325,7 @@
       <div class="stat"><b>0<small data-i18n="st.1u">server</small></b><p data-i18n="st.1">Tidak ada server Djie Shell. Datamu tidak pernah lewat kami.</p></div>
       <div class="stat"><b><span class="count" data-to="256">0</span><small>bit</small></b><p data-i18n="st.2">Kunci XChaCha20-Poly1305 dari master password-mu.</p></div>
       <div class="stat"><b>1<small data-i18n="st.3u">klik</small></b><p data-i18n="st.3">Pilih banyak host, connect semua dalam satu klik.</p></div>
-      <div class="stat"><b><span class="count" data-to="100">0</span><small>%</small></b><p data-i18n="st.4">Native SwiftUI — bukan web yang dibungkus.</p></div>
+      <div class="stat"><b><span class="count" data-to="100">0</span><small>%</small></b><p data-i18n="st.4">Native SwiftUI &amp; WinUI 3 — bukan web yang dibungkus.</p></div>
     </div>
   </div>
 
@@ -329,9 +340,10 @@
         <h3 data-i18n="h.h3">Cepat ditemukan, cepat tersambung</h3>
         <p data-i18n="h.p">Status "Terhubung" berdenyut di host yang sedang aktif, dan setiap kartu menunjukkan kapan terakhir kamu connect.</p>
         <div class="spec">
-          <div><span class="k">Multi-host</span><span class="v" data-i18n="h.v1">⌘-klik untuk memilih, lalu Connect semua</span></div>
+          <div><span class="k">Multi-host</span><span class="v" data-i18n="h.v1">⌘/Ctrl-klik untuk memilih, lalu Connect semua</span></div>
           <div><span class="k" data-i18n="h.k2">Autentikasi</span><span class="v" data-i18n="h.v2">Password, SSH key, atau SSH agent</span></div>
-          <div><span class="k" data-i18n="h.k3">Lanjutan</span><span class="v" data-i18n="h.v3">Jump host, agent forwarding, startup snippet, env var</span></div>
+          <div><span class="k" data-i18n="h.k3">Lanjutan</span><span class="v" data-i18n="h.v3">Jump host, proxy SOCKS5/HTTP, agent forwarding, startup snippet, env var</span></div>
+          <div><span class="k" data-i18n="h.k6">Terminal lokal</span><span class="v" data-i18n="h.v6">zsh di Mac, PowerShell / CMD / WSL di Windows — tab di samping sesi SSH (⇧⌘T / Ctrl+Shift+T)</span></div>
           <div><span class="k" data-i18n="h.k4">Tampilan</span><span class="v" data-i18n="h.v4">7 tema terminal, warna kartu bebas, mode gelap &amp; terang</span></div>
           <div><span class="k" data-i18n="h.k5">Privasi</span><span class="v" data-i18n="h.v5">Alamat server disamarkan — aman saat berbagi layar</span></div>
         </div>
@@ -344,7 +356,7 @@
     <div class="head reveal">
       <span class="eyebrow">SFTP</span>
       <h2 data-i18n="sf.t">File server,<br />semudah Finder.</h2>
-      <p class="lead" data-i18n="sf.lead">Dua panel berdampingan: Mac di kiri, server di kanan. Seret file atau folder dari Finder untuk upload, seret balik untuk download — dengan progress, kecepatan, dan tombol batal.</p>
+      <p class="lead" data-i18n="sf.lead">Dua panel berdampingan: komputermu di kiri, server di kanan. Seret file atau folder dari Finder atau Explorer untuk upload, seret balik untuk download — dengan progress, kecepatan, dan tombol batal.</p>
     </div>
     <div class="shot reveal" style="margin-top:44px"><img src="assets/screens/sftp.jpg" alt="SFTP dua panel di Djie Shell" loading="lazy" width="1600" height="1032" /></div>
     <div class="split" style="margin-top:28px">
@@ -360,6 +372,34 @@
           <div><span class="k" data-i18n="sf.k4">Keamanan</span><span class="v" data-i18n="sf.v4">Fingerprint server dicek dengan known_hosts</span></div>
           <div><span class="k" data-i18n="sf.k5">Mesin</span><span class="v" data-i18n="sf.v5">SSH native di inti Rust — tanpa aplikasi tambahan</span></div>
           <div><span class="k">Path</span><span class="v" data-i18n="sf.v6">Breadcrumb yang bisa diklik, atau ketik path langsung</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="feat wrap" id="database">
+    <div class="head reveal">
+      <span class="eyebrow">Database</span>
+      <h2 data-i18n="db.t">Database ala phpMyAdmin,<br />langsung di app.</h2>
+      <p class="lead" data-i18n="db.lead">MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, dan 15 layanan lain. Telusuri tabel, lihat struktur, jalankan SQL — tanpa buka browser, dan bisa lewat tunnel SSH.</p>
+    </div>
+    <div class="shot reveal" style="margin-top:44px"><img src="assets/screens/database.jpg" alt="Tab Cari per kolom di Djie Shell" loading="lazy" width="1600" height="1032" /></div>
+    <div class="split" style="margin-top:28px">
+      <div class="copy reveal">
+        <h3 data-i18n="db.h1">Cari seperti phpMyAdmin</h3>
+        <p data-i18n="db.p1">Tab <b>Cari</b> berisi satu baris per kolom: pilih operator (<code>=</code>, <code>LIKE %…%</code>, <code>IN</code>, <code>BETWEEN</code>, <code>IS NULL</code>, …), isi nilai, lalu Kirim. Hasilnya tampil di Telusuri lengkap dengan paging dan jumlah baris.</p>
+        <div class="spec">
+          <div><span class="k" data-i18n="db.k1">Cari cepat</span><span class="v" data-i18n="db.v1">Ketik sekali, cari di semua kolom tabel</span></div>
+          <div><span class="k" data-i18n="db.k2">Daftar tabel</span><span class="v" data-i18n="db.v2">Tampilkan / sembunyikan untuk ruang lebih lega</span></div>
+          <div><span class="k" data-i18n="db.k3">Tab</span><span class="v" data-i18n="db.v3">Ringkasan, Telusuri, Struktur, Cari, SQL</span></div>
+        </div>
+      </div>
+      <div class="copy reveal">
+        <div class="spec">
+          <div><span class="k">Engine</span><span class="v" data-i18n="db.v4">23 preset: RDS, Supabase, Neon, PlanetScale, TiDB, Atlas, Upstash, …</span></div>
+          <div><span class="k" data-i18n="db.k5">Koneksi</span><span class="v" data-i18n="db.v5">Langsung, TLS, atau lewat tunnel SSH &amp; proxy</span></div>
+          <div><span class="k" data-i18n="db.k6">Ekspor</span><span class="v" data-i18n="db.v6">Simpan hasil sebagai CSV</span></div>
+          <div><span class="k">SQL</span><span class="v" data-i18n="db.v7">Editor dengan riwayat query, ⌘/Ctrl+Enter untuk menjalankan</span></div>
         </div>
       </div>
     </div>
@@ -383,13 +423,15 @@
 
   <section class="feat wrap" id="forwarding">
     <div class="head reveal">
-      <span class="eyebrow">Port forwarding · Snippets</span>
+      <span class="eyebrow">Port forwarding · Proxy · Snippets</span>
       <h2 data-i18n="f.t">Tunnel &amp; perintah favorit,<br />sekali klik.</h2>
     </div>
     <div class="split">
       <div class="copy reveal">
         <h3>Port Forwarding</h3>
         <p data-i18n="f.p1">Buka database di server lewat <code>localhost</code>, ekspos port lokal ke server, atau jadikan server proxy SOCKS. Nyalakan dengan toggle, status terlihat langsung.</p>
+        <h3 style="margin-top:28px">Proxy SOCKS5 &amp; HTTP</h3>
+        <p data-i18n="f.px">Di jaringan kantor atau kampus yang wajib lewat proxy? Atur proxy per host, lengkap dengan login. Terminal, SFTP, tunnel, dan koneksi database ikut lewat proxy — password proxy tersimpan terenkripsi di vault.</p>
         <h3 style="margin-top:28px">Snippets</h3>
         <p data-i18n="f.p2">Simpan perintah seperti <code>df -h</code> atau update sistem, lalu jalankan ke banyak host sekaligus atau kirim ke tab yang sedang aktif.</p>
       </div>
@@ -422,9 +464,9 @@
       <div class="card reveal"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
         <h3 data-i18n="s.c1">Enkripsi end-to-end</h3><p data-i18n="s.c1p">Argon2id + XChaCha20-Poly1305. Master password tidak pernah disimpan atau dikirim ke mana pun.</p></div>
       <div class="card reveal"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 14a8 8 0 0 1 14-5.3M20 10a8 8 0 0 1-14 5.3"/><path d="M18 3v6h-6M6 21v-6h6"/></svg></div>
-        <h3 data-i18n="s.c2">Sync Google Drive</h3><p data-i18n="s.c2p">Otomatis setelah setiap perubahan. Login di Mac lain, masukkan master password, semua host kembali.</p></div>
+        <h3 data-i18n="s.c2">Sync Google Drive</h3><p data-i18n="s.c2p">Otomatis setelah setiap perubahan. Login di Mac atau PC lain, masukkan master password, semua host kembali.</p></div>
       <div class="card reveal"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2a10 10 0 0 0-7 17M12 6a6 6 0 0 1 6 6c0 3-1 5-2 7M12 10a2 2 0 0 1 2 2c0 3-1 6-3 9M8 12a4 4 0 0 1 6-3.4"/></svg></div>
-        <h3>Touch ID</h3><p data-i18n="s.c3p">Buka vault dengan sidik jari. Kunci otomatis dengan ⇧⌘L kapan saja.</p></div>
+        <h3>Touch ID &amp; Windows Hello</h3><p data-i18n="s.c3p">Buka vault dengan sidik jari atau wajah. Kunci kapan saja dengan ⇧⌘L di Mac atau Ctrl+Shift+L di Windows.</p></div>
     </div>
   </section>
 
@@ -436,28 +478,44 @@
     </div>
     <div class="install">
       <div class="card reveal">
-        <h3 style="margin-bottom:18px" data-i18n="i.h">Cara install di Mac</h3>
+        <div class="pills ostabs" id="osTabs">
+          <button data-pick="mac" class="on">macOS</button>
+          <button data-pick="win">Windows</button>
+        </div>
+        <div class="ospane" data-os="mac">
+        <h3 style="margin-bottom:18px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="i.h">Cara install di Mac</span></h3>
         <ol class="steps">
           <li data-i18n="i.s1">Download file <b>.dmg</b>, buka, lalu seret <b>Djie Shell</b> ke folder Applications.</li>
           <li data-i18n="i.s2">App belum dinotarisasi Apple (butuh akun developer berbayar). Saat pertama dibuka, buka <b>System Settings → Privacy &amp; Security</b> lalu klik <b>Open Anyway</b>.</li>
           <li data-i18n="i.s3">Kalau muncul pesan "rusak", jalankan sekali di Terminal:</li>
         </ol>
         <code>xattr -cr "/Applications/Djie Shell.app"</code>
+        </div>
+        <div class="ospane" data-os="win" hidden>
+        <h3 style="margin-bottom:18px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.4 4.6v6.9H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v6.9L3 18.4zM11.4 12.5H21V21l-9.6-1.4z"/></svg><span data-i18n="i.hw">Cara install di Windows</span></h3>
+        <ol class="steps">
+          <li data-i18n="i.w1">Download <b>Setup.exe</b>: versi <b>x64</b> untuk kebanyakan PC, atau <b>ARM64</b> untuk PC ARM seperti Snapdragon.</li>
+          <li data-i18n="i.w2">App belum ditandatangani sertifikat berbayar. Kalau muncul <b>Windows protected your PC</b>, klik <b>More info → Run anyway</b>.</li>
+          <li data-i18n="i.w3">Ikuti installer — tidak butuh hak admin. Setelah selesai, buka <b>Djie Shell</b> dari Start Menu.</li>
+        </ol>
+        <p class="arch" data-i18n="i.w4">Hapus kapan saja lewat <b>Settings → Apps</b>. Vault dan pengaturanmu tetap aman.</p>
+        </div>
       </div>
       <div class="card release reveal">
         <span class="eyebrow" data-i18n="i.rel">Rilis terbaru</span>
         <dl>
           <div><dt data-i18n="i.d1">Versi</dt><dd id="relVer">0.1.0</dd></div>
-          <div><dt>File</dt><dd id="relSize">DMG ±7 MB</dd></div>
-          <div><dt data-i18n="i.d3">Sistem</dt><dd>macOS 15 Sequoia+</dd></div>
-          <div><dt>Chip</dt><dd>Apple Silicon &amp; Intel</dd></div>
+          <div><dt>Mac</dt><dd><span class="sizeMac">DMG ±7 MB</span> · macOS 15+</dd></div>
+          <div><dt>Windows</dt><dd><span class="sizeWin">EXE ±50 MB</span> · Windows 10/11</dd></div>
+                    <div><dt>Chip</dt><dd>Apple Silicon, Intel, x64 &amp; ARM64</dd></div>
           <div><dt data-i18n="i.d5">Lisensi</dt><dd>MIT · open source</dd></div>
         </dl>
         <div class="cta" style="justify-content:flex-start">
-          <a class="btn primary sm" id="dlSecond" href="https://github.com/masadjie/djie-shell/releases/latest" data-i18n="hero.dl">Download untuk Mac</a>
+          <a class="btn primary sm" id="dlMac" href="https://github.com/masadjie/djie-shell/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="hero.dl">Download untuk Mac</span></a>
+          <a class="btn primary sm" id="dlWin" href="https://github.com/masadjie/djie-shell/releases/latest"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.4 4.6v6.9H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v6.9L3 18.4zM11.4 12.5H21V21l-9.6-1.4z"/></svg><span data-i18n="hero.dlw">Download untuk Windows</span></a>
           <a class="btn sm" href="https://github.com/masadjie/djie-shell/releases" data-i18n="i.notes">Catatan rilis</a>
         </div>
-        <div class="soon">🪟 <span data-i18n="i.win">Versi Windows sedang dikerjakan.</span></div>
+        <p class="arch"><span data-i18n="i.arch">PC Windows berbasis ARM?</span> <a id="dlWinArm" href="https://github.com/masadjie/djie-shell/releases/latest" data-i18n="i.archdl">Download versi ARM64</a></p>
       </div>
     </div>
   </section>
@@ -466,11 +524,12 @@
     <div class="head reveal"><span class="eyebrow">FAQ</span><h2 data-i18n="q.t">Yang sering ditanyakan.</h2></div>
     <div class="faq reveal">
       <details><summary data-i18n="q.1">Benar-benar gratis?</summary><p data-i18n="q.1a">Ya. Lisensi MIT, tanpa iklan dan tanpa langganan. Donasi sifatnya sukarela.</p></details>
-      <details><summary data-i18n="q.2">Apakah Djie Shell bisa melihat password server saya?</summary><p data-i18n="q.2a">Tidak. Semua data dienkripsi di Mac-mu dengan master password. Djie Shell tidak punya server, dan Google hanya menyimpan file terenkripsi yang tidak bisa dibaca tanpa master password.</p></details>
+      <details><summary data-i18n="q.2">Apakah Djie Shell bisa melihat password server saya?</summary><p data-i18n="q.2a">Tidak. Semua data dienkripsi di perangkatmu dengan master password. Djie Shell tidak punya server, dan Google hanya menyimpan file terenkripsi yang tidak bisa dibaca tanpa master password.</p></details>
       <details><summary data-i18n="q.3">Kalau lupa master password?</summary><p data-i18n="q.3a">Vault tidak bisa dibuka — itu konsekuensi enkripsi end-to-end. Simpan master password di tempat yang aman.</p></details>
-      <details><summary data-i18n="q.4">Kenapa muncul peringatan saat dibuka?</summary><p data-i18n="q.4a">App belum dinotarisasi Apple karena butuh akun developer berbayar. Kode sumbernya terbuka di GitHub untuk diperiksa siapa saja. Buka lewat Privacy &amp; Security → Open Anyway cukup sekali.</p></details>
+      <details><summary data-i18n="q.4">Kenapa muncul peringatan saat dibuka?</summary><p data-i18n="q.4a">App belum dinotarisasi Apple dan belum ditandatangani sertifikat Windows, karena keduanya berbayar. Kode sumbernya terbuka di GitHub untuk diperiksa siapa saja. Di Mac buka lewat Privacy &amp; Security → Open Anyway; di Windows klik More info → Run anyway. Cukup sekali.</p></details>
       <details><summary data-i18n="q.5">Akses Google Drive apa yang diminta?</summary><p data-i18n="q.5a">Hanya folder data khusus aplikasi (drive.appdata) yang tersembunyi. Djie Shell tidak bisa melihat file lain di Drive-mu.</p></details>
-      <details><summary data-i18n="q.6">Ada versi Windows?</summary><p data-i18n="q.6a">Sedang dikerjakan, memakai inti Rust yang sama sehingga vault bisa dipakai bersama di Mac dan Windows.</p></details>
+      <details><summary data-i18n="q.7">Bisa konek lewat proxy kantor?</summary><p data-i18n="q.7a">Bisa. Di editor host buka <b>Lanjutan → Proxy</b>, pilih SOCKS5 atau HTTP, isi alamat, port, dan login jika perlu. Bisa juga sebaliknya: jadikan server SSH sebagai proxy SOCKS lewat Port Forwarding.</p></details>
+      <details><summary data-i18n="q.6">Ada versi Windows?</summary><p data-i18n="q.6a">Ada! Windows 10 dan 11, untuk PC x64 maupun ARM64. Memakai inti Rust yang sama, jadi satu vault bisa dipakai bersama di Mac dan Windows lewat sync Google Drive.</p></details>
     </div>
   </section>
 
@@ -483,7 +542,7 @@
       <div class="reveal">
         <span class="eyebrow" data-i18n="d.eye">Donasi</span>
         <h2 style="margin:16px 0 18px" data-i18n="d.t">Traktir kopi<br />pembuatnya.</h2>
-        <p class="lead" data-i18n="d.p">Djie Shell dibuat oleh <b>Adjie Kurniawan</b> dan dibagikan gratis. Donasi membantu fitur berikutnya — termasuk versi Windows — lahir lebih cepat.</p>
+        <p class="lead" data-i18n="d.p">Djie Shell dibuat oleh <b>Adjie Kurniawan</b> dan dibagikan gratis. Donasi membantu fitur berikutnya lahir lebih cepat.</p>
         <ol>
           <li data-i18n="d.s1">Buka aplikasi bank atau e-wallet berlogo QRIS: GoPay, OVO, DANA, ShopeePay, atau m-banking.</li>
           <li data-i18n="d.s2">Scan kode QRIS dan isi nominal seikhlasnya.</li>
@@ -519,44 +578,57 @@
 <script>
 // Bahasa: Indonesia ditulis di HTML, Inggris di sini.
 const EN = {
-  "brand.sub": "SSH Client for Mac", "nav.sec": "Security", "nav.donate": "Donate",
+  "brand.sub": "SSH Client for Mac &amp; Windows", "nav.sec": "Security", "nav.donate": "Donate",
   "hero.eyebrow": "Native SSH client · free · open source", "hero.t1": "All your servers,", "hero.t2": "one terminal.",
-  "hero.lead": "Manage hosts, SFTP, SSH keys, port forwarding, and snippets in one fast, beautiful Mac app. Everything is encrypted and synced through your own Google Drive.",
-  "hero.dl": "Download for Mac", "hero.more": "See features", "chip.2": "Google Drive sync", "chip.3": "Connect many hosts at once", "pill.light": "Light mode",
+  "hero.lead": "Manage hosts, SFTP, databases, SSH keys, port forwarding, and snippets in one fast, beautiful native app — for Mac and Windows. Everything is encrypted and synced through your own Google Drive.",
+  "hero.dl": "Download for Mac", "hero.dlw": "Download for Windows", "hero.more": "See features", "chip.2": "Google Drive sync", "chip.3": "Connect many hosts at once", "pill.light": "Light mode",
   "st.1u": "servers", "st.1": "No Djie Shell servers. Your data never passes through us.", "st.2": "XChaCha20-Poly1305 key derived from your master password.",
-  "st.3u": "click", "st.3": "Pick many hosts and connect to all of them in one click.", "st.4": "Native SwiftUI — not a wrapped web page.",
+  "st.3u": "click", "st.3": "Pick many hosts and connect to all of them in one click.", "st.4": "Native SwiftUI &amp; WinUI 3 — not a wrapped web page.",
   "h.t": "Every server,<br />neatly on one screen.", "h.lead": "Grid or list, grouped, with a card color of your choice. Double-click to connect, or select several hosts and connect to all of them at once — one tab per host.",
   "h.h3": "Quick to find, quick to connect", "h.p": "A pulsing “Connected” badge marks active hosts, and every card shows when you last connected.",
-  "h.v1": "⌘-click to select, then Connect all", "h.k2": "Authentication", "h.v2": "Password, SSH key, or SSH agent",
-  "h.k3": "Advanced", "h.v3": "Jump host, agent forwarding, startup snippet, env vars", "h.k4": "Look", "h.v4": "7 terminal themes, any card color, dark &amp; light mode",
+  "h.v1": "⌘/Ctrl-click to select, then Connect all", "h.k2": "Authentication", "h.v2": "Password, SSH key, or SSH agent",
+  "h.k3": "Advanced", "h.v3": "Jump host, SOCKS5/HTTP proxy, agent forwarding, startup snippet, env vars", "h.k6": "Local terminal", "h.v6": "zsh on Mac, PowerShell / CMD / WSL on Windows — a tab right next to your SSH sessions (⇧⌘T / Ctrl+Shift+T)", "h.k4": "Look", "h.v4": "7 terminal themes, any card color, dark &amp; light mode",
   "h.k5": "Privacy", "h.v5": "Server addresses are masked — safe for screen sharing",
   "k.t": "SSH keys, minus the hassle.", "k.p": "Generate an Ed25519 key in one click, or import from <code>~/.ssh</code>. The public key is copied, ready to paste on your server.",
   "k.v1": "Ed25519 — fast &amp; secure", "k.v2": "OpenSSH format: Ed25519, RSA, ECDSA, with passphrase", "k.v3": "SHA256, same as ssh-keygen",
   "f.t": "Tunnels &amp; favorite commands,<br />one click away.", "f.p1": "Reach a server database through <code>localhost</code>, expose a local port to the server, or turn the server into a SOCKS proxy. Toggle it on and watch the status live.",
+  "f.px": "On an office or campus network that requires a proxy? Set a proxy per host, login included. Terminal, SFTP, tunnels, and database connections all go through it — the proxy password stays encrypted in your vault.",
   "f.p2": "Save commands like <code>df -h</code> or a system update, then run them on many hosts at once or send them to the active tab.",
   "f.p3": "View and manage fingerprints in <code>~/.ssh/known_hosts</code>, plus a history of every session: when, how long, and how it ended.",
   "s.eye": "Security &amp; sync", "s.t": "Only you<br />hold the key.", "s.lead": "No Djie Shell account and no servers of ours. Your vault is encrypted on your device, and its copy lives in a hidden folder in your own Google Drive.",
   "s.c1": "End-to-end encryption", "s.c1p": "Argon2id + XChaCha20-Poly1305. Your master password is never stored or sent anywhere.",
-  "s.c2": "Google Drive sync", "s.c2p": "Automatic after every change. Sign in on another Mac, enter your master password, and all your hosts are back.",
-  "s.c3p": "Unlock the vault with your fingerprint. Lock it any time with ⇧⌘L.",
-  "i.t": "Download. Open. Connect.", "i.lead": "Free forever, no ads. Found a problem or have an idea? Tell us on GitHub.", "i.h": "Installing on Mac",
+  "s.c2": "Google Drive sync", "s.c2p": "Automatic after every change. Sign in on another Mac or PC, enter your master password, and all your hosts are back.",
+  "s.c3p": "Unlock the vault with your fingerprint or face. Lock it any time with ⇧⌘L on Mac or Ctrl+Shift+L on Windows.",
+  "i.t": "Download. Open. Connect.", "i.lead": "Free forever, no ads. Found a problem or have an idea? Tell us on GitHub.", "i.h": "Installing on Mac", "i.hw": "Installing on Windows",
+  "i.w1": "Download <b>Setup.exe</b>: the <b>x64</b> version for most PCs, or <b>ARM64</b> for ARM PCs such as Snapdragon.",
+  "i.w2": "The app isn't signed with a paid certificate yet. If you see <b>Windows protected your PC</b>, click <b>More info → Run anyway</b>.",
+  "i.w3": "Follow the installer — no admin rights needed. When it's done, open <b>Djie Shell</b> from the Start menu.",
+  "i.w4": "Remove it any time from <b>Settings → Apps</b>. Your vault and settings stay safe.",
+  "i.arch": "Windows PC on ARM?", "i.archdl": "Download the ARM64 version",
   "i.s1": "Download the <b>.dmg</b>, open it, and drag <b>Djie Shell</b> into Applications.",
   "i.s2": "The app isn't notarized by Apple (that needs a paid developer account). On first launch, open <b>System Settings → Privacy &amp; Security</b> and click <b>Open Anyway</b>.",
   "i.s3": "If macOS says the app is “damaged”, run this once in Terminal:", "i.rel": "Latest release", "i.d1": "Version", "i.d3": "System", "i.d5": "License",
-  "i.notes": "Release notes", "i.win": "A Windows version is in the works.",
+  "i.notes": "Release notes",
   "q.t": "Frequently asked.", "q.1": "Is it really free?", "q.1a": "Yes. MIT licensed, no ads, no subscription. Donations are voluntary.",
-  "q.2": "Can Djie Shell see my server passwords?", "q.2a": "No. Everything is encrypted on your Mac with your master password. Djie Shell has no servers, and Google only stores an encrypted file that can't be read without your master password.",
+  "q.2": "Can Djie Shell see my server passwords?", "q.2a": "No. Everything is encrypted on your device with your master password. Djie Shell has no servers, and Google only stores an encrypted file that can't be read without your master password.",
   "q.3": "What if I forget my master password?", "q.3a": "The vault can't be opened — that's the price of end-to-end encryption. Keep your master password somewhere safe.",
-  "q.4": "Why is there a warning when I open it?", "q.4a": "The app isn't notarized by Apple because that needs a paid developer account. The source is open on GitHub for anyone to inspect. Use Privacy &amp; Security → Open Anyway once.",
+  "q.4": "Why is there a warning when I open it?", "q.4a": "The app isn't notarized by Apple or signed with a Windows certificate yet, because both cost money. The source is open on GitHub for anyone to inspect. On Mac use Privacy &amp; Security → Open Anyway; on Windows click More info → Run anyway. Only once.",
   "q.5": "What Google Drive access does it ask for?", "q.5a": "Only the hidden app-specific data folder (drive.appdata). Djie Shell can't see any other file in your Drive.",
-  "q.6": "Is there a Windows version?", "q.6a": "It's in the works, using the same Rust core so one vault works on both Mac and Windows.",
-  "d.eye": "Donate", "d.t": "Buy the maker<br />a coffee.", "d.p": "Djie Shell is made by <b>Adjie Kurniawan</b> and shared for free. Donations help the next features — including Windows — arrive sooner.",
+  "q.7": "Can I connect through an office proxy?", "q.7a": "Yes. In the host editor open <b>Advanced → Proxy</b>, pick SOCKS5 or HTTP, and enter the address, port, and login if needed. You can also go the other way: turn an SSH server into a SOCKS proxy with Port Forwarding.",
+  "q.6": "Is there a Windows version?", "q.6a": "Yes! Windows 10 and 11, on both x64 and ARM64 PCs. It uses the same Rust core, so one vault works on Mac and Windows through Google Drive sync.",
+  "d.eye": "Donate", "d.t": "Buy the maker<br />a coffee.", "d.p": "Djie Shell is made by <b>Adjie Kurniawan</b> and shared for free. Donations help the next features arrive sooner.",
   "d.s1": "Open a banking or e-wallet app with the QRIS logo: GoPay, OVO, DANA, ShopeePay, or m-banking.", "d.s2": "Scan the QRIS code and enter any amount.",
   "d.s3": "Send the transfer receipt to the number below.", "d.conf": "Donation confirmation", "d.copy": "Copy number",
-  "sf.t": "Server files,<br />as easy as Finder.", "sf.lead": "Two panes side by side: your Mac on the left, the server on the right. Drag files or folders from Finder to upload, drag back to download — with progress, speed, and a cancel button.",
+  "sf.t": "Server files,<br />as easy as Finder.", "sf.lead": "Two panes side by side: your computer on the left, the server on the right. Drag files or folders from Finder or Explorer to upload, drag back to download — with progress, speed, and a cancel button.",
   "sf.v1": "Upload &amp; download files and folders, in parallel", "sf.k2": "Manage files", "sf.v2": "New folder, rename, delete, chmod with checkboxes",
   "sf.k3": "Login", "sf.v3": "Uses saved hosts: password, SSH key, or agent", "sf.k4": "Security", "sf.v4": "Server fingerprints checked against known_hosts",
   "sf.k5": "Engine", "sf.v5": "Native SSH in the Rust core — no extra apps", "sf.v6": "Clickable breadcrumb, or type a path directly",
+  "db.t": "phpMyAdmin-style databases,<br />right in the app.", "db.lead": "MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, and 15 more services. Browse tables, view structure, run SQL — no browser needed, and it works over an SSH tunnel.",
+  "db.h1": "Search like phpMyAdmin", "db.p1": "The <b>Search</b> tab has one row per column: pick an operator (<code>=</code>, <code>LIKE %…%</code>, <code>IN</code>, <code>BETWEEN</code>, <code>IS NULL</code>, …), enter a value, and submit. Results show up in Browse with paging and a row count.",
+  "db.k1": "Quick search", "db.v1": "Type once, search every column of the table", "db.k2": "Table list", "db.v2": "Show or hide it for more room",
+  "db.k3": "Tabs", "db.v3": "Overview, Browse, Structure, Search, SQL", "db.v4": "23 presets: RDS, Supabase, Neon, PlanetScale, TiDB, Atlas, Upstash, …",
+  "db.k5": "Connection", "db.v5": "Direct, TLS, or through an SSH tunnel &amp; proxy", "db.k6": "Export", "db.v6": "Save results as CSV",
+  "db.v7": "Editor with query history, ⌘/Ctrl+Enter to run",
   "ft.lic": "MIT License", "ft.rel": "All releases", "ft.bug": "Report a bug", "ft.priv": "Privacy", "ft.terms": "Terms",
 };
 const ID = {};
@@ -634,6 +706,41 @@ document.getElementById("copyNum").addEventListener("click", () => {
   if (navigator.clipboard) navigator.clipboard.writeText("081269494591").then(done).catch(() => {});
 });
 
+// Tombol download mengikuti OS pengunjung; PC ARM dapat installer ARM64
+const LATEST = "https://github.com/masadjie/djie-shell/releases/latest";
+const DL = { mac: LATEST, win: LATEST, arm: LATEST };
+let OS = /Windows/i.test(navigator.userAgent) ? "win" : "mac", isArm = false;
+function applyLinks() {
+  document.getElementById("dlMac").href = DL.mac;
+  document.getElementById("dlWin").href = isArm ? DL.arm : DL.win;
+  document.getElementById("dlWinArm").href = DL.arm;
+  document.getElementById("heroMac").href = DL.mac;
+  document.getElementById("heroWin").href = isArm ? DL.arm : DL.win;
+}
+function showOS(os, scope) {
+  (scope || document).querySelectorAll("[data-os]").forEach(el => el.hidden = el.dataset.os !== os);
+  if (!scope) applyLinks();
+}
+function pickTab(os) {
+  document.querySelectorAll("#osTabs button").forEach(b => b.classList.toggle("on", b.dataset.pick === os));
+  showOS(os, document.getElementById("install"));
+}
+// Header transparan di atas, berlatar tipis saat halaman di-scroll
+const hdr = document.querySelector("header.top");
+const onScroll = () => hdr.classList.toggle("scrolled", scrollY > 8);
+addEventListener("scroll", onScroll, { passive: true }); onScroll();
+
+// Tombol OS pengunjung jadi utama & di depan
+if (OS === "win") {
+  document.documentElement.classList.add("os-win");
+  document.getElementById("heroWin").classList.add("primary");
+  document.getElementById("heroMac").classList.remove("primary");
+}
+showOS(OS); pickTab(OS);
+document.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => pickTab(b.dataset.pick)));
+if (OS === "win" && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues)
+  navigator.userAgentData.getHighEntropyValues(["architecture"]).then(v => { isArm = v.architecture === "arm"; applyLinks(); }).catch(() => {});
+
 // Versi & link download dari rilis terbaru di GitHub
 fetch("https://api.github.com/repos/masadjie/djie-shell/releases/latest")
   .then(r => r.ok ? r.json() : Promise.reject())
@@ -641,13 +748,14 @@ fetch("https://api.github.com/repos/masadjie/djie-shell/releases/latest")
     const v = rel.tag_name.replace(/^v/, "");
     document.getElementById("ver").textContent = v;
     document.getElementById("relVer").textContent = v;
+    const mb = a => Math.max(1, Math.round(a.size / 1048576)) + " MB";
     const dmg = rel.assets.find(a => a.name.endsWith(".dmg"));
-    if (dmg) {
-      const mb = "DMG " + Math.max(1, Math.round(dmg.size / 1048576)) + " MB";
-      document.getElementById("dmgSize").textContent = mb;
-      document.getElementById("relSize").textContent = mb;
-      ["dlMain", "dlSecond"].forEach(id => document.getElementById(id).href = dmg.browser_download_url);
-    }
+    const x64 = rel.assets.find(a => /Windows-x64-Setup\.exe$/i.test(a.name));
+    const arm = rel.assets.find(a => /Windows-arm64-Setup\.exe$/i.test(a.name));
+    if (dmg) { DL.mac = dmg.browser_download_url; document.querySelectorAll(".sizeMac").forEach(e => e.textContent = "DMG " + mb(dmg)); }
+    if (x64) { DL.win = x64.browser_download_url; document.querySelectorAll(".sizeWin").forEach(e => e.textContent = "EXE " + mb(x64)); }
+    if (arm) DL.arm = arm.browser_download_url;
+    applyLinks();
   })
   .catch(() => {});
 </script>
