@@ -1,13 +1,13 @@
 {
- "chaos": 9.8,
- "problem": 7.71,
+ "chaos": 8.67,
+ "problem": 6.43,
  "logo": 4.68,
- "hosts": 7.97,
- "terminal": 6.53,
- "sftp": 3.55,
- "database": 11.31,
- "tools": 5.88,
- "security": 5.25,
- "platforms": 4.6,
- "cta": 4.52
+ "hosts": 6.53,
+ "terminal": 6.19,
+ "sftp": 3.16,
+ "database": 10.11,
+ "tools": 6.27,
+ "security": 5.15,
+ "platforms": 3.97,
+ "cta": 3.32
 }
