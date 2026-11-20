@@ -6,7 +6,8 @@ $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $core = Join-Path $root "core"
 $app = Join-Path $root "apps\windows\DjieShell"
-$cargo = Join-Path $env:USERPROFILE ".cargo\bin\cargo.exe"
+$cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USERPROFILE ".cargo" }
+$cargo = Join-Path $cargoHome "bin\cargo.exe"
 if (-not (Test-Path $cargo)) { $cargo = "cargo" }
 
 # crate `ring` butuh clang untuk target ARM64 → pakai LLVM bawaan VS Build Tools
@@ -26,7 +27,7 @@ foreach ($t in @("aarch64-pc-windows-msvc", "x86_64-pc-windows-msvc")) {
 Pop-Location
 
 # Binding C# (uniffi-bindgen-cs harus sesuai versi uniffi di core: 0.32)
-$bindgen = Join-Path $env:USERPROFILE ".cargo\bin\uniffi-bindgen-cs.exe"
+$bindgen = Join-Path $cargoHome "bin\uniffi-bindgen-cs.exe"
 if (-not (Test-Path $bindgen)) {
     & $cargo install uniffi-bindgen-cs --git https://github.com/NordSecurity/uniffi-bindgen-cs --tag "v0.12.0+v0.32.0"
     if ($LASTEXITCODE -ne 0) { throw "install uniffi-bindgen-cs gagal" }

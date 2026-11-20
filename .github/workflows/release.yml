@@ -1,7 +1,7 @@
 name: Release
 
 # Push tag versi (mis. `git tag v0.1.0 && git push --tags`) untuk build
-# DMG macOS dan membuat draft GitHub Release. Job Windows ditambahkan di fase 5.
+# DMG macOS + installer Windows (.exe) dan membuat draft GitHub Release.
 on:
   push:
     tags: ["v*"]
@@ -46,11 +46,64 @@ jobs:
           hdiutil create -volname "Djie Shell" -srcfolder dist/dmg -ov -format UDZO \
             "dist/Djie-Shell-${VERSION}-macOS.dmg"
 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos
+          path: dist/*.dmg
+
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-pc-windows-msvc,x86_64-pc-windows-msvc
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: core -> target
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Build djie-core (DLL ARM64 + x64 + binding C#)
+        shell: pwsh
+        run: ./scripts/build-core-windows.ps1
+
+      - name: Pasang Inno Setup
+        shell: pwsh
+        run: if (-not (Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
+
+      - name: Build app & installer .exe
+        shell: pwsh
+        run: ./scripts/build-windows-installer.ps1 -Version $env:GITHUB_REF_NAME.TrimStart('v')
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*-Setup.exe
+
+  release:
+    needs: [macos, windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
           name: Djie Shell ${{ github.ref_name }}
-          files: dist/*.dmg
+          files: |
+            dist/*.dmg
+            dist/*-Setup.exe
           body: |
-            Download installer di bawah.
-            App belum ditandatangani sertifikat Apple berbayar — lihat panduan "Install" di website untuk cara membukanya.
+            Download installer di bawah:
+            - **macOS** (Apple Silicon & Intel): `.dmg`
+            - **Windows 10/11**: `-Windows-x64-Setup.exe` untuk PC biasa, `-Windows-arm64-Setup.exe` untuk PC ARM (mis. Snapdragon)
+
+            App belum ditandatangani sertifikat berbayar — lihat panduan "Install" di website untuk cara membukanya.

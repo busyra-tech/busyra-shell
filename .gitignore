@@ -19,3 +19,5 @@ apps/windows/DjieShell/Core/Generated/
 apps/windows/DjieShell/Native/
 apps/windows/**/bin/
 apps/windows/**/obj/
+apps/windows/publish/
+dist/
