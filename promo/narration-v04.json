@@ -1,0 +1,7 @@
+[
+  ["u_intro", "Djie Shell versi nol koma empat sudah rilis! Ada tiga fitur baru yang bikin kerjamu makin enteng."],
+  ["u_local", "Pertama, Server Lokal. Mau jalanin Apache atau Nginx dengan PHP, plus MySQL, PostgreSQL, dan MongoDB? Cukup sekali klik. Semuanya diunduh otomatis, tanpa install manual."],
+  ["u_team", "Kedua, Tim. Bagikan server ke rekan kerja cukup lewat email. Password dan SSH key ikut terkirim, tapi tetap terenkripsi end-to-end."],
+  ["u_sftp", "Ketiga, edit file langsung di server. Pakai editor bawaan, atau buka di VS Code. Begitu disimpan, file langsung ter-upload otomatis."],
+  ["u_cta", "Djie Shell nol koma empat. Gratis dan open source. Yuk, update sekarang!"]
+]

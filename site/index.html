@@ -170,6 +170,10 @@
   .video-wrap .play:hover span { transform: scale(1.08); }
   .video-wrap .play svg { width: 34px; height: 34px; margin-left: 5px; fill: #06110f; }
   .video-wrap.playing .play { opacity: 0; pointer-events: none; }
+  .vtabs { display: flex; justify-content: center; gap: 6px; margin: 30px auto 0; padding: 5px; width: fit-content; border-radius: 14px; border: 1px solid var(--line); background: color-mix(in srgb, var(--panel) 80%, transparent); }
+  .vtabs button { border: 0; cursor: pointer; font: inherit; font-size: 14.5px; font-weight: 600; padding: 9px 18px; border-radius: 10px; color: var(--muted); background: transparent; transition: background .2s, color .2s; }
+  .vtabs button.on { color: #06110f; background: var(--grad); }
+  .vtabs .new { font-size: 10.5px; letter-spacing: .1em; margin-left: 6px; opacity: .75; }
 
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 80px; }
   .stat { padding: 34px 26px; border-left: 1px solid var(--line); }
@@ -352,13 +356,17 @@
     <div class="head reveal" style="text-align:center;margin:0 auto">
       <span class="eyebrow" data-i18n="v.eye">Video</span>
       <h2 data-i18n="v.t">Lihat Djie Shell beraksi.</h2>
-      <p class="lead" style="margin:0 auto" data-i18n="v.lead">Satu setengah menit keliling fitur: hosts, terminal, SFTP, database, proxy, sampai keamanan.</p>
+      <p class="lead" style="margin:0 auto" id="vLead" data-i18n="v.lead04">Yang baru di versi 0.4: Server Lokal, Tim, dan edit file langsung di server — dalam 45 detik.</p>
     </div>
-    <div class="video-wrap reveal" id="promoWrap">
-      <video id="promo" src="assets/video/djie-shell-promo.mp4" poster="assets/video/poster.jpg" preload="metadata" playsinline controls></video>
+    <div class="vtabs reveal" role="tablist">
+      <button class="on" data-v="update" role="tab" aria-selected="true"><span data-i18n="v.tab04">Baru di v0.4</span><span class="new">NEW</span></button>
+      <button data-v="tour" role="tab" aria-selected="false" data-i18n="v.tabtour">Tur lengkap</button>
+    </div>
+    <div class="video-wrap reveal" id="promoWrap" style="margin-top:22px">
+      <video id="promo" src="assets/video/djie-shell-update-0.4.mp4" poster="assets/video/poster-0.4.jpg" preload="metadata" playsinline controls></video>
       <button class="play" id="promoPlay" aria-label="Putar video"><span><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span></button>
     </div>
-    <p class="arch" style="text-align:center"><span data-i18n="v.vert">Untuk Reels, TikTok, atau Shorts:</span> <a href="assets/video/djie-shell-promo-9x16.mp4" download data-i18n="v.vertdl">download versi 9:16</a></p>
+    <p class="arch" style="text-align:center"><span data-i18n="v.vert">Untuk Reels, TikTok, atau Shorts:</span> <a id="vVert" href="assets/video/djie-shell-update-0.4-9x16.mp4" download data-i18n="v.vertdl">download versi 9:16</a></p>
   </section>
 
   <section class="feat wrap" id="hosts">
@@ -734,6 +742,7 @@ const EN = {
   "db.k5": "Connection", "db.v5": "Direct, TLS, or through an SSH tunnel &amp; proxy", "db.k6": "Export", "db.v6": "Save results as CSV",
   "db.v7": "Editor with query history, ⌘/Ctrl+Enter to run",
   "v.vert": "For Reels, TikTok, or Shorts:", "v.vertdl": "download the 9:16 version",
+  "v.lead04": "What's new in 0.4: Local Server, Teams, and editing files right on the server — in 45 seconds. (Narration in Indonesian.)", "v.tab04": "New in v0.4", "v.tabtour": "Full tour",
   "v.eye": "Video", "v.t": "See Djie Shell in action.", "v.lead": "A 90-second tour: hosts, terminal, SFTP, database, proxy, and security. (Narration in Indonesian.)",
   "sv.eye": "Server info", "sv.t": "Know your server,<br />right from the terminal.", "sv.p": "Click <b>Server info</b> on a connected tab: full specs and live charts appear next to the terminal — nothing to install on the server.",
   "sv.k1": "Specs", "sv.v1": "OS & version, kernel, CPU & core count, uptime, load", "sv.k2": "Live charts", "sv.v2": "CPU, RAM, and network speed, refreshed every 3 seconds",
@@ -742,6 +751,7 @@ const EN = {
 };
 const ID = {};
 document.querySelectorAll("[data-i18n]").forEach(el => { ID[el.dataset.i18n] = el.innerHTML; });
+ID["v.lead"] = "Satu setengah menit keliling fitur: hosts, terminal, SFTP, database, proxy, sampai keamanan.";
 function setLang(lang) {
   const dict = lang === "en" ? EN : ID;
   document.querySelectorAll("[data-i18n]").forEach(el => { const v = dict[el.dataset.i18n]; if (v) el.innerHTML = v; });
@@ -795,6 +805,20 @@ const promo = document.getElementById("promo"), promoWrap = document.getElementB
 document.getElementById("promoPlay").addEventListener("click", () => { promo.play(); });
 promo.addEventListener("play", () => promoWrap.classList.add("playing"));
 promo.addEventListener("ended", () => promoWrap.classList.remove("playing"));
+// Pilih video: update terbaru atau tur lengkap
+const VIDEOS = {
+  update: { src: "assets/video/djie-shell-update-0.4.mp4", poster: "assets/video/poster-0.4.jpg", vert: "assets/video/djie-shell-update-0.4-9x16.mp4", lead: "v.lead04" },
+  tour: { src: "assets/video/djie-shell-promo.mp4", poster: "assets/video/poster.jpg", vert: "assets/video/djie-shell-promo-9x16.mp4", lead: "v.lead" },
+};
+document.querySelectorAll(".vtabs button").forEach((b) => b.addEventListener("click", () => {
+  const v = VIDEOS[b.dataset.v];
+  document.querySelectorAll(".vtabs button").forEach((x) => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); });
+  promo.pause(); promo.src = v.src; promo.poster = v.poster; promoWrap.classList.remove("playing");
+  document.getElementById("vVert").href = v.vert;
+  const lead = document.getElementById("vLead");
+  lead.dataset.i18n = v.lead;
+  lead.innerHTML = (document.documentElement.lang === "en" ? EN : ID)[v.lead] || lead.innerHTML;
+}));
 
 // Elemen muncul saat di-scroll
 const io = new IntersectionObserver(es => es.forEach(e => {

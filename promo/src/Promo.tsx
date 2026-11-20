@@ -19,9 +19,9 @@ const BASE: [string, number][] = [
   ["platforms", 160],
   ["cta", 190],
 ];
-const OVERLAP = 14;
+export const OVERLAP = 14;
 /** Narasi mulai sekian frame setelah scene muncul. */
-const VO_DELAY = 12;
+export const VO_DELAY = 12;
 const SCENES: [string, number][] = BASE.map(([n, d]) => {
   const vo = (VO as Record<string, number>)[n] ?? 0;
   return [n, Math.max(d, Math.ceil(vo * 30) + VO_DELAY + 22 + OVERLAP)];
@@ -69,13 +69,13 @@ export const Promo: React.FC = () => {
 type P = { d: number };
 
 /** Video vertikal (9:16)? */
-const useV = () => {
+export const useV = () => {
   const { width, height } = useVideoConfig();
   return height > width;
 };
 
 // Caption karaoke: timing tiap kata dari forced alignment ElevenLabs (src/words.json)
-type Word = { w: string; s: number; e: number };
+export type Word = { w: string; s: number; e: number };
 function lines(words: Word[], max: number): Word[][] {
   const out: Word[][] = [];
   let cur: Word[] = [];
@@ -93,10 +93,10 @@ function lines(words: Word[], max: number): Word[][] {
   if (cur.length) out.push(cur);
   return out;
 }
-const Captions: React.FC<{ name: string }> = ({ name }) => {
+export const Captions: React.FC<{ name: string; words?: Record<string, Word[]> }> = ({ name, words: source }) => {
   const frame = useCurrentFrame();
   const v = useV();
-  const words = (WORDS as Record<string, Word[]>)[name];
+  const words = (source ?? (WORDS as Record<string, Word[]>))[name];
   if (!words?.length) return null;
   const t = frame / 30;
   const ls = lines(words, v ? 4 : 6);
@@ -146,16 +146,16 @@ const Captions: React.FC<{ name: string }> = ({ name }) => {
     </AbsoluteFill>
   );
 };
-const Wrap: React.FC<{ d: number; children: React.ReactNode }> = ({ d, children }) => {
+export const Wrap: React.FC<{ d: number; children: React.ReactNode }> = ({ d, children }) => {
   const frame = useCurrentFrame();
   const o = interpolate(frame, [0, OVERLAP, d - OVERLAP, d], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return <AbsoluteFill style={{ opacity: o }}>{children}</AbsoluteFill>;
 };
 
 // Efek suara per scene: [frame relatif scene, nama file di public/sfx, volume]
-type Cue = [number, string, number];
+export type Cue = [number, string, number];
 /** Penyeimbang level tiap file SFX (riser & whoosh hasil generator jauh lebih keras). */
-const SFX_GAIN: Record<string, number> = { riser: 0.35, whoosh: 0.45, typing: 0.7, error: 0.7, lock: 0.7, pop: 0.9, ding: 0.8, click: 0.9 };
+export const SFX_GAIN: Record<string, number> = { riser: 0.35, whoosh: 0.45, typing: 0.7, error: 0.7, lock: 0.7, pop: 0.9, ding: 0.8, click: 0.9 };
 const SFX: Record<string, (d: number) => Cue[]> = {
   chaos: (d) => [
     ...TERMS.map((_, i): Cue => [TERM_AT(i), i % 3 === 1 ? "error" : "pop", i % 3 === 1 ? 0.35 : 0.4]),
@@ -380,7 +380,7 @@ const LogoScene: React.FC<P> = ({ d }) => {
 };
 
 /** Tata letak fitur: teks kiri + jendela app kanan. */
-const FeatureLayout: React.FC<{
+export const FeatureLayout: React.FC<{
   d: number;
   eyebrow: string;
   color?: string;
@@ -426,7 +426,7 @@ const FeatureLayout: React.FC<{
 };
 
 /** Jendela yang masuk dari kanan lalu melayang pelan. */
-const SlideWindow: React.FC<{ src: string; d: number; width?: number; aspect?: number; zoomTo?: number; origin?: string; glow?: string; top?: number }> = ({
+export const SlideWindow: React.FC<{ src: string; d: number; width?: number; aspect?: number; zoomTo?: number; origin?: string; glow?: string; top?: number }> = ({
   src,
   d,
   width = 1180,

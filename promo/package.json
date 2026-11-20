@@ -5,7 +5,9 @@
   "scripts": {
     "studio": "remotion studio src/index.ts",
     "render": "remotion render src/index.ts DjieShellPromo out/djie-shell-promo.mp4",
-    "render:vertical": "remotion render src/index.ts DjieShellPromoVertical out/djie-shell-promo-9x16.mp4"
+    "render:vertical": "remotion render src/index.ts DjieShellPromoVertical out/djie-shell-promo-9x16.mp4",
+    "render:update": "remotion render src/index.ts DjieShellUpdate04 out/djie-shell-update-0.4.mp4",
+    "render:update:vertical": "remotion render src/index.ts DjieShellUpdate04Vertical out/djie-shell-update-0.4-9x16.mp4"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.290",
