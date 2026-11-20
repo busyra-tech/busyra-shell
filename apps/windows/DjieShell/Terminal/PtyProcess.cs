@@ -22,14 +22,14 @@ internal sealed class PtyProcess : IDisposable
     private bool _disposed;
     private readonly object _lock = new();
 
-    public static PtyProcess Start(string commandLine, IDictionary<string, string> env, int cols, int rows)
+    public static PtyProcess Start(string commandLine, IDictionary<string, string> env, int cols, int rows, string? workingDir = null)
     {
         var p = new PtyProcess();
-        p.Launch(commandLine, env, cols, rows);
+        p.Launch(commandLine, env, cols, rows, workingDir);
         return p;
     }
 
-    private void Launch(string commandLine, IDictionary<string, string> env, int cols, int rows)
+    private void Launch(string commandLine, IDictionary<string, string> env, int cols, int rows, string? workingDir)
     {
         if (!CreatePipe(out var inRead, out var inWrite, IntPtr.Zero, 0)) throw new Win32Exception();
         if (!CreatePipe(out var outRead, out var outWrite, IntPtr.Zero, 0)) throw new Win32Exception();
@@ -59,7 +59,7 @@ internal sealed class PtyProcess : IDisposable
         try
         {
             if (!CreateProcessW(null, new StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, false,
-                    EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, envBlock, null, ref si, out var pi))
+                    EXTENDED_STARTUPINFO_PRESENT | CREATE_UNICODE_ENVIRONMENT, envBlock, workingDir, ref si, out var pi))
                 throw new Win32Exception();
             _process = pi.hProcess;
             _thread = pi.hThread;

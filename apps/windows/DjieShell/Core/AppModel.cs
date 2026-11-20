@@ -166,17 +166,22 @@ internal sealed class AppModel
             };
             if (Environment.GetEnvironmentVariable("DJIE_TEST_KEY") is { Length: > 0 } kp)
             {
-                var k = v.Keys().FirstOrDefault(x => x.Label == "tes-terminal")
-                        ?? v.ImportKey("tes-terminal", File.ReadAllText(kp), Environment.GetEnvironmentVariable("DJIE_TEST_KEYPASS"));
+                var pem = File.ReadAllText(kp);
+                var k = v.Keys().FirstOrDefault(x => x.Label == "tes-terminal" && x.PrivateKey.Trim() == pem.Trim())
+                        ?? v.ImportKey("tes-terminal", pem, Environment.GetEnvironmentVariable("DJIE_TEST_KEYPASS"));
                 h = h with { Auth = AuthMethod.Key, KeyId = k.Id };
             }
-            if (!v.Hosts().Any(x => x.Label == "server-tes")) v.UpsertHost(h);
+            // DJIE_TEST_PROXY=socks5|http,host,port,user,pass
+            if (Environment.GetEnvironmentVariable("DJIE_TEST_PROXY") is { Length: > 0 } px && px.Split(',') is { Length: 5 } pp)
+                h = h with { Proxy = new HostProxy(pp[0] == "http" ? ProxyKind.Http : ProxyKind.Socks5, pp[1], ushort.Parse(pp[2]), pp[3], pp[4]) };
+            var old = v.Hosts().FirstOrDefault(x => x.Label == "server-tes");
+            v.UpsertHost(old == null ? h : h with { Id = old.Id });
         }
         Open(v);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_SECTION") is { Length: > 0 } sec && Enum.TryParse<Section>(sec, true, out var s)) Navigate(s);
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_LIGHT") == "1") SetAppearance("light");
-        if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "1") Edit(Hosts.FirstOrDefault());
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") is "1" or "test") Edit(Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "test" ? test : Hosts.FirstOrDefault());
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP") == "1" && test != null) _ = OpenSftp(test);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_TUNNEL") is { Length: > 0 } tport && test != null)
         {
@@ -188,6 +193,7 @@ internal sealed class AppModel
         }
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DB") == "1")
         {
+            if (Environment.GetEnvironmentVariable("DJIE_DEMO_DBTREE") is "0" or "1") Settings.Set(Settings.DbShowTree, Environment.GetEnvironmentVariable("DJIE_DEMO_DBTREE") == "1");
             var file = Path.Combine(Config.DataDir, "toko.sqlite");
             var conn = Databases.FirstOrDefault(x => x.Label == "Toko Lokal") ?? _vault!.UpsertDatabase(new DbConnection("", "Toko Lokal", DbEngine.Sqlite, "", 0, "", null, "", file, false, null, "#0F80CC", 0, false));
             Reload();
@@ -209,10 +215,23 @@ internal sealed class AppModel
                 {
                     if (mode == "sql") { ws.CurrentTab = DbWorkspace.Tab.Sql; ws.Query = "SELECT nama, harga, stok, kategori FROM produk ORDER BY harga DESC;"; await ws.OpenTable(t, "main"); await ws.SetTab(DbWorkspace.Tab.Sql); await ws.Run(); }
                     else if (mode == "structure") { await ws.OpenTable(t, "main"); await ws.SetTab(DbWorkspace.Tab.Structure); }
+                    else if (mode == "search")
+                    {
+                        // DJIE_DEMO_DBFIND=kolom=nilai;kolom=nilai ; DJIE_DEMO_DBSUBMIT=1 ; DJIE_DEMO_DBQUICK=teks
+                        await ws.OpenTable(t, "main"); await ws.SetTab(DbWorkspace.Tab.Search);
+                        foreach (var pair in (Environment.GetEnvironmentVariable("DJIE_DEMO_DBFIND") ?? "").Split(';', StringSplitOptions.RemoveEmptyEntries))
+                            if (pair.Split('=', 2) is [var k, var v] && ws.SearchForm.FirstOrDefault(x => x.Column == k) is { } fld) fld.Value = v;
+                        await ws.SetTab(DbWorkspace.Tab.Search);
+                        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DBSUBMIT") == "1") await ws.SubmitSearch();
+                        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DBQUICK") is { Length: > 0 } q) { ws.QuickSearch = q; await ws.SubmitQuickSearch(); }
+                    }
                     else await ws.OpenTable(t, "main");
                 }
             }));
         }
+        // DJIE_DEMO_LOCAL=powershell|cmd|wsl|pwsh : buka terminal lokal (DJIE_DEMO_RUN dikirim setelah siap)
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_LOCAL") is { Length: > 0 } ls)
+            OpenLocalTerminal(LocalShell.Available.FirstOrDefault(x => x.Id == ls), Environment.GetEnvironmentVariable("DJIE_DEMO_RUN"));
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_CONNECT") == "1" && Hosts.FirstOrDefault(x => x.Label == "server-tes") is { } t)
         {
             Connect([t.Id], Environment.GetEnvironmentVariable("DJIE_DEMO_RUN"));
@@ -583,7 +602,7 @@ internal sealed class AppModel
         return new SshTarget(h.Hostname, h.Port, h.Username,
             h.Auth == AuthMethod.Password ? h.Password : null,
             h.Auth == AuthMethod.Key ? k?.PrivateKey : null,
-            h.Auth == AuthMethod.Key ? k?.Passphrase : null, true);
+            h.Auth == AuthMethod.Key ? k?.Passphrase : null, true, h.Proxy);
     }
 
     // MARK: SFTP
@@ -633,6 +652,17 @@ internal sealed class AppModel
         Selection.Clear();
         Raise("sessions");
         Raise("selection");
+    }
+
+    /// <summary>Buka tab terminal lokal (PowerShell / CMD / WSL).</summary>
+    public void OpenLocalTerminal(LocalShell? shell = null, string? run = null)
+    {
+        shell ??= LocalShell.Default;
+        var s = new TerminalSession(shell.AsHost(), null, null, run, this, shell);
+        s.Changed += () => Raise("session");
+        Sessions.Add(s);
+        ActiveSessionId = s.Id;
+        Raise("sessions");
     }
 
     public void Close(TerminalSession s)

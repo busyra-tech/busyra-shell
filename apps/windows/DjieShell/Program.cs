@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using uniffi.djie_core;
 
 namespace DjieShell;
 
@@ -14,7 +15,29 @@ public static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        // 1. Mode askpass: ssh.exe memanggil DjieShell.exe untuk meminta password/passphrase host.
+        // 1. Mode ProxyCommand: ssh.exe -o ProxyCommand="DjieShell.exe --djie-proxy <socks5|http> <host> <port> %h %p".
+        //    Salurkan stdin/stdout ke server lewat proxy, tanpa UI. Dicek sebelum askpass karena
+        //    environment askpass (DJIE_ASKPASS) dari ssh.exe ikut terwarisi ke proses ini.
+        if (args.Length >= 6 && args[0] == "--djie-proxy")
+        {
+            var proxy = new HostProxy(args[1] == "http" ? ProxyKind.Http : ProxyKind.Socks5, args[2],
+                ushort.TryParse(args[3], out var pp) ? pp : (ushort)1080,
+                Environment.GetEnvironmentVariable("DJIE_PROXY_USER"), Environment.GetEnvironmentVariable("DJIE_PROXY_PASS"));
+            try
+            {
+                DjieCoreMethods.ProxyStdio(proxy, args[4], ushort.TryParse(args[5], out var tp) ? tp : (ushort)22);
+                return 0;
+            }
+            catch (Exception e)
+            {
+                using var err = Console.OpenStandardError();
+                var b = Encoding.UTF8.GetBytes("Djie Shell: " + Errors.Text(e) + "\n");
+                err.Write(b, 0, b.Length);
+                return 1;
+            }
+        }
+
+        // 2. Mode askpass: ssh.exe memanggil DjieShell.exe untuk meminta password/passphrase host.
         if (Environment.GetEnvironmentVariable("DJIE_ASKPASS") == "1")
         {
             var prompt = string.Join(" ", args);
@@ -25,7 +48,7 @@ public static class Program
             return 0;
         }
 
-        // 2. Redirect login Google dari browser: teruskan ke instance yang sedang jalan.
+        // 3. Redirect login Google dari browser: teruskan ke instance yang sedang jalan.
         if (args.FirstOrDefault(a => a.StartsWith(GoogleAuth.Scheme + ":", StringComparison.OrdinalIgnoreCase)) is { } url)
         {
             GoogleAuth.ForwardToRunningInstance(url);

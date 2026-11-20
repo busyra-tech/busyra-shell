@@ -18,7 +18,8 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <ApplicationIcon>Assets\djie.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Version>0.2.0</Version>
     <Product>Djie Shell</Product>
     <Company>Adjie Kurniawan</Company>
     <!-- Kode binding hasil generate tidak perlu memicu warning -->

@@ -88,10 +88,36 @@ internal static class DbExt
 internal sealed class DbWorkspace
 {
     public enum Status { Connecting, Ready, Failed }
-    public enum Tab { Overview, Browse, Structure, Sql }
+    public enum Tab { Overview, Browse, Structure, Search, Sql }
 
-    public static string TabTitle(Tab t) => t switch { Tab.Overview => "Ringkasan", Tab.Browse => "Telusuri", Tab.Structure => "Struktur", _ => "SQL" };
-    public static string TabGlyph(Tab t) => t switch { Tab.Overview => G.Apps, Tab.Browse => G.Table, Tab.Structure => G.Structure, _ => G.Code };
+    public static string TabTitle(Tab t) => t switch { Tab.Overview => "Ringkasan", Tab.Browse => "Telusuri", Tab.Structure => "Struktur", Tab.Search => "Cari", _ => "SQL" };
+    public static string TabGlyph(Tab t) => t switch { Tab.Overview => G.Apps, Tab.Browse => G.Table, Tab.Structure => G.Structure, Tab.Search => G.Search, _ => G.Code };
+
+    /// <summary>Satu baris form "Cari" (kueri dengan contoh, ala phpMyAdmin).</summary>
+    public sealed class SearchField
+    {
+        public required string Column { get; init; }
+        public required string Type { get; init; }
+        public string Op { get; set; } = "=";
+        public string Value { get; set; } = "";
+
+        public bool NeedsValue => Op is not ("IS NULL" or "IS NOT NULL" or "= ''" or "!= ''");
+        public bool IsActive => !NeedsValue || Value.Trim().Length > 0;
+
+        public static readonly string[] TextOps = ["LIKE %...%", "NOT LIKE %...%", "LIKE", "NOT LIKE", "=", "!=", "IN (...)", "NOT IN (...)",
+                                                   "BETWEEN", "NOT BETWEEN", "= ''", "!= ''", "IS NULL", "IS NOT NULL"];
+        public static readonly string[] ValueOps = ["=", "!=", ">", ">=", "<", "<=", "LIKE %...%", "LIKE", "NOT LIKE", "IN (...)", "NOT IN (...)",
+                                                    "BETWEEN", "NOT BETWEEN", "IS NULL", "IS NOT NULL"];
+
+        /// <summary>Kolom angka/tanggal: operator perbandingan dulu; teks: LIKE %...% dulu.</summary>
+        public static bool IsTextual(string type)
+        {
+            var t = type.ToLowerInvariant();
+            string[] nonText = ["int", "dec", "num", "float", "double", "real", "money", "serial", "bit", "bool", "date", "time", "year"];
+            return !nonText.Any(t.Contains) || t.Contains("char") || t.Contains("text");
+        }
+        public string[] Ops => IsTextual(Type) ? TextOps : ValueOps;
+    }
 
     public DbConnection Conn { get; private set; }
     public Status State { get; private set; } = Status.Connecting;
@@ -116,6 +142,13 @@ internal sealed class DbWorkspace
 
     public QueryResult? Structure { get; private set; }
 
+    // Cari: syarat aktif di Telusuri (dari form "Cari" atau kotak cari cepat)
+    public List<SearchField> SearchForm { get; private set; } = [];
+    public DbFilter[] Filters { get; private set; } = [];
+    public bool FilterAny { get; private set; }
+    public string QuickSearch { get; set; } = "";
+    public bool IsFiltered => Filters.Length > 0;
+
     public string Query { get; set; } = "";
     public QueryResult? Result { get; private set; }
     public List<string> History { get; } = [];
@@ -136,7 +169,7 @@ internal sealed class DbWorkspace
     public List<string> SystemDbs => Databases.Where(d => Conn.Engine.SystemDatabases().Contains(d)).ToList();
 
     public Tab[] AvailableTabs => SelectedTable != null
-        ? (Conn.Engine.SupportsStructure() ? [Tab.Browse, Tab.Structure, Tab.Sql] : [Tab.Browse, Tab.Sql])
+        ? (Conn.Engine.SupportsStructure() ? [Tab.Browse, Tab.Structure, Tab.Search, Tab.Sql] : [Tab.Browse, Tab.Sql])
         : [Tab.Overview, Tab.Sql];
 
     public async Task Connect(SshTarget? ssh)
@@ -259,10 +292,13 @@ internal sealed class DbWorkspace
         }
         SelectedDb = db;
         SelectedTable = t;
-        if (CurrentTab == Tab.Overview || (!Conn.Engine.SupportsStructure() && CurrentTab == Tab.Structure)) CurrentTab = Tab.Browse;
+        if (CurrentTab == Tab.Overview || (!Conn.Engine.SupportsStructure() && CurrentTab is Tab.Structure or Tab.Search)) CurrentTab = Tab.Browse;
         Offset = 0;
         Page = null;
         Structure = null;
+        SearchForm = [];
+        Filters = [];
+        QuickSearch = "";
         TotalRows = t.Rows;
         TotalIsEstimate = t.Rows != null;
         Error = null;
@@ -288,13 +324,94 @@ internal sealed class DbWorkspace
         if (SelectedTable is not { } t) return;
         if (CurrentTab == Tab.Browse && Page == null) await LoadPage(t);
         else if (CurrentTab == Tab.Structure && Structure == null) await LoadStructure(t);
+        else if (CurrentTab == Tab.Search) await PrepareSearchForm(t);
     }
+
+    // MARK: Cari
+
+    /// <summary>Isi form "Cari" dari struktur tabel (kolom & tipe).</summary>
+    public async Task PrepareSearchForm(DbTable t)
+    {
+        if (Structure == null) await LoadStructure(t);
+        if (SearchForm.Count > 0 || Structure is not { } s) return;
+        var typeIdx = Array.IndexOf(s.Columns, "Tipe"); if (typeIdx < 0) typeIdx = 1;
+        SearchForm = s.Rows.Where(r => r.Length > 0 && r[0] != null).Select(r =>
+        {
+            var type = r.Length > typeIdx ? r[typeIdx] ?? "" : "";
+            return new SearchField { Column = r[0]!, Type = type, Op = SearchField.IsTextual(type) ? "LIKE %...%" : "=" };
+        }).ToList();
+        Raise();
+    }
+
+    /// <summary>Jalankan form "Cari": hasilnya tampil di Telusuri dengan paging.</summary>
+    public Task SubmitSearch()
+    {
+        QuickSearch = "";
+        return ApplyFilters(SearchForm.Where(f => f.IsActive).Select(f => new DbFilter(f.Column, f.Op, f.Value.Trim())).ToArray(), false);
+    }
+
+    /// <summary>Kotak "Cari di tabel ini": cocokkan teks di semua kolom.</summary>
+    public async Task SubmitQuickSearch()
+    {
+        var text = QuickSearch.Trim();
+        if (text.Length == 0) { await ClearFilters(); return; }
+        var cols = Page?.Columns ?? [];
+        if (cols.Length == 0 && SelectedTable is { } t)
+        {
+            await LoadStructure(t);
+            cols = Structure?.Rows.Where(r => r.Length > 0 && r[0] != null).Select(r => r[0]!).ToArray() ?? [];
+        }
+        await ApplyFilters(cols.Select(c => new DbFilter(c, "LIKE %...%", text)).ToArray(), true);
+    }
+
+    public Task ClearFilters()
+    {
+        QuickSearch = "";
+        foreach (var f in SearchForm) f.Value = "";
+        return ApplyFilters([], false);
+    }
+
+    private async Task ApplyFilters(DbFilter[] f, bool any)
+    {
+        if (SelectedTable is not { } t) return;
+        Filters = f;
+        FilterAny = any;
+        Offset = 0;
+        CurrentTab = Tab.Browse;
+        TotalRows = f.Length == 0 ? t.Rows : null;
+        TotalIsEstimate = f.Length == 0 && t.Rows != null;
+        Raise();
+        await LoadPage(t);
+        if (_session == null) return;
+        try
+        {
+            var n = await _session.CountSearch(t.Schema, t.Name, f, any);
+            if (SelectedTable?.Name == t.Name) { TotalRows = n; TotalIsEstimate = false; Raise(); }
+        }
+        catch { }
+    }
+
+    /// <summary>Ringkasan syarat aktif, mis. <c>kota = Medan · nama berisi "di"</c>.</summary>
+    public string FilterSummary => FilterAny
+        ? $"“{Filters.FirstOrDefault()?.Value}” di semua kolom"
+        : string.Join(" · ", Filters.Select(f => f.Op switch
+        {
+            "IS NULL" or "IS NOT NULL" or "= ''" or "!= ''" => $"{f.Column} {f.Op}",
+            "LIKE %...%" => $"{f.Column} berisi “{f.Value}”",
+            "NOT LIKE %...%" => $"{f.Column} tidak berisi “{f.Value}”",
+            _ => $"{f.Column} {f.Op} {f.Value}",
+        }));
 
     public async Task LoadPage(DbTable t)
     {
         if (_session == null) return;
         Running = true; Error = null; Raise();
-        try { Page = await _session.Page(t.Schema, t.Name, PageSize, Offset); }
+        try
+        {
+            Page = Filters.Length == 0
+                ? await _session.Page(t.Schema, t.Name, PageSize, Offset)
+                : await _session.Search(t.Schema, t.Name, Filters, FilterAny, PageSize, Offset);
+        }
         catch (Exception e) { Error = Errors.Text(e); }
         Running = false; Raise();
     }

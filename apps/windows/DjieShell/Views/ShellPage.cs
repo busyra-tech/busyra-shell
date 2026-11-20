@@ -263,7 +263,21 @@ internal sealed class ShellPage : Grid
                 right.Children.Add(sn);
             }
         }
-        var strip = Ui.Columns("Auto,*,Auto", 6, home, tabScroll, right);
+        // Terminal lokal: klik = shell bawaan, panah = pilih shell (pilihan diingat)
+        var add = new SplitButton { Content = Ui.Icon(G.Add, 12), Padding = new Thickness(8, 4, 8, 4), Height = 30 };
+        add.Click += (_, _) => M.OpenLocalTerminal();
+        var addMenu = new MenuFlyout();
+        foreach (var sh in LocalShell.Available)
+        {
+            var it = new MenuFlyoutItem { Text = sh.Name + (sh.Id == LocalShell.Default.Id ? "  (bawaan)" : "") };
+            it.Click += (_, _) => { Settings.Set(Settings.LocalShell, sh.Id); M.OpenLocalTerminal(sh); };
+            addMenu.Items.Add(it);
+        }
+        add.Flyout = addMenu;
+        ToolTipService.SetToolTip(add, $"Terminal lokal — {LocalShell.Default.Name} (Ctrl+Shift+T)");
+        var tabsAndAdd = Ui.Columns("Auto,Auto", 6, tabScroll, add);
+        tabsAndAdd.HorizontalAlignment = HorizontalAlignment.Left;
+        var strip = Ui.Columns("Auto,*,Auto", 6, home, tabsAndAdd, right);
         strip.Padding = new Thickness(10, 0, 10, 0);
         _tabStrip.Child = strip;
         _tabStrip.Background = Theme.Dark ? Theme.Brush("#0D1117") : Theme.Brush("#EEF1F5");
@@ -292,18 +306,20 @@ internal sealed class ShellPage : Grid
             TerminalSession.Status.Connecting => Theme.Brush(s.Host.Color, 0.7),
             _ => Theme.Ink(0.3),
         };
-        if (s.State == TerminalSession.Status.Connecting) Ui.Pulse(dot);
+        if (s.State == TerminalSession.Status.Connecting && !s.IsLocal) Ui.Pulse(dot);
+        UIElement mark = s.IsLocal ? Ui.Icon(G.Terminal, 11, active ? Theme.Text : Theme.Text2) : dot;
         var title = Ui.Text(s.Title, 12, FontWeights.Medium, active ? Theme.Text : Theme.Text2).With(t => t.MaxWidth = 150);
         var close = Ui.IconBtn(G.Close, "Tutup tab (Ctrl+Shift+W)", () => M.Close(s), size: 8);
         close.Padding = new Thickness(4);
         close.Opacity = active ? 1 : 0.5;
         var tip = s.Host.DisplayAddress(M.HideAddresses) + (index < 9 ? $"  ·  Ctrl+Shift+{index + 1}" : "");
-        var chip = TabChip(active, Ui.Row(7, dot, title, close), () => M.Activate(s), tip);
+        if (s.IsLocal) tip = s.Local!.Name + (index < 9 ? $"  ·  Ctrl+Shift+{index + 1}" : "");
+        var chip = TabChip(active, Ui.Row(7, mark, title, close), () => M.Activate(s), tip);
         var menu = new MenuFlyout();
         void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = t }; i.Click += (_, _) => a(); menu.Items.Add(i); }
-        Item("Sambung ulang", s.Reconnect);
-        Item("Duplikat tab", () => M.Connect([s.Host.Id]));
-        Item("Buka SFTP", () => _ = M.OpenSftp(s.Host));
+        Item(s.IsLocal ? "Buka ulang" : "Sambung ulang", s.Reconnect);
+        Item("Duplikat tab", () => { if (s.Local is { } l) M.OpenLocalTerminal(l); else M.Connect([s.Host.Id]); });
+        if (!s.IsLocal) Item("Buka SFTP", () => _ = M.OpenSftp(s.Host));
         menu.Items.Add(new MenuFlyoutSeparator());
         Item("Tutup", () => M.Close(s));
         chip.ContextFlyout = menu;

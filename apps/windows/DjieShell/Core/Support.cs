@@ -90,6 +90,8 @@ internal static class Settings
     public const string Autocomplete = "terminal.autocomplete";
     public const string ProfileName = "profile.name";
     public const string ProfilePicture = "profile.picture";
+    public const string DbShowTree = "db.showTree";
+    public const string LocalShell = "terminal.localShell";   // shell bawaan tab terminal lokal        // daftar database & tabel di kiri
 }
 
 /// <summary>Pesan error dari djie-core dalam bahasa Indonesia (binding C# tidak membawa pesannya).</summary>
@@ -106,6 +108,7 @@ internal static class Errors
         CoreException.InvalidKey k => $"SSH key tidak valid: {k.msg}",
         CoreException.Corrupt c => $"File vault rusak: {c.msg}",
         CoreException.Ssh s => $"Koneksi SSH gagal: {s.msg}",
+        CoreException.Proxy px => $"Proxy: {px.msg}",
         CoreException.AuthFailed => "Login ditolak server — periksa username, password, atau key",
         CoreException.HostKeyChanged => "Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti.",
         CoreException.Db d => $"Database: {d.msg}",
@@ -273,7 +276,7 @@ internal static class HostExt
     public static Host Blank() => new(
         Id: "", Hostname: "", Label: "", Group: null, Tags: [], Color: Theme.HostColors[0],
         Port: 22, Username: "root", Auth: AuthMethod.Password, Password: null, KeyId: null,
-        AgentForwarding: false, StartupSnippet: null, JumpHostId: null, Env: [],
+        AgentForwarding: false, StartupSnippet: null, JumpHostId: null, Proxy: null, Env: [],
         Charset: "UTF-8", TerminalTheme: null, UpdatedAt: 0, Deleted: false);
 
     public static string Title(this Host h) => string.IsNullOrEmpty(h.Label) ? h.Hostname : h.Label;

@@ -43,6 +43,16 @@ internal sealed class SshCommand
         if (!string.IsNullOrEmpty(host.Username)) Args.AddRange(["-l", host.Username]);
         if (host.AgentForwarding) Args.Add("-A");
         if (jump != null) Args.AddRange(["-J", $"{jump.Username}@{jump.Hostname}:{jump.Port}"]);
+        // Proxy SOCKS5/HTTP: DjieShell.exe sendiri jadi ProxyCommand (lihat Program.cs).
+        // Login proxy lewat environment, bukan argumen.
+        var proxyEnv = new Dictionary<string, string>();
+        if (jump == null && host.Proxy is { } p && !string.IsNullOrWhiteSpace(p.Host) && Environment.ProcessPath is { } self)
+        {
+            var kind = p.Kind == ProxyKind.Http ? "http" : "socks5";
+            Args.AddRange(["-o", $"ProxyCommand=\"{self}\" --djie-proxy {kind} {p.Host} {p.Port} %h %p"]);
+            if (!string.IsNullOrEmpty(p.Username)) proxyEnv["DJIE_PROXY_USER"] = p.Username;
+            if (!string.IsNullOrEmpty(p.Password)) proxyEnv["DJIE_PROXY_PASS"] = p.Password;
+        }
 
         string? secret = null;
         switch (host.Auth)
@@ -68,6 +78,7 @@ internal sealed class SshCommand
         Env["TERM"] = "xterm-256color";
         Env["COLORTERM"] = "truecolor";
         Env["LANG"] = host.Charset.Equals("UTF-8", StringComparison.OrdinalIgnoreCase) ? "en_US.UTF-8" : "C";
+        foreach (var (k, v) in proxyEnv) Env[k] = v;
         if (!string.IsNullOrEmpty(secret) && Environment.ProcessPath is { } exe)
         {
             Env["SSH_ASKPASS"] = exe;

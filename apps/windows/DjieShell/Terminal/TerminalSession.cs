@@ -20,6 +20,9 @@ internal sealed class TerminalSession
 
     public Guid Id { get; } = Guid.NewGuid();
     public Host Host { get; }
+    /// <summary>Shell lokal (PowerShell/CMD/WSL), null = sesi SSH.</summary>
+    public LocalShell? Local { get; }
+    public bool IsLocal => Local != null;
     public string Title { get; private set; }
     public string? ThemeId { get; private set; }
     public Status State { get; private set; } = Status.Connecting;
@@ -40,9 +43,9 @@ internal sealed class TerminalSession
     private readonly StringBuilder _pending = new();
     private bool _flushQueued;
 
-    public TerminalSession(Host host, SshKey? key, Host? jump, string? run, AppModel model)
+    public TerminalSession(Host host, SshKey? key, Host? jump, string? run, AppModel model, LocalShell? local = null)
     {
-        Host = host; _key = key; _jump = jump; _run = run; _model = model;
+        Host = host; _key = key; _jump = jump; _run = run; _model = model; Local = local;
         Title = host.Title();
         ThemeId = host.TerminalTheme;
         _dq = DispatcherQueue.GetForCurrentThread();
@@ -194,6 +197,30 @@ internal sealed class TerminalSession
     {
         _terminated = false;
         _gotData = false;
+        if (Local is { } shell)
+        {
+            State = Status.Connecting;
+            ExitCode = null;
+            Changed?.Invoke();
+            var env = new System.Collections.Generic.Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (System.Collections.DictionaryEntry e in Environment.GetEnvironmentVariables()) env[(string)e.Key] = (string?)e.Value ?? "";
+            env["TERM"] = "xterm-256color";
+            env["COLORTERM"] = "truecolor";
+            env["TERM_PROGRAM"] = "DjieShell";
+            try
+            {
+                var pty = PtyProcess.Start(shell.CommandLine, env, _cols, _rows, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+                pty.Output += OnOutput;
+                pty.Exited += code => _dq.TryEnqueue(() => { if (_pty == pty) Ended(code); });
+                _pty = pty;
+            }
+            catch (Exception e)
+            {
+                Write($"\r\n\x1b[31mGagal menjalankan {shell.Name}: {e.Message}\x1b[0m\r\n");
+                Ended(255);
+            }
+            return;
+        }
         if (!SshCommand.SshAvailable)
         {
             Write("\r\n\x1b[33mOpenSSH Client belum terpasang di Windows ini.\x1b[0m\r\nPasang lewat Settings → System → Optional features → OpenSSH Client.\r\n");

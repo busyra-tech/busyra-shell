@@ -31,7 +31,7 @@ internal sealed class HostEditor : Grid
         _original = original;
         _h = original;
         _tags = string.Join(", ", original.Tags);
-        _showAdvanced = original.AgentForwarding || original.JumpHostId != null || !string.IsNullOrEmpty(original.StartupSnippet) || original.Env.Length > 0;
+        _showAdvanced = original.AgentForwarding || original.JumpHostId != null || original.Proxy != null || !string.IsNullOrEmpty(original.StartupSnippet) || original.Env.Length > 0;
 
         var header = Ui.Columns("*,Auto", 8,
             Ui.Col(2, Ui.Text(IsNew ? "Host Baru" : "Edit Host", 17, FontWeights.Bold),
@@ -52,6 +52,10 @@ internal sealed class HostEditor : Grid
         }
         body.Padding = new Thickness(16);
         var scroll = new ScrollViewer { Content = body, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
+#if DEBUG
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT_SCROLL") == "1")
+            scroll.Loaded += (_, _) => DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, 5000, null, true));
+#endif
 
         var save = Ui.Secondary("Simpan", null, () => Save(false));
         var connect = Ui.Primary("Connect", G.Bolt, () => Save(true));
@@ -80,13 +84,13 @@ internal sealed class HostEditor : Grid
 
     private void UpdateCanSave()
     {
-        var ok = !string.IsNullOrWhiteSpace(_h.Hostname);
+        var ok = !string.IsNullOrWhiteSpace(_h.Hostname) && (_h.Proxy is not { } p || !string.IsNullOrWhiteSpace(p.Host));
         foreach (var b in _saveButtons) b.IsEnabled = ok;
     }
 
     private void Save(bool connect)
     {
-        if (string.IsNullOrWhiteSpace(_h.Hostname)) return;
+        if (string.IsNullOrWhiteSpace(_h.Hostname) || (_h.Proxy is { } px && string.IsNullOrWhiteSpace(px.Host))) return;
         var h = _h with
         {
             Hostname = _h.Hostname.Trim(),
@@ -286,6 +290,7 @@ internal sealed class HostEditor : Grid
             Ui.Col(4, Ui.Secondary("Charset", 11.5), charset));
 
         var env = Ui.Col(6);
+        env.Children.Add(ProxyEditor());
         for (int i = 0; i < _h.Env.Length; i++)
         {
             var idx = i;
@@ -301,6 +306,47 @@ internal sealed class HostEditor : Grid
         addEnv.HorizontalAlignment = HorizontalAlignment.Left;
 
         _advancedCard.Child = EditorCard(null, head, fwdRow, FieldRow(G.Terminal, startup), pickers, env, addEnv);
+    }
+
+    /// <summary>Proxy SOCKS5 / HTTP untuk mencapai server (mis. jaringan kantor).</summary>
+    private FrameworkElement ProxyEditor()
+    {
+        var kind = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+        foreach (var (label, tag) in new[] { ("Tanpa proxy", ""), ("SOCKS5", "socks5"), ("HTTP", "http") })
+            kind.Items.Add(new ComboBoxItem { Content = label, Tag = tag });
+        var cur = _h.Proxy is null ? "" : _h.Proxy.Kind == ProxyKind.Http ? "http" : "socks5";
+        kind.SelectedItem = kind.Items.OfType<ComboBoxItem>().First(i => (string)i.Tag == cur);
+        kind.SelectionChanged += (_, _) =>
+        {
+            var tag = (kind.SelectedItem as ComboBoxItem)?.Tag as string ?? "";
+            if (tag == "") _h = _h with { Proxy = null };
+            else
+            {
+                var k = tag == "http" ? ProxyKind.Http : ProxyKind.Socks5;
+                ushort port = k == ProxyKind.Http ? (ushort)8080 : (ushort)1080;
+                _h = _h with { Proxy = _h.Proxy is { } p ? p with { Kind = k, Port = p.Port is 1080 or 8080 ? port : p.Port } : new HostProxy(k, "", port, null, null) };
+            }
+            UpdateCanSave();
+            RenderAdvanced();
+        };
+        var col = Ui.Col(6, Ui.Col(4, Ui.Secondary("Proxy", 11.5), kind));
+        if (_h.Proxy is not { } px) return col;
+
+        var host = Ui.Field("Alamat proxy", px.Host, mono: true);
+        host.TextChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Host = host.Text.Trim() } }; UpdateCanSave(); };
+        var port = Ui.Number(px.Port, 1, 65535, 96);
+        port.ValueChanged += (_, _) => { if (_h.Proxy is { } p && !double.IsNaN(port.Value)) _h = _h with { Proxy = p with { Port = (ushort)port.Value } }; };
+        var user = Ui.Field("Username (opsional)", px.Username ?? "");
+        user.TextChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Username = user.Text.Length == 0 ? null : user.Text } }; };
+        var pw = new PasswordBox { PlaceholderText = "Password", Password = px.Password ?? "", PasswordRevealMode = PasswordRevealMode.Peek };
+        pw.PasswordChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Password = pw.Password.Length == 0 ? null : pw.Password } }; };
+        var note = _h.JumpHostId != null
+            ? "Proxy tidak dipakai di terminal selama jump host aktif."
+            : "Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini.";
+        col.Children.Add(Ui.Columns("*,Auto", 6, host, port));
+        col.Children.Add(Ui.Columns("*,*", 6, user, pw));
+        col.Children.Add(Ui.Secondary(note, 11.5, true));
+        return col;
     }
 
     private void RenderTheme()

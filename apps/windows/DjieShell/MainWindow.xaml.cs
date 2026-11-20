@@ -22,8 +22,17 @@ public sealed partial class MainWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBar);
         AppWindow.SetIcon("Assets/djie.ico");
-        AppWindow.Resize(new Windows.Graphics.SizeInt32(1280, 820));
-        if (AppWindow.Presenter is OverlappedPresenter p) { p.PreferredMinimumWidth = 980; p.PreferredMinimumHeight = 620; }
+        // Ukuran AppWindow dalam piksel fisik: kalikan skala layar (mis. 200%), batasi ke area kerja, taruh di tengah
+        var scale = GetDpiForWindow(WinRT.Interop.WindowNative.GetWindowHandle(this)) / 96.0;
+        if (scale <= 0) scale = 1;
+        var area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Nearest).WorkArea;
+        int w = Math.Min((int)(1280 * scale), area.Width), h = Math.Min((int)(820 * scale), area.Height);
+        AppWindow.MoveAndResize(new Windows.Graphics.RectInt32(area.X + (area.Width - w) / 2, area.Y + (area.Height - h) / 2, w, h));
+        if (AppWindow.Presenter is OverlappedPresenter p)
+        {
+            p.PreferredMinimumWidth = Math.Min((int)(980 * scale), area.Width);
+            p.PreferredMinimumHeight = Math.Min((int)(620 * scale), area.Height);
+        }
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
         Closed += (_, _) => { App.Model.Tunnels.StopAll(); foreach (var s in App.Model.Sessions) s.Terminate(); };
 
@@ -87,6 +96,7 @@ public sealed partial class MainWindow : Window
         Add(VirtualKey.N, VirtualKeyModifiers.Control, () => { m.Navigate(Section.Hosts); m.Edit(HostExt.Blank()); });
         Add(VirtualKey.L, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.Lock);
         Add(VirtualKey.W, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.CloseActive);
+        Add(VirtualKey.T, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.OpenLocalTerminal());
         Add(VirtualKey.Tab, VirtualKeyModifiers.Control, () => m.CycleTab(1));
         Add(VirtualKey.Tab, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.CycleTab(-1));
         for (int i = 0; i <= 9; i++)
@@ -99,6 +109,7 @@ public sealed partial class MainWindow : Window
 
     [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")] private static extern bool ShowWindow(IntPtr hWnd, int cmd);
+    [DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hWnd);
 
     public IntPtr Hwnd => WinRT.Interop.WindowNative.GetWindowHandle(this);
 

@@ -90,7 +90,7 @@ internal sealed class SftpModel
         var target = new SshTarget(host.Hostname, host.Port, host.Username,
             host.Auth == AuthMethod.Password ? host.Password : null,
             host.Auth == AuthMethod.Key ? key?.PrivateKey : null,
-            host.Auth == AuthMethod.Key ? key?.Passphrase : null, true);
+            host.Auth == AuthMethod.Key ? key?.Passphrase : null, true, host.Proxy);
         try
         {
             var c = await SftpClient.Connect(target);

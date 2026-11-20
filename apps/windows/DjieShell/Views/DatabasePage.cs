@@ -225,9 +225,9 @@ internal sealed class DatabasePage : PageBase
             Children.Add(col);
             return;
         }
-        var tree = Tree(ws);
         var main = Main(ws);
-        var g = Ui.Columns("268,*", 0, tree, main);
+        // Daftar database & tabel di kiri bisa disembunyikan (diingat antar sesi)
+        var g = Settings.Bool(Settings.DbShowTree, true) ? Ui.Columns("268,*", 0, Tree(ws), main) : Ui.Columns("*", 0, main);
         Children.Add(g);
     }
 
@@ -312,6 +312,15 @@ internal sealed class DatabasePage : PageBase
             crumbs.Children.Add(Ui.Icon(G.ChevronRight, 9, Theme.Text3));
             crumbs.Children.Add(Ui.Row(6, Ui.Icon(st.IsView ? G.Eye : G.Table, 11, Theme.AccentBrush), Ui.Text(st.Name, 12.5, FontWeights.SemiBold)));
         }
+        var showTree = Settings.Bool(Settings.DbShowTree, true);
+        var treeBtn = Ui.IconBtn(showTree ? "\uE89F" : "\uE8A0", showTree ? "Sembunyikan daftar tabel (Ctrl+Alt+S)" : "Tampilkan daftar tabel (Ctrl+Alt+S)", ToggleTree);
+        var treeKey = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.S, Modifiers = Windows.System.VirtualKeyModifiers.Control | Windows.System.VirtualKeyModifiers.Menu };
+        treeKey.Invoked += (_, e) => { e.Handled = true; ToggleTree(); };
+        treeBtn.KeyboardAccelerators.Add(treeKey);
+        treeBtn.KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;
+        crumbs.Children.Insert(0, treeBtn);
+        // Tombol tutup koneksi ada di kepala daftar tabel; saat daftar disembunyikan, tampilkan di sini
+        if (!showTree) crumbs.Children.Insert(0, Ui.IconBtn(G.Back, "Tutup koneksi", M.CloseDatabase));
         var actions = Ui.Row(6,
             ws.Running ? new ProgressRing { Width = 16, Height = 16, IsActive = true } : null,
             Ui.IconBtn(G.Refresh, "Muat ulang", () => _ = ws.Refresh()),
@@ -333,6 +342,7 @@ internal sealed class DatabasePage : PageBase
         {
             DbWorkspace.Tab.Browse => Browse(ws),
             DbWorkspace.Tab.Structure => ws.Structure is { } s ? new ResultGrid(s, 0, "Kunci") : Loading(ws),
+            DbWorkspace.Tab.Search => SearchForm(ws),
             DbWorkspace.Tab.Sql => Sql(ws),
             _ => ws.SelectedDb == null ? ServerOverview(ws) : DbOverview(ws),
         };
@@ -372,8 +382,92 @@ internal sealed class DatabasePage : PageBase
             Nav(G.NextPage, "Berikutnya", hasNext, () => ws.GoToPage(ws.Offset + size)),
             Nav(G.Last, "Halaman terakhir", hasNext && total != null, () => ws.GoToPage(lastOffset)));
         var bar = Ui.Columns("*,Auto,Auto", 10, info, sizeBox, pager);
-        return Ui.Rows("Auto,*", 10, bar, new ResultGrid(page, ws.Offset));
+        UIElement grid = page.Rows.Length == 0 && page.Columns.Length > 0 && ws.IsFiltered
+            ? Ui.Secondary("Tidak ada baris yang cocok", 13).With(x => { x.HorizontalAlignment = HorizontalAlignment.Center; x.VerticalAlignment = VerticalAlignment.Center; })
+            : new ResultGrid(page, ws.Offset);
+        return ws.Conn.Engine.IsSql()
+            ? Ui.Rows("Auto,Auto,*", 10, BrowseBar(ws), bar, grid)
+            : Ui.Rows("Auto,*", 10, bar, grid);
     }
+
+    private void ToggleTree()
+    {
+        Settings.Set(Settings.DbShowTree, !Settings.Bool(Settings.DbShowTree, true));
+        RenderWorkspace();
+    }
+
+    /// <summary>Cari cepat di semua kolom + keterangan filter aktif.</summary>
+    private UIElement BrowseBar(DbWorkspace ws)
+    {
+        var box = new TextBox { PlaceholderText = "Cari di tabel ini (semua kolom) — Enter", Text = ws.QuickSearch, Width = 320 };
+        box.TextChanged += (_, _) => ws.QuickSearch = box.Text;
+        box.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; _ = ws.SubmitQuickSearch(); } };
+        var left = Ui.Row(10, box);
+        if (ws.IsFiltered)
+        {
+            var summary = Ui.Text(ws.FilterSummary, 12.5, fg: Theme.Text2).With(t => { t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxWidth = 420; });
+            left.Children.Add(Ui.Row(6, Ui.Icon(G.Filter, 12, Theme.AccentBrush), summary,
+                Ui.Plain(Ui.Text("Hapus filter", 12.5, fg: Theme.AccentBrush), () => _ = ws.ClearFilters(), new Thickness(4))));
+        }
+        var perColumn = Ui.Plain(Ui.Row(6, Ui.Icon(G.Search, 12, Theme.Text2), Ui.Text("Cari per kolom", 12.5, fg: Theme.Text2)),
+            () => _ = ws.SetTab(DbWorkspace.Tab.Search), new Thickness(6, 4, 6, 4));
+        return Ui.Columns("*,Auto", 10, left, perColumn);
+    }
+
+    /// <summary>Tab "Cari" ala phpMyAdmin: satu baris per kolom — operator & nilai — lalu Kirim.</summary>
+    private UIElement SearchForm(DbWorkspace ws)
+    {
+        if (ws.SearchForm.Count == 0) return Loading(ws);
+        const string cols = "170,120,170,*";
+        var list = Ui.Col(0);
+        list.Children.Add(Ui.Columns(cols, 12, Ui.Caps("Kolom"), Ui.Caps("Jenis"), Ui.Caps("Operator"), Ui.Caps("Nilai"))
+            .With(g => g.Padding = new Thickness(14, 10, 14, 8)));
+        var count = Ui.Text("", 12.5, fg: Theme.Text2);
+        void UpdateCount()
+        {
+            var n = ws.SearchForm.Count(f => f.IsActive);
+            count.Text = n == 0 ? "Belum ada syarat — Kirim menampilkan semua baris" : $"{n} syarat";
+        }
+        foreach (var f in ws.SearchForm)
+        {
+            var op = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
+            foreach (var o in f.Ops) op.Items.Add(o);
+            op.SelectedItem = f.Op;
+            var value = Ui.Field(Placeholder(f), f.Value, mono: true);
+            value.IsEnabled = f.NeedsValue;
+            op.SelectionChanged += (_, _) =>
+            {
+                f.Op = op.SelectedItem as string ?? "=";
+                value.IsEnabled = f.NeedsValue;
+                value.PlaceholderText = Placeholder(f);
+                UpdateCount();
+            };
+            value.TextChanged += (_, _) => { f.Value = value.Text; UpdateCount(); };
+            value.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) { e.Handled = true; _ = ws.SubmitSearch(); } };
+            var row = Ui.Columns(cols, 12,
+                Ui.Text(f.Column, 13, FontWeights.SemiBold).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis),
+                Ui.Text(f.Type, 12, fg: Theme.Text2).With(t => { t.FontFamily = Theme.MonoFont; t.TextTrimming = TextTrimming.CharacterEllipsis; }),
+                op, value);
+            row.Padding = new Thickness(14, 5, 14, 5);
+            list.Children.Add(new Border { Height = 1, Background = Theme.Ink(0.06) });
+            list.Children.Add(row);
+        }
+        UpdateCount();
+        var card = new Border { Child = list, Background = Theme.Card, BorderBrush = Theme.CardStroke, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12) };
+        var hint = Ui.Row(8, Ui.Icon(G.Search, 12, Theme.Text2), Ui.Secondary("Kueri dengan contoh — isi kolom yang ingin dicari, kosongkan sisanya. Wildcard: %", 12.5));
+        var reset = Ui.Secondary("Reset", null, () => { foreach (var f in ws.SearchForm) f.Value = ""; RenderWorkspace(); });
+        var send = Ui.Primary("Kirim", G.Search, () => _ = ws.SubmitSearch());
+        var footer = Ui.Columns("*,Auto,Auto", 8, count, reset, send);
+        return Ui.Rows("Auto,*,Auto", 12, hint, Ui.Scroll(card, 0), footer);
+    }
+
+    private static string Placeholder(DbWorkspace.SearchField f) => f.Op switch
+    {
+        "IN (...)" or "NOT IN (...)" => "nilai1, nilai2, …",
+        "BETWEEN" or "NOT BETWEEN" => "awal, akhir",
+        "LIKE" or "NOT LIKE" => "mis. abc%",
+        _ => f.NeedsValue ? "" : "—",
+    };
 
     private UIElement Sql(DbWorkspace ws)
     {
