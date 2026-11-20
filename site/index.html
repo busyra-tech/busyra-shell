@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Tim: berbagi host terenkripsi ke rekan kerja", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Tim: berbagi host terenkripsi ke rekan kerja", "Server lokal: Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -483,6 +483,23 @@
     </div>
   </section>
 
+  <section class="feat wrap" id="server-lokal">
+    <div class="split rev">
+      <div class="copy reveal">
+        <span class="eyebrow" data-i18n="sl.eye">Server Lokal</span>
+        <h2 style="margin:16px 0 18px" data-i18n="sl.t">Server lokal,<br />sekali klik.</h2>
+        <p data-i18n="sl.p">Jalankan Apache atau Nginx dengan PHP, plus MySQL, PostgreSQL, dan MongoDB di komputermu — seperti MAMP / XAMPP. Komponen diunduh otomatis saat pertama dipakai, tanpa install manual.</p>
+        <div class="spec">
+          <div><span class="k" data-i18n="sl.k1">Web</span><span class="v" data-i18n="sl.v1">Apache atau Nginx + PHP 8.4 — untuk Laravel, WordPress, dan proyek PHP lain</span></div>
+          <div><span class="k">Database</span><span class="v" data-i18n="sl.v2">MySQL 8.4, PostgreSQL 17, MongoDB 8 — langsung buka di halaman Database</span></div>
+          <div><span class="k" data-i18n="sl.k3">Rapi</span><span class="v" data-i18n="sl.v3">Port bisa diatur, hanya di 127.0.0.1, semua berhenti saat app ditutup</span></div>
+          <div><span class="k" data-i18n="sl.k4">Unduh sesuai butuh</span><span class="v" data-i18n="sl.v4">Hanya komponen yang kamu pakai; Apache bawaan macOS dipakai langsung</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="assets/screens/local-server.jpg" alt="Server Lokal di Djie Shell: Apache + PHP, MySQL, PostgreSQL, MongoDB" loading="lazy" width="1600" height="900" /></div>
+    </div>
+  </section>
+
   <section class="feat wrap" id="keychain">
     <div class="split rev">
       <div class="copy reveal">
@@ -707,6 +724,9 @@ const EN = {
   "sf.h3": "Edit files right on the server", "sf.p": "Double-click a text file to open it in the built-in editor — line numbers, find, and save with ⌘S / Ctrl+S. Djie Shell warns you if someone else changed the file before you save.",
   "sf.k7": "Built-in editor", "sf.v7": "Configs, scripts, .env, logs — CRLF/LF line endings preserved", "sf.k8": "Open with", "sf.v8": "VS Code, Sublime, Notepad++, Preview, or any app on your computer",
   "sf.k9": "Auto-save", "sf.v9": "Every time you save in that app, the file is uploaded to the server",
+  "sl.eye": "Local Server", "sl.t": "A local server,<br />in one click.", "sl.p": "Run Apache or Nginx with PHP, plus MySQL, PostgreSQL, and MongoDB on your computer — like MAMP / XAMPP. Components download automatically the first time you use them, no manual installs.",
+  "sl.k1": "Web", "sl.v1": "Apache or Nginx + PHP 8.4 — for Laravel, WordPress, and other PHP projects", "sl.v2": "MySQL 8.4, PostgreSQL 17, MongoDB 8 — open them straight in the Database page",
+  "sl.k3": "Tidy", "sl.v3": "Configurable ports, 127.0.0.1 only, everything stops when the app closes", "sl.k4": "Download on demand", "sl.v4": "Only the components you use; macOS's built-in Apache is used as is",
   "db.t": "phpMyAdmin-style databases,<br />right in the app.", "db.lead": "MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, and 15 more services. Browse tables, view structure, run SQL — no browser needed, and it works over an SSH tunnel.",
   "db.h1": "Search like phpMyAdmin", "db.p1": "The <b>Search</b> tab has one row per column: pick an operator (<code>=</code>, <code>LIKE %…%</code>, <code>IN</code>, <code>BETWEEN</code>, <code>IS NULL</code>, …), enter a value, and submit. Results show up in Browse with paging and a row count.",
   "db.k1": "Quick search", "db.v1": "Type once, search every column of the table", "db.k2": "Table list", "db.v2": "Show or hide it for more room",

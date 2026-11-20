@@ -10,9 +10,9 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, team, keychain, forwarding, sftp, database, snippets, knownHosts, logs, donate, about, account
+    case hosts, team, keychain, forwarding, sftp, database, localServer, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
@@ -22,6 +22,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .forwarding: "Port Forwarding"
         case .sftp: "SFTP"
         case .database: "Database"
+        case .localServer: "Server Lokal"
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
         case .logs: "Logs"
@@ -38,6 +39,7 @@ enum Section: String, CaseIterable, Identifiable {
         case .forwarding: "arrow.right.arrow.left"
         case .sftp: "folder.fill"
         case .database: "cylinder.split.1x2.fill"
+        case .localServer: "square.stack.3d.up.fill"
         case .snippets: "curlybraces"
         case .knownHosts: "touchid"
         case .logs: "clock.fill"
@@ -99,6 +101,7 @@ final class AppModel {
     var updateDismissed = false
     let tunnels = TunnelManager()
     let sftp = SftpModel()
+    let stack = StackModel()
 
     private var vault: Vault?
     @ObservationIgnored private var syncTask: Task<Void, Never>?
@@ -272,6 +275,22 @@ final class AppModel {
         }
         // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL,
         // DJIE_DEMO_TEAM=admin (buat tim, bagikan 2 host, undang DJIE_DEMO_TEAM_INVITE) atau member (gabung undangan pertama)
+        // DJIE_DEMO_STACK=web,postgres : nyalakan layanan Server Lokal (folder DJIE_STACK_ROOT)
+        if let list = env["DJIE_DEMO_STACK"] {
+            section = .localServer
+            Task {
+                for s in list.split(separator: ",") { await stack.toggle(String(s)) }
+                // DJIE_DEMO_STACK_OPENDB=postgres : buka koneksi lokal di halaman Database
+                if let db = env["DJIE_DEMO_STACK_OPENDB"], let svc = stack.service(db) {
+                    let engine: DbEngine = db == "mysql" ? .mysql : db == "postgres" ? .postgres : .mongodb
+                    let conn = DbConnection(id: "", label: "Lokal · \(db)", engine: engine, host: "127.0.0.1", port: svc.port,
+                                            username: db == "mysql" ? "root" : db == "postgres" ? "postgres" : "", password: nil,
+                                            database: "", filePath: "", tls: false, sshHostId: nil, color: "#336791", updatedAt: 0, deleted: false)
+                    save(conn)
+                    if let saved = databases.first(where: { $0.label == conn.label }) { await openDatabase(saved) }
+                }
+            }
+        }
         if let role = env["DJIE_DEMO_TEAM"] {
             section = .team
             startTeamTimer()

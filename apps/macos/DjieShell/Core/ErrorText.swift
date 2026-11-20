@@ -22,6 +22,7 @@ extension Error {
         case .GoogleAuth: return "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan."
         case .GoogleScope: return "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive."
         case .Team(let msg): return "Tim: \(msg)"
+        case .Stack(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
         }
     }
 }

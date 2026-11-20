@@ -34,6 +34,8 @@ pub enum CoreError {
     GoogleScope,
     #[error("Tim: {msg}")]
     Team { msg: String },
+    #[error("{msg}")]
+    Stack { msg: String },
 }
 
 impl From<std::io::Error> for CoreError {

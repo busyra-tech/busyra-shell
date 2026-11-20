@@ -70,6 +70,7 @@ struct SectionContent: View {
         case .forwarding: ForwardingView()
         case .sftp: SftpView()
         case .database: DatabaseView()
+        case .localServer: LocalServerView()
         case .snippets: SnippetsView()
         case .knownHosts: KnownHostsView()
         case .logs: LogsView()
@@ -146,6 +147,7 @@ struct SidebarView: View {
         case .snippets: model.snippets.count
         case .forwarding: model.forwards.count
         case .database: model.databases.count
+        case .localServer: model.stack.services.filter(\.running).count
         default: 0
         }
     }
@@ -232,6 +234,7 @@ extension Section {
         case .forwarding: Color(hex: "#10B981")
         case .sftp: Color(hex: "#06B6D4")
         case .database: Color(hex: "#F97316")
+        case .localServer: Color(hex: "#EAB308")
         case .snippets: Color(hex: "#8B5CF6")
         case .knownHosts: Color(hex: "#EC4899")
         case .logs: Color(hex: "#64748B")

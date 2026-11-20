@@ -14,6 +14,7 @@ mod proxy;
 mod server_info;
 mod sftp;
 mod ssh;
+mod stack;
 mod team;
 mod vault;
 
@@ -24,6 +25,7 @@ pub use proxy::proxy_stdio;
 pub use server_info::{DiskInfo, ServerInfo, ServerMonitor, ServerSample};
 pub use sftp::{RemoteEntry, SftpClient, TransferProgress};
 pub use ssh::SshTarget;
+pub use stack::{LocalStack, StackComponent, StackService, StackSettings, StackState};
 pub use team::{MemberStatus, TeamInfo, TeamInvite, TeamMember, TeamStatus};
 pub use vault::{Vault, vault_exists};
 

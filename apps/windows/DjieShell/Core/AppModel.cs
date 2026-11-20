@@ -11,33 +11,33 @@ namespace DjieShell;
 
 internal enum Phase { Welcome, CreatePassword, Restore, Locked, Main }
 
-internal enum Section { Hosts, Team, Keychain, Forwarding, Sftp, Database, Snippets, KnownHosts, Logs, Donate, About, Account }
+internal enum Section { Hosts, Team, Keychain, Forwarding, Sftp, Database, LocalServer, Snippets, KnownHosts, Logs, Donate, About, Account }
 
 internal enum SyncKind { Off, Idle, Syncing, Synced, Failed, NeedsLogin }
 
 internal static class SectionInfo
 {
-    public static readonly Section[] Main = [Section.Hosts, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.Snippets, Section.KnownHosts, Section.Logs];
+    public static readonly Section[] Main = [Section.Hosts, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Snippets, Section.KnownHosts, Section.Logs];
     public static readonly Section[] Community = [Section.Donate, Section.About];
 
     public static string Title(this Section s) => s switch
     {
         Section.Hosts => "Hosts", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
-        Section.Database => "Database", Section.Snippets => "Snippets", Section.KnownHosts => "Known Hosts", Section.Logs => "Logs",
+        Section.Database => "Database", Section.LocalServer => "Server Lokal", Section.Snippets => "Snippets", Section.KnownHosts => "Known Hosts", Section.Logs => "Logs",
         Section.Donate => "Donasi", Section.About => "Tentang", _ => "Akun",
     };
 
     public static string Glyph(this Section s) => s switch
     {
         Section.Hosts => G.Server, Section.Team => G.People, Section.Keychain => G.Key, Section.Forwarding => G.Forward, Section.Sftp => G.Folder,
-        Section.Database => G.Database, Section.Snippets => G.Code, Section.KnownHosts => G.Fingerprint, Section.Logs => G.History,
+        Section.Database => G.Database, Section.LocalServer => G.Stack, Section.Snippets => G.Code, Section.KnownHosts => G.Fingerprint, Section.Logs => G.History,
         Section.Donate => G.Heart, Section.About => G.Info, _ => G.Person,
     };
 
     public static string Tint(this Section s) => s switch
     {
         Section.Hosts => "#3B82F6", Section.Team => "#22C55E", Section.Keychain => "#F59E0B", Section.Forwarding => "#10B981", Section.Sftp => "#06B6D4",
-        Section.Database => "#F97316", Section.Snippets => "#8B5CF6", Section.KnownHosts => "#EC4899", Section.Logs => "#64748B",
+        Section.Database => "#F97316", Section.LocalServer => "#EAB308", Section.Snippets => "#8B5CF6", Section.KnownHosts => "#EC4899", Section.Logs => "#64748B",
         Section.Donate => "#EF4444", Section.About => "#6366F1", _ => "#14B8A6",
     };
 }
@@ -116,6 +116,7 @@ internal sealed class AppModel
 
     public TunnelManager Tunnels { get; } = new();
     public SftpModel Sftp { get; }
+    public StackModel Stack { get; }
 
     public bool IsDark { get; private set; } = true;
     public string Appearance { get; private set; } = Settings.Str(Settings.Appearance) ?? "dark";
@@ -134,6 +135,7 @@ internal sealed class AppModel
         _dq = DispatcherQueue.GetForCurrentThread();
         Phase = DjieCoreMethods.VaultExists(Config.VaultPath) ? Phase.Locked : Phase.Welcome;
         Sftp = new SftpModel(this);
+        Stack = new StackModel(this);
         Tunnels.Changed += () => Raise("tunnels");
         IsDark = ComputeDark();
         _ui.ColorValuesChanged += (_, _) => _dq.TryEnqueue(() =>
@@ -223,6 +225,8 @@ internal sealed class AppModel
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_SECTION") is { Length: > 0 } sec && Enum.TryParse<Section>(sec, true, out var s)) Navigate(s);
         // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL; DJIE_DEMO_TEAM=admin|member
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_TEAM") is { Length: > 0 } role) _ = DemoTeam(role);
+        // DJIE_DEMO_STACK=web,postgres : nyalakan layanan Server Lokal; DJIE_DEMO_STACK_INSTALL=nginx,php : unduh dulu
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_STACK") is { } stackList) _ = DemoStack(stackList);
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_LIGHT") == "1") SetAppearance("light");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") is "1" or "test") Edit(Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "test" ? test : Hosts.FirstOrDefault());
@@ -688,6 +692,17 @@ internal sealed class AppModel
     }
 
 #if DEBUG
+    private async Task DemoStack(string list)
+    {
+        Navigate(Section.LocalServer);
+        foreach (var id in (Environment.GetEnvironmentVariable("DJIE_DEMO_STACK_INSTALL") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries))
+        {
+            Stack.Install(id);
+            while (Stack.Downloads.ContainsKey(id)) await Task.Delay(500);
+        }
+        foreach (var s in list.Split(',', StringSplitOptions.RemoveEmptyEntries)) await Stack.Toggle(s);
+    }
+
     private async Task DemoTeam(string role)
     {
         Navigate(Section.Team);

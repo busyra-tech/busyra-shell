@@ -34,7 +34,7 @@ public sealed partial class MainWindow : Window
             p.PreferredMinimumHeight = Math.Min((int)(620 * scale), area.Height);
         }
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
-        Closed += (_, _) => { App.Model.Tunnels.StopAll(); foreach (var s in App.Model.Sessions) s.Terminate(); };
+        Closed += (_, _) => { App.Model.Stack.Stack?.StopAll(); App.Model.Tunnels.StopAll(); foreach (var s in App.Model.Sessions) s.Terminate(); };
 
         App.Model.Changed += what =>
         {

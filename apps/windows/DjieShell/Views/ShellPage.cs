@@ -158,7 +158,7 @@ internal sealed class ShellPage : Grid
     private int Badge(Section s) => s switch
     {
         Section.Hosts => M.Hosts.Length, Section.Team => M.Teams.Length, Section.Keychain => M.Keys.Length, Section.Snippets => M.Snippets.Length,
-        Section.Forwarding => M.Forwards.Length, Section.Database => M.Databases.Length, _ => 0,
+        Section.Forwarding => M.Forwards.Length, Section.Database => M.Databases.Length, Section.LocalServer => M.Stack.Services.Count(x => x.Running), _ => 0,
     };
 
     private UIElement SidebarRow(Section s)
@@ -412,6 +412,7 @@ internal sealed class ShellPage : Grid
             Section.Forwarding => new ForwardingPage(),
             Section.Sftp => new SftpPage(),
             Section.Database => new DatabasePage(),
+            Section.LocalServer => new StackPage(),
             Section.Snippets => new SnippetsPage(),
             Section.KnownHosts => new KnownHostsPage(),
             Section.Logs => new LogsPage(),

@@ -88,5 +88,5 @@ internal static class G
         Link = "", Bug = "", Chat = "", Hello = "", SignOut = "", Tag = "",
         Text = "", Clock = "", Filter = "", Export = "", Structure = "", First = "",
         Prev = "", NextPage = "", Last = "", ChevronDown = "", ChevronRight = "",
-        Shield = "", Rename = "", Permissions = "", Stop = "", People = "", AddFriend = "", Mail = "", RemovePerson = "", Checklist = "", Link2 = "";
+        Shield = "", Rename = "", Permissions = "", Stop = "", People = "", Stack = "", AddFriend = "", Mail = "", RemovePerson = "", Checklist = "", Link2 = "";
 }

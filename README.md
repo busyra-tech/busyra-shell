@@ -6,7 +6,7 @@
 
 **Semua servermu, satu terminal.**
 
-SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, database ala phpMyAdmin, SSH key, port forwarding, proxy, dan berbagi host ke tim dalam satu app. Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
+SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, database ala phpMyAdmin, SSH key, port forwarding, proxy, berbagi host ke tim, dan server lokal (Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB) dalam satu app. Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)
 [![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-5B9CF5)](LICENSE)
@@ -71,6 +71,17 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 - Daftar database & tabel bisa **ditampilkan / disembunyikan**
 
 <img src="site/assets/screens/database.jpg" alt="Tab Cari per kolom" width="900" />
+
+### 🧱 Server Lokal
+
+Seperti MAMP / XAMPP, tapi di dalam Djie Shell: nyalakan **Apache atau Nginx + PHP 8.4** dan **MySQL 8.4, PostgreSQL 17, MongoDB 8** di komputermu dengan satu klik.
+
+- Komponen diunduh otomatis saat pertama dipakai (Apache bawaan macOS dipakai langsung)
+- Port & folder proyek bisa diatur; layanan hanya mendengarkan di `127.0.0.1`
+- **Buka di Database** langsung membuka database lokal di halaman Database
+- Semua layanan berhenti saat app ditutup; proses sisa dibersihkan saat app dibuka lagi
+
+<img src="site/assets/screens/local-server.jpg" alt="Server Lokal: Apache + PHP, MySQL, PostgreSQL, MongoDB" width="900" />
 
 ### 📁 SFTP
 
