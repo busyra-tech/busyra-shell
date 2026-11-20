@@ -5,7 +5,7 @@
 ; Dipasang per user (tanpa admin) di %LOCALAPPDATA%\Programs\Djie Shell.
 
 #ifndef AppVersion
-  #define AppVersion "0.3.0"
+  #define AppVersion "0.4.0"
 #endif
 #ifndef Arch
   #define Arch "x64"

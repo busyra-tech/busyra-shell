@@ -3,7 +3,7 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1 -Version 0.1.0 [-Arch ARM64,x64]
 # Hasil: dist\Djie-Shell-<versi>-Windows-<arch>-Setup.exe
 param(
-    [string]$Version = "0.3.0",
+    [string]$Version = "0.4.0",
     [ValidateSet("ARM64", "x64")] [string[]]$Arch = @("ARM64", "x64")
 )
 $ErrorActionPreference = "Continue"
