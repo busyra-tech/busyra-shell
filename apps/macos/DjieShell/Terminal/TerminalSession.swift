@@ -13,6 +13,8 @@ final class TerminalSession: Identifiable {
 
     let id = UUID()
     let host: Host
+    /// Terminal lokal (shell di Mac ini), bukan SSH.
+    let isLocal: Bool
     var title: String
     /// Tema yang sedang dipakai tab ini (bisa diganti tanpa reconnect).
     var themeID: String?
@@ -29,8 +31,9 @@ final class TerminalSession: Identifiable {
     @ObservationIgnored private var delegate: Delegate?
     @ObservationIgnored private(set) lazy var view: DjieTerminalView = makeView()
 
-    init(host: Host, key: SshKey?, jump: Host?, run: String? = nil, model: AppModel? = nil) {
+    init(host: Host, key: SshKey?, jump: Host?, run: String? = nil, model: AppModel? = nil, local: Bool = false) {
         self.host = host
+        self.isLocal = local
         self.key = key
         self.jump = jump
         self.run = run
@@ -73,7 +76,33 @@ final class TerminalSession: Identifiable {
         return v
     }
 
+    /// "Host" semu untuk tab terminal lokal (tidak disimpan di vault).
+    static func localHost() -> Host {
+        var h = Host.blank()
+        h.id = "local"
+        h.label = "Lokal"
+        h.hostname = "localhost"
+        h.username = NSUserName()
+        h.color = "#94A3B8"
+        return h
+    }
+
     private func start(in v: DjieTerminalView) {
+        if isLocal {
+            // Shell login pengguna di folder home, mis. -zsh
+            let base = ProcessInfo.processInfo.environment
+            let shell = base["SHELL"].flatMap { FileManager.default.isExecutableFile(atPath: $0) ? $0 : nil } ?? "/bin/zsh"
+            var env = base
+            env["TERM"] = "xterm-256color"
+            env["COLORTERM"] = "truecolor"
+            env["LANG"] = env["LANG"] ?? "en_US.UTF-8"
+            env["TERM_PROGRAM"] = "DjieShell"
+            v.resetFirstData()
+            status = .connecting
+            v.startProcess(executable: shell, args: [], environment: env.map { "\($0.key)=\($0.value)" },
+                           execName: "-" + (shell as NSString).lastPathComponent, currentDirectory: NSHomeDirectory())
+            return
+        }
         let cmd = SSHCommand(host: host, key: key, jump: jump)
         tempFiles = cmd.tempFiles
         v.resetFirstData()
@@ -221,6 +250,15 @@ struct SSHCommand {
         if !host.username.isEmpty { args += ["-l", host.username] }
         if host.agentForwarding { args.append("-A") }
         if let jump { args += ["-J", "\(jump.username)@\(jump.hostname):\(jump.port)"] }
+        // Proxy SOCKS5/HTTP: app ini sendiri jadi ProxyCommand (lihat main.swift).
+        // Login proxy lewat environment, bukan argumen (tidak terlihat di `ps`).
+        var proxyEnv: [String: String] = [:]
+        if jump == nil, let p = host.proxy, !p.host.isEmpty, let exe = Bundle.main.executablePath {
+            let kind = p.kind == .http ? "http" : "socks5"
+            args += ["-o", "ProxyCommand=\"\(exe)\" --djie-proxy \(kind) \(p.host) \(p.port) %h %p"]
+            if let u = p.username, !u.isEmpty { proxyEnv["DJIE_PROXY_USER"] = u }
+            if let pw = p.password, !pw.isEmpty { proxyEnv["DJIE_PROXY_PASS"] = pw }
+        }
 
         var secret: String?
         switch host.auth {
@@ -252,6 +290,7 @@ struct SSHCommand {
             "PATH": base["PATH"] ?? "/usr/bin:/bin:/usr/sbin:/sbin",
         ]
         if let sock = base["SSH_AUTH_SOCK"] { env["SSH_AUTH_SOCK"] = sock }
+        env.merge(proxyEnv) { $1 }
         // Password / passphrase dikirim lewat helper askpass, bukan argumen (tidak terlihat di `ps`).
         if let secret, !secret.isEmpty, let askpass = Self.askpassScript() {
             env["SSH_ASKPASS"] = askpass.path

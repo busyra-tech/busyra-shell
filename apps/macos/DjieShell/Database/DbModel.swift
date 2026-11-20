@@ -109,13 +109,14 @@ extension DbEngine {
 final class DbWorkspace: Identifiable {
     enum Status: Equatable { case connecting, ready, failed(String) }
     enum Tab: String, CaseIterable, Identifiable {
-        case overview, browse, structure, sql
+        case overview, browse, structure, search, sql
         var id: String { rawValue }
         var title: String {
             switch self {
             case .overview: "Ringkasan"
             case .browse: "Telusuri"
             case .structure: "Struktur"
+            case .search: "Cari"
             case .sql: "SQL"
             }
         }
@@ -124,9 +125,36 @@ final class DbWorkspace: Identifiable {
             case .overview: "square.grid.2x2"
             case .browse: "tablecells"
             case .structure: "list.bullet.rectangle"
+            case .search: "magnifyingglass"
             case .sql: "chevron.left.forwardslash.chevron.right"
             }
         }
+    }
+
+    /// Satu baris form "Cari" (kueri dengan contoh, ala phpMyAdmin).
+    struct SearchField: Identifiable, Equatable {
+        let column: String
+        let type: String
+        var op: String
+        var value = ""
+        var id: String { column }
+
+        /// Operator tanpa isian nilai.
+        var needsValue: Bool { !["IS NULL", "IS NOT NULL", "= ''", "!= ''"].contains(op) }
+        var isActive: Bool { !needsValue || !value.trimmingCharacters(in: .whitespaces).isEmpty }
+
+        static let textOps = ["LIKE %...%", "NOT LIKE %...%", "LIKE", "NOT LIKE", "=", "!=", "IN (...)", "NOT IN (...)",
+                              "BETWEEN", "NOT BETWEEN", "= ''", "!= ''", "IS NULL", "IS NOT NULL"]
+        static let valueOps = ["=", "!=", ">", ">=", "<", "<=", "LIKE %...%", "LIKE", "NOT LIKE", "IN (...)", "NOT IN (...)",
+                               "BETWEEN", "NOT BETWEEN", "IS NULL", "IS NOT NULL"]
+
+        /// Kolom angka/tanggal: operator perbandingan dulu; teks: LIKE %...% dulu.
+        static func isTextual(_ type: String) -> Bool {
+            let t = type.lowercased()
+            let nonText = ["int", "dec", "num", "float", "double", "real", "money", "serial", "bit", "bool", "date", "time", "year"]
+            return !nonText.contains { t.contains($0) } || t.contains("char") || t.contains("text")
+        }
+        var ops: [String] { Self.isTextual(type) ? Self.textOps : Self.valueOps }
     }
 
     let id = UUID()
@@ -156,6 +184,13 @@ final class DbWorkspace: Identifiable {
     // Struktur
     var structure: QueryResult?
 
+    // Cari: syarat aktif di Telusuri (dari form "Cari" atau kotak cari cepat)
+    var searchForm: [SearchField] = []
+    var filters: [DbFilter] = []
+    var filterAny = false
+    var quickSearch = ""
+    var isFiltered: Bool { !filters.isEmpty }
+
     // SQL
     var query = ""
     var result: QueryResult?
@@ -174,7 +209,7 @@ final class DbWorkspace: Identifiable {
     var userDatabases: [String] { databases.filter { !conn.engine.systemDatabases.contains($0) } }
     var systemDatabases: [String] { databases.filter { conn.engine.systemDatabases.contains($0) } }
     var availableTabs: [Tab] {
-        if selectedTable != nil { return conn.engine.supportsStructure ? [.browse, .structure, .sql] : [.browse, .sql] }
+        if selectedTable != nil { return conn.engine.supportsStructure ? [.browse, .structure, .search, .sql] : [.browse, .sql] }
         return [.overview, .sql]
     }
 
@@ -208,7 +243,7 @@ final class DbWorkspace: Identifiable {
                 selectedDb = a
             }
         } catch {
-            withAnimation(.djie) { status = .failed(error.localizedDescription) }
+            withAnimation(.djie) { status = .failed(error.djieMessage) }
         }
     }
 
@@ -236,7 +271,7 @@ final class DbWorkspace: Identifiable {
             }
             withAnimation(.djie) { dbTables[db] = t }
         } catch {
-            withAnimation(.djie) { self.error = error.localizedDescription }
+            withAnimation(.djie) { self.error = error.djieMessage }
         }
     }
 
@@ -273,22 +308,25 @@ final class DbWorkspace: Identifiable {
             error = nil
         }
         if activeDatabase != db, conn.engine != .sqlite {
-            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.localizedDescription } }
+            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.djieMessage } }
         }
         if !expanded.contains(db) || dbTables[db] == nil { await toggle(db, forceOpen: true) }
     }
 
     func openTable(_ t: DbTable, in db: String) async {
         if activeDatabase != db, conn.engine != .sqlite {
-            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.localizedDescription }; return }
+            do { try await useDatabase(db) } catch { withAnimation(.djie) { self.error = error.djieMessage }; return }
         }
         withAnimation(.djie) {
             selectedDb = db
             selectedTable = t
-            if tab == .overview || (!conn.engine.supportsStructure && tab == .structure) { tab = .browse }
+            if tab == .overview || (!conn.engine.supportsStructure && (tab == .structure || tab == .search)) { tab = .browse }
             offset = 0
             page = nil
             structure = nil
+            searchForm = []
+            filters = []
+            quickSearch = ""
             totalRows = t.rows
             totalIsEstimate = t.rows != nil
             error = nil
@@ -307,8 +345,78 @@ final class DbWorkspace: Identifiable {
         switch tab {
         case .browse: if page == nil { await loadPage(t) }
         case .structure: if structure == nil { await loadStructure(t) }
+        case .search: await prepareSearchForm(t)
         default: break
         }
+    }
+
+    // MARK: Cari
+
+    /// Isi form "Cari" dari struktur tabel (kolom & tipe).
+    func prepareSearchForm(_ t: DbTable) async {
+        if structure == nil { await loadStructure(t) }
+        guard searchForm.isEmpty, let s = structure else { return }
+        let typeIdx = s.columns.firstIndex(of: "Tipe") ?? 1
+        let fields = s.rows.compactMap { row -> SearchField? in
+            guard let name = row.first ?? nil else { return nil }
+            let type = (row.count > typeIdx ? row[typeIdx] : nil) ?? ""
+            return SearchField(column: name, type: type, op: SearchField.isTextual(type) ? "LIKE %...%" : "=")
+        }
+        withAnimation(.djie) { searchForm = fields }
+    }
+
+    /// Jalankan form "Cari": hasilnya tampil di Telusuri dengan paging.
+    func submitSearch() async {
+        let active = searchForm.filter(\.isActive).map {
+            DbFilter(column: $0.column, op: $0.op, value: $0.value.trimmingCharacters(in: .whitespaces))
+        }
+        quickSearch = ""
+        await applyFilters(active, any: false)
+    }
+
+    /// Kotak "Cari di tabel ini": cocokkan teks di semua kolom.
+    func submitQuickSearch() async {
+        let text = quickSearch.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { await clearFilters(); return }
+        var cols = page?.columns ?? []
+        if cols.isEmpty, let t = selectedTable { await loadStructure(t); cols = structure?.rows.compactMap { $0.first ?? nil } ?? [] }
+        await applyFilters(cols.map { DbFilter(column: $0, op: "LIKE %...%", value: text) }, any: true)
+    }
+
+    func clearFilters() async {
+        quickSearch = ""
+        for i in searchForm.indices { searchForm[i].value = "" }
+        await applyFilters([], any: false)
+    }
+
+    private func applyFilters(_ f: [DbFilter], any: Bool) async {
+        guard let t = selectedTable else { return }
+        withAnimation(.djie) {
+            filters = f
+            filterAny = any
+            offset = 0
+            tab = .browse
+            totalRows = f.isEmpty ? t.rows : nil
+            totalIsEstimate = f.isEmpty && t.rows != nil
+        }
+        await loadPage(t)
+        guard let session else { return }
+        if let n = try? await session.countSearch(schema: t.schema, table: t.name, filters: f, any: any), selectedTable?.name == t.name {
+            withAnimation(.djieSnappy) { totalRows = n; totalIsEstimate = false }
+        }
+    }
+
+    /// Ringkasan syarat aktif, mis. `kota = Medan · nama LIKE %di%`.
+    var filterSummary: String {
+        if filterAny { return "“\(filters.first?.value ?? "")” di semua kolom" }
+        return filters.map { f in
+            switch f.op {
+            case "IS NULL", "IS NOT NULL", "= ''", "!= ''": "\(f.column) \(f.op)"
+            case "LIKE %...%": "\(f.column) berisi “\(f.value)”"
+            case "NOT LIKE %...%": "\(f.column) tidak berisi “\(f.value)”"
+            default: "\(f.column) \(f.op) \(f.value)"
+            }
+        }.joined(separator: " · ")
     }
 
     func loadPage(_ t: DbTable) async {
@@ -316,10 +424,12 @@ final class DbWorkspace: Identifiable {
         withAnimation(.djieSnappy) { running = true; error = nil }
         defer { withAnimation(.djieSnappy) { running = false } }
         do {
-            let r = try await session.page(schema: t.schema, table: t.name, limit: pageSize, offset: offset)
+            let r = filters.isEmpty
+                ? try await session.page(schema: t.schema, table: t.name, limit: pageSize, offset: offset)
+                : try await session.search(schema: t.schema, table: t.name, filters: filters, any: filterAny, limit: pageSize, offset: offset)
             withAnimation(.djie) { page = r }
         } catch {
-            withAnimation(.djie) { self.error = error.localizedDescription }
+            withAnimation(.djie) { self.error = error.djieMessage }
         }
     }
 
@@ -331,7 +441,7 @@ final class DbWorkspace: Identifiable {
             let r = try await session.columns(schema: t.schema, table: t.name)
             withAnimation(.djie) { structure = r }
         } catch {
-            withAnimation(.djie) { self.error = error.localizedDescription }
+            withAnimation(.djie) { self.error = error.djieMessage }
         }
     }
 
@@ -369,7 +479,7 @@ final class DbWorkspace: Identifiable {
                 page = nil
             }
         } catch {
-            withAnimation(.djie) { self.error = error.localizedDescription }
+            withAnimation(.djie) { self.error = error.djieMessage }
         }
     }
 
@@ -379,6 +489,7 @@ final class DbWorkspace: Identifiable {
         case .browse: page
         case .structure: structure
         case .sql: result
+        case .search: nil
         case .overview: nil
         }
     }

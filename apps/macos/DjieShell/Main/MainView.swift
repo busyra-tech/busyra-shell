@@ -396,6 +396,15 @@ struct TabStrip: View {
                 }
                 .padding(.vertical, 1)
             }
+            Button { model.openLocalTerminal() } label: {
+                Image(systemName: "plus").font(.system(size: 11, weight: .semibold))
+                    .frame(width: 26, height: 26)
+                    .background(Theme.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Terminal lokal (⇧⌘T)")
             Spacer(minLength: 0)
             if model.activeSessionID != nil {
                 AutocompleteMenu()
@@ -471,7 +480,11 @@ struct SessionTab: View {
         TabChip(isActive: model.activeSessionID == session.id, ns: ns,
                 onSelect: { model.activeSessionID = session.id }) {
             HStack(spacing: 7) {
-                StatusDot(status: session.status, color: Color(hex: session.host.color))
+                if session.isLocal {
+                    Image(systemName: "apple.terminal").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.secondary)
+                } else {
+                    StatusDot(status: session.status, color: Color(hex: session.host.color))
+                }
                 Text(session.title)
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)

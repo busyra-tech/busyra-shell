@@ -29,7 +29,7 @@ targets:
       base:
         PRODUCT_NAME: Djie Shell
         PRODUCT_BUNDLE_IDENTIFIER: com.djieshell.app
-        MARKETING_VERSION: 0.1.0
+        MARKETING_VERSION: 0.2.0
         CURRENT_PROJECT_VERSION: 1
         SWIFT_VERSION: "5.0"
         GENERATE_INFOPLIST_FILE: YES

@@ -12,8 +12,8 @@ struct TerminalPane: View {
             Color(hex: theme.bg)
             TerminalRepresentable(session: session, active: active)
                 .padding(.leading, 10).padding(.top, 6)
-                .opacity(session.status == .connecting ? 0.25 : 1)
-                .blur(radius: session.status == .connecting ? 2 : 0)
+                .opacity(session.status == .connecting && !session.isLocal ? 0.25 : 1)
+                .blur(radius: session.status == .connecting && !session.isLocal ? 2 : 0)
 
             GeometryReader { geo in
                 if active, session.autocomplete.visible {
@@ -22,7 +22,7 @@ struct TerminalPane: View {
             }
             .animation(.djieSnappy, value: session.autocomplete.visible)
 
-            if session.status == .connecting {
+            if session.status == .connecting && !session.isLocal {
                 ConnectingOverlay(host: session.host)
                     .transition(.opacity.combined(with: .scale(scale: 1.05)))
             }
@@ -31,9 +31,9 @@ struct TerminalPane: View {
             if case .disconnected(let code) = session.status {
                 HStack(spacing: 12) {
                     Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    Text(code == 0 ? "Sesi selesai" : "Koneksi terputus\(code.map { " (kode \($0))" } ?? "")")
+                    Text(code == 0 || session.isLocal ? "Sesi selesai" : "Koneksi terputus\(code.map { " (kode \($0))" } ?? "")")
                         .font(.callout.weight(.medium))
-                    Button("Reconnect") { session.reconnect() }.buttonStyle(PrimaryButtonStyle())
+                    Button(session.isLocal ? "Buka lagi" : "Reconnect") { session.reconnect() }.buttonStyle(PrimaryButtonStyle())
                     Button("Tutup") { model.close(session) }.buttonStyle(SecondaryButtonStyle())
                 }
                 .padding(10)

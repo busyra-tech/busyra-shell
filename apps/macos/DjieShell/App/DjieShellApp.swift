@@ -1,7 +1,6 @@
 import AppKit
 import SwiftUI
 
-@main
 struct DjieShellApp: App {
     @State private var model = AppModel()
     @AppStorage(AppearanceMode.storageKey) private var appearance: AppearanceMode = .dark
@@ -42,6 +41,9 @@ struct DjieShellApp: App {
             }
             CommandMenu("Sesi") {
                 Button("Daftar Host") { model.showHome() }.keyboardShortcut("t")
+                Button("Terminal Lokal") { model.openLocalTerminal() }
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+                    .disabled(model.phase != .main)
                 Button("Tutup Tab") { model.closeActive() }
                 Divider()
                 Button("Kunci Vault") { model.lock() }

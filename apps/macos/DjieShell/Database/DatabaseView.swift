@@ -273,7 +273,7 @@ struct DbEditor: View {
             testResult = "Berhasil tersambung — \(n) tabel/koleksi/key ditemukan"
         } catch {
             testOK = false
-            testResult = error.localizedDescription
+            testResult = error.djieMessage
         }
     }
 
@@ -293,7 +293,8 @@ struct DbEditor: View {
 struct DbWorkspaceView: View {
     @Environment(AppModel.self) private var model
     @Bindable var ws: DbWorkspace
-    @Namespace private var tabNS
+    /// Daftar database & tabel di kiri bisa disembunyikan (diingat antar sesi).
+    @AppStorage("db.showTree") private var showTree = true
 
     private var preset: DbPreset { DbPreset.find(ws.conn) }
 
@@ -323,7 +324,10 @@ struct DbWorkspaceView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .ready:
                 HSplitView {
-                    DbTree(ws: ws).frame(minWidth: 220, idealWidth: 270, maxWidth: 420)
+                    if showTree {
+                        DbTree(ws: ws).frame(minWidth: 220, idealWidth: 270, maxWidth: 420)
+                            .transition(.move(edge: .leading).combined(with: .opacity))
+                    }
                     VStack(spacing: 0) {
                         breadcrumb
                         tabBar
@@ -336,6 +340,7 @@ struct DbWorkspaceView: View {
             }
         }
         .animation(.djie, value: ws.status)
+        .animation(.djie, value: showTree)
     }
 
     // MARK: Header & navigasi
@@ -343,6 +348,11 @@ struct DbWorkspaceView: View {
     private var header: some View {
         HStack(spacing: 12) {
             IconButton(symbol: "chevron.left", help: "Kembali ke daftar koneksi") { model.dbWorkspace = nil }
+            if ws.status == .ready {
+                IconButton(symbol: showTree ? "sidebar.left" : "sidebar.squares.left",
+                           help: showTree ? "Sembunyikan daftar tabel (⌥⌘S)" : "Tampilkan daftar tabel (⌥⌘S)") { showTree.toggle() }
+                    .keyboardShortcut("s", modifiers: [.command, .option])
+            }
             EngineBadge(preset: preset, size: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(ws.conn.title).font(.system(size: 15, weight: .semibold))
@@ -395,13 +405,8 @@ struct DbWorkspaceView: View {
                         .font(.system(size: 12.5, weight: ws.tab == t ? .semibold : .regular))
                         .padding(.horizontal, 12).padding(.vertical, 7)
                         .foregroundStyle(ws.tab == t ? .primary : .secondary)
-                        .background {
-                            if ws.tab == t {
-                                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .fill(Theme.accent.opacity(0.14))
-                                    .matchedGeometryEffect(id: "tab", in: tabNS)
-                            }
-                        }
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Theme.accent.opacity(ws.tab == t ? 0.14 : 0)))
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
@@ -413,6 +418,7 @@ struct DbWorkspaceView: View {
             }
         }
         .padding(.horizontal, 12).padding(.bottom, 8)
+        .animation(.djieSnappy, value: ws.tab)
     }
 
     @ViewBuilder private var content: some View {
@@ -422,6 +428,7 @@ struct DbWorkspaceView: View {
                 if let db = ws.selectedDb { DbOverview(ws: ws, db: db) } else { ServerOverview(ws: ws) }
             case .browse: browse
             case .structure: structureView
+            case .search: DbSearchForm(ws: ws)
             case .sql: sqlView
             }
         }
@@ -434,6 +441,7 @@ struct DbWorkspaceView: View {
 
     private var browse: some View {
         VStack(spacing: 0) {
+            if ws.conn.engine.isSQL { browseBar }
             errorBar
             if let r = ws.page, !r.columns.isEmpty {
                 ResultGrid(result: r, rowOffset: Int(ws.offset)).id("page\(ws.offset)\(r.rows.count)\(r.elapsedMs)")
@@ -441,12 +449,51 @@ struct DbWorkspaceView: View {
             } else if ws.running {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let r = ws.page {
-                Text(r.rows.isEmpty ? "Tabel kosong" : "").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(r.rows.isEmpty ? (ws.isFiltered ? "Tidak ada baris yang cocok" : "Tabel kosong") : "").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Color.clear
             }
             if ws.conn.engine.isSQL { pager }
         }
+    }
+
+    /// Cari cepat di semua kolom + keterangan filter aktif.
+    private var browseBar: some View {
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField("Cari di tabel ini (semua kolom)", text: $ws.quickSearch)
+                    .textFieldStyle(.plain)
+                    .onSubmit { Task { await ws.submitQuickSearch() } }
+                if !ws.quickSearch.isEmpty {
+                    Button { Task { await ws.clearFilters() } } label: { Image(systemName: "xmark.circle.fill") }
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Hapus pencarian")
+                }
+            }
+            .font(.system(size: 12.5))
+            .padding(.horizontal, 10).padding(.vertical, 6)
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.ink.opacity(0.1)))
+            .frame(maxWidth: 320)
+            if ws.isFiltered {
+                HStack(spacing: 6) {
+                    Image(systemName: "line.3.horizontal.decrease.circle.fill").foregroundStyle(Theme.accent)
+                    Text(ws.filterSummary).lineLimit(1).truncationMode(.tail)
+                    Button("Hapus filter") { Task { await ws.clearFilters() } }
+                        .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                }
+                .font(.system(size: 12))
+                .transition(.opacity.combined(with: .move(edge: .leading)))
+            }
+            Spacer()
+            Button {
+                withAnimation(.djieSnappy) { ws.tab = .search }
+                Task { await ws.loadTab() }
+            } label: { Label("Cari per kolom", systemImage: "slider.horizontal.3") }
+            .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .animation(.djie, value: ws.isFiltered)
     }
 
     private var pager: some View {
@@ -608,6 +655,84 @@ struct DbWorkspaceView: View {
         }
         .animation(.djie, value: ws.result?.elapsedMs)
         .animation(.djie, value: ws.error)
+    }
+}
+
+// MARK: - Cari (kueri dengan contoh)
+
+/// Tab "Cari" ala phpMyAdmin: satu baris per kolom — operator & nilai — lalu Kirim.
+private struct DbSearchForm: View {
+    @Bindable var ws: DbWorkspace
+
+    var body: some View {
+        VStack(spacing: 0) {
+            if ws.searchForm.isEmpty {
+                if ws.running { ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity) } else { Color.clear }
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        Label("Kueri dengan contoh — isi kolom yang ingin dicari, kosongkan sisanya. Wildcard: %",
+                              systemImage: "magnifyingglass")
+                            .font(.system(size: 12.5)).foregroundStyle(.secondary)
+                        VStack(spacing: 0) {
+                            row(header: true, Text("Kolom"), Text("Jenis"), Text("Operator"), Text("Nilai"))
+                            ForEach($ws.searchForm) { $f in
+                                Divider().opacity(0.5)
+                                row(header: false,
+                                    Text(f.column).font(.system(size: 12.5, weight: .semibold)).lineLimit(1),
+                                    Text(f.type).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1),
+                                    Picker("", selection: $f.op) { ForEach(f.ops, id: \.self) { Text($0).tag($0) } }
+                                        .labelsHidden().controlSize(.small),
+                                    TextField(placeholder(f), text: $f.value)
+                                        .frame(maxWidth: .infinity)
+                                        .textFieldStyle(.roundedBorder).font(.system(size: 12, design: .monospaced))
+                                        .disabled(!f.needsValue).opacity(f.needsValue ? 1 : 0.4)
+                                        .onSubmit { Task { await ws.submitSearch() } })
+                            }
+                        }
+                        .background(Theme.panel, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(Theme.ink.opacity(0.08)))
+                    }
+                    .padding(16)
+                }
+                HStack(spacing: 10) {
+                    let n = ws.searchForm.filter(\.isActive).count
+                    Text(n == 0 ? "Belum ada syarat — Kirim menampilkan semua baris" : "\(n) syarat")
+                        .font(.system(size: 12)).foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Reset") { for i in ws.searchForm.indices { ws.searchForm[i].value = "" } }
+                        .buttonStyle(SecondaryButtonStyle())
+                    Button { Task { await ws.submitSearch() } } label: { Label("Kirim", systemImage: "magnifyingglass") }
+                        .buttonStyle(PrimaryButtonStyle())
+                        .keyboardShortcut(.return, modifiers: .command)
+                }
+                .padding(.horizontal, 14).padding(.vertical, 9)
+                .background(Theme.panel)
+                .overlay(alignment: .top) { Divider() }
+            }
+        }
+    }
+
+    private func placeholder(_ f: DbWorkspace.SearchField) -> String {
+        switch f.op {
+        case "IN (...)", "NOT IN (...)": "nilai1, nilai2, …"
+        case "BETWEEN", "NOT BETWEEN": "awal, akhir"
+        case "LIKE", "NOT LIKE": "mis. abc%"
+        default: f.needsValue ? "" : "—"
+        }
+    }
+
+    private func row(header: Bool, _ a: some View, _ b: some View, _ c: some View, _ d: some View) -> some View {
+        HStack(spacing: 12) {
+            a.frame(minWidth: 80, maxWidth: 170, alignment: .leading)
+            b.frame(minWidth: 60, maxWidth: 120, alignment: .leading)
+            c.frame(width: 140, alignment: .leading)
+            d.frame(minWidth: 100, maxWidth: .infinity, alignment: .leading)
+        }
+        .font(header ? .system(size: 11, weight: .semibold) : .system(size: 12.5))
+        .foregroundStyle(header ? .secondary : .primary)
+        .textCase(header ? .uppercase : nil)
+        .padding(.horizontal, 14).padding(.vertical, header ? 9 : 6)
     }
 }
 

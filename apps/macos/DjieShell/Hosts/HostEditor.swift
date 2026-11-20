@@ -16,12 +16,15 @@ struct HostEditor: View {
         self.original = original
         _h = State(initialValue: original)
         _tagsText = State(initialValue: original.tags.joined(separator: ", "))
-        _showAdvanced = State(initialValue: original.agentForwarding || original.jumpHostId != nil
+        _showAdvanced = State(initialValue: original.agentForwarding || original.jumpHostId != nil || original.proxy != nil
                               || !(original.startupSnippet ?? "").isEmpty || !original.env.isEmpty)
     }
 
     private var isNew: Bool { original.id.isEmpty }
-    private var canSave: Bool { !h.hostname.trimmingCharacters(in: .whitespaces).isEmpty }
+    private var canSave: Bool {
+        !h.hostname.trimmingCharacters(in: .whitespaces).isEmpty
+            && (h.proxy.map { !$0.host.trimmingCharacters(in: .whitespaces).isEmpty } ?? true)
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -290,6 +293,7 @@ struct HostEditor: View {
                         Spacer()
                         Text("Jump host").font(.caption).foregroundStyle(.secondary)
                     }
+                    proxyEditor
                     envEditor
                     FieldRow(icon: "character.cursor.ibeam") {
                         Picker("Charset", selection: $h.charset) {
@@ -304,6 +308,64 @@ struct HostEditor: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+    }
+
+    // MARK: Proxy
+
+    private var proxyKind: Binding<ProxyKind?> {
+        Binding(get: { h.proxy?.kind }, set: { kind in
+            withAnimation(.djieSnappy) {
+                guard let kind else { h.proxy = nil; return }
+                let port: UInt16 = kind == .http ? 8080 : 1080
+                if var p = h.proxy {
+                    // Port bawaan ikut berganti jika belum diubah pengguna
+                    if p.port == 1080 || p.port == 8080 { p.port = port }
+                    p.kind = kind
+                    h.proxy = p
+                } else {
+                    h.proxy = HostProxy(kind: kind, host: "", port: port, username: nil, password: nil)
+                }
+            }
+        })
+    }
+
+    private func proxyText(_ get: @escaping (HostProxy) -> String?, _ set: @escaping (inout HostProxy, String?) -> Void) -> Binding<String> {
+        Binding(get: { h.proxy.flatMap(get) ?? "" },
+                set: { v in if var p = h.proxy { set(&p, v.isEmpty ? nil : v); h.proxy = p } })
+    }
+
+    private var proxyEditor: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            FieldRow(icon: "network.badge.shield.half.filled") {
+                Picker("Proxy", selection: proxyKind) {
+                    Text("Tanpa proxy").tag(ProxyKind?.none)
+                    Text("SOCKS5").tag(Optional(ProxyKind.socks5))
+                    Text("HTTP").tag(Optional(ProxyKind.http))
+                }
+                .labelsHidden()
+                Spacer()
+                Text("Proxy").font(.caption).foregroundStyle(.secondary)
+            }
+            if h.proxy != nil {
+                HStack(spacing: 6) {
+                    TextField("Alamat proxy", text: proxyText({ $0.host }, { $0.host = ($1 ?? "").trimmingCharacters(in: .whitespaces) }))
+                        .djieField(error: h.proxy?.host.isEmpty ?? false).font(.system(size: 12, design: .monospaced))
+                    TextField("Port", text: proxyText({ String($0.port) }, { p, v in if let n = UInt16(v ?? "") { p.port = n } }))
+                        .djieField().font(.system(size: 12, design: .monospaced)).frame(width: 72)
+                }
+                HStack(spacing: 6) {
+                    TextField("Username (opsional)", text: proxyText({ $0.username }, { $0.username = $1 }))
+                        .djieField().font(.system(size: 12))
+                    SecureField("Password", text: proxyText({ $0.password }, { $0.password = $1 }))
+                        .djieField().font(.system(size: 12))
+                }
+                Text(h.jumpHostId != nil
+                     ? "Proxy tidak dipakai di terminal selama jump host aktif."
+                     : "Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini.")
+                    .font(.caption).foregroundStyle(.secondary).padding(.leading, 4)
+            }
+        }
+        .transition(.opacity.combined(with: .move(edge: .top)))
     }
 
     private var envEditor: some View {

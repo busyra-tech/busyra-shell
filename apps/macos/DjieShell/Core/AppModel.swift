@@ -128,6 +128,7 @@ final class AppModel {
         phase = .main
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-DjieDemoEdit") { editingHost = hosts.first }
+        if args.contains("-DjieDemoLocal") { openLocalTerminal(run: ProcessInfo.processInfo.environment["DJIE_DEMO_RUN"]) }
         if let i = args.firstIndex(of: "-DjieDemoSection"), i + 1 < args.count, let s = Section(rawValue: args[i + 1]) { section = s }
         if args.contains("-DjieDemoSelect") { selection = [hosts[2].id] }
         if args.contains("-DjieDemoConnect") {
@@ -157,6 +158,23 @@ final class AppModel {
                         _ = try? await s?.run(sql: "CREATE VIEW stok_rendah AS SELECT * FROM produk WHERE stok < 10")
                         _ = try? await s?.run(sql: "INSERT INTO produk (nama, harga, stok, kategori) VALUES ('Kopi Gayo 250g', 85000, 42, 'Minuman'), ('Teh Tarik', 18000, 7, 'Minuman'), ('Keripik Pisang', 22000, 120, 'Camilan'), ('Kue Adee', 35000, NULL, 'Kue'), ('Madu Hutan', 120000, 5, 'Herbal'), ('Kopi Ulee Kareng', 65000, 31, 'Minuman')")
                         await openDatabase(saved)
+                        let env = ProcessInfo.processInfo.environment
+                        // DJIE_DEMO_DB_TAB=search|browse : buka tabel produk; DJIE_DEMO_DB_QUICK / DJIE_DEMO_DB_FIND (kolom=nilai)
+                        if let tab = env["DJIE_DEMO_DB_TAB"].flatMap(DbWorkspace.Tab.init(rawValue:)), let ws = dbWorkspace,
+                           let t = ws.dbTables["main"]?.first(where: { $0.name == "produk" }) {
+                            await ws.openTable(t, in: "main")
+                            withAnimation(.djieSnappy) { ws.tab = tab }
+                            await ws.loadTab()
+                            if let q = env["DJIE_DEMO_DB_QUICK"] { ws.quickSearch = q; await ws.submitQuickSearch() }
+                            if let find = env["DJIE_DEMO_DB_FIND"] {
+                                for pair in find.split(separator: ";") {
+                                    let kv = pair.split(separator: "=", maxSplits: 1).map(String.init)
+                                    if let i = ws.searchForm.firstIndex(where: { $0.column == kv[0] }), kv.count == 2 { ws.searchForm[i].value = kv[1] }
+                                }
+                                if env["DJIE_DEMO_DB_SUBMIT"] != nil { await ws.submitSearch() }
+                            }
+                            return
+                        }
                         dbWorkspace?.query = "SELECT nama, harga, stok, kategori FROM produk ORDER BY harga DESC;"
                         await dbWorkspace?.run()
                     }
@@ -420,7 +438,7 @@ final class AppModel {
         } catch DriveError.notSignedIn {
             withAnimation(.djie) { sync = .needsLogin }
         } catch {
-            withAnimation(.djie) { sync = .failed(error.localizedDescription) }
+            withAnimation(.djie) { sync = .failed(error.djieMessage) }
         }
     }
 
@@ -438,7 +456,7 @@ final class AppModel {
             changed()
             return saved
         } catch {
-            flash(error.localizedDescription)
+            flash(error.djieMessage)
             return nil
         }
     }
@@ -481,7 +499,7 @@ final class AppModel {
 
     func save(_ snippet: Snippet) {
         do { _ = try vault?.upsertSnippet(snippet: snippet); changed() }
-        catch { flash(error.localizedDescription) }
+        catch { flash(error.djieMessage) }
     }
 
     func delete(_ snippet: Snippet) {
@@ -499,7 +517,7 @@ final class AppModel {
 
     func save(_ forward: PortForward) {
         do { _ = try vault?.upsertForward(forward: forward); changed() }
-        catch { flash(error.localizedDescription) }
+        catch { flash(error.djieMessage) }
     }
 
     func delete(_ forward: PortForward) {
@@ -522,7 +540,7 @@ final class AppModel {
 
     func save(_ db: DbConnection) {
         do { _ = try vault?.upsertDatabase(conn: db); changed() }
-        catch { flash(error.localizedDescription) }
+        catch { flash(error.djieMessage) }
     }
 
     func delete(_ db: DbConnection) {
@@ -549,7 +567,7 @@ final class AppModel {
                          password: h.auth == .password ? h.password : nil,
                          privateKey: h.auth == .key ? k?.privateKey : nil,
                          passphrase: h.auth == .key ? k?.passphrase : nil,
-                         useAgent: true)
+                         useAgent: true, proxy: h.proxy)
     }
 
     // MARK: SFTP
@@ -600,6 +618,15 @@ final class AppModel {
         selection.removeAll()
     }
 
+    /// Buka tab terminal lokal (shell di Mac ini).
+    func openLocalTerminal(run: String? = nil) {
+        let s = TerminalSession(host: TerminalSession.localHost(), key: nil, jump: nil, run: run, model: self, local: true)
+        withAnimation(.djieSnappy) {
+            sessions.append(s)
+            activeSessionID = s.id
+        }
+    }
+
     func close(_ session: TerminalSession) {
         session.terminate()
         guard let idx = sessions.firstIndex(where: { $0.id == session.id }) else { return }
@@ -646,7 +673,7 @@ extension Host {
     static func blank() -> Host {
         Host(id: "", hostname: "", label: "", group: nil, tags: [], color: Theme.hostColors[0],
              port: 22, username: "root", auth: .password, password: nil, keyId: nil,
-             agentForwarding: false, startupSnippet: nil, jumpHostId: nil, env: [],
+             agentForwarding: false, startupSnippet: nil, jumpHostId: nil, proxy: nil, env: [],
              charset: "UTF-8", terminalTheme: nil, updatedAt: 0, deleted: false)
     }
 

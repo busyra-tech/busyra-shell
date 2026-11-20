@@ -1,0 +1,24 @@
+import Foundation
+
+extension Error {
+    /// Pesan error yang enak dibaca (bukan nama enum dari binding UniFFI).
+    var djieMessage: String {
+        guard let e = self as? CoreError else { return localizedDescription }
+        switch e {
+        case .WrongPassword: return "Master password salah"
+        case .AlreadyExists: return "Data sudah ada"
+        case .NotFound: return "Data tidak ditemukan"
+        case .WeakPassword: return "Password minimal 8 karakter"
+        case .KeyMismatch: return "Vault di Google Drive memakai master password lain"
+        case .InvalidKey(let msg): return "SSH key tidak valid: \(msg)"
+        case .Corrupt(let msg): return "File vault rusak: \(msg)"
+        case .Ssh(let msg): return "Koneksi SSH gagal: \(msg)"
+        case .Proxy(let msg): return "Proxy: \(msg)"
+        case .AuthFailed: return "Login ditolak server — periksa username, password, atau key"
+        case .HostKeyChanged: return "Kunci server berubah! Hapus host ini di Known Hosts jika memang server berganti."
+        case .Db(let msg): return "Database: \(msg)"
+        case .Cancelled: return "Dibatalkan"
+        case .Io(let msg): return "Gagal membaca/menulis file: \(msg)"
+        }
+    }
+}

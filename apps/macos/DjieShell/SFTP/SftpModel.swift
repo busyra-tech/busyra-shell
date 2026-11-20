@@ -101,7 +101,7 @@ final class SftpModel {
             password: host.auth == .password ? host.password : nil,
             privateKey: host.auth == .key ? key?.privateKey : nil,
             passphrase: host.auth == .key ? key?.passphrase : nil,
-            useAgent: true)
+            useAgent: true, proxy: host.proxy)
         do {
             let c = try await SftpClient.connect(target: target)
             client = c
@@ -109,7 +109,7 @@ final class SftpModel {
             withAnimation(.djie) { status = .connected }
             await openRemote(home)
         } catch {
-            withAnimation(.djie) { status = .failed(error.localizedDescription) }
+            withAnimation(.djie) { status = .failed(error.djieMessage) }
         }
     }
 
