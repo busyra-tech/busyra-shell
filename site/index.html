@@ -119,7 +119,7 @@
   .btn.sm { padding: 10px 16px; font-size: 14px; }
   .btn.wa { background: #25d366; color: #052e16; border: 0; padding: 10px 16px; font-size: 14px; }
 
-  .hero { position: relative; text-align: center; padding: 145px 0 40px; overflow: hidden; isolation: isolate; }
+  .hero { position: relative; text-align: center; padding: 145px 0 40px; overflow: clip; isolation: isolate; }
   .hero::before { content: ""; position: absolute; inset: -20% -10% auto; height: 720px; background:
       radial-gradient(40% 50% at 30% 30%, color-mix(in srgb, var(--teal) 22%, transparent), transparent 70%),
       radial-gradient(35% 45% at 70% 25%, color-mix(in srgb, var(--violet) 20%, transparent), transparent 70%);
@@ -157,6 +157,24 @@
   .pills { display: flex; gap: 4px; margin: 26px auto 0; padding: 4px; border: 1px solid var(--line); border-radius: 999px; width: max-content; max-width: 100%; overflow-x: auto; background: var(--panel); }
   .pills button { font: 600 13px var(--f-body); border: 0; background: none; color: var(--ink-2); padding: 8px 15px; border-radius: 999px; cursor: pointer; white-space: nowrap; transition: background .25s, color .25s; }
   .pills button.on { background: var(--grad); color: #06110f; }
+  /* Showcase: di desktop, screenshot menempel & berganti mengikuti scroll, lalu lanjut ke bagian berikutnya */
+  .showcase { position: relative; }
+  .showcase .pin { position: relative; }
+  .showcase .bar { height: 3px; max-width: 220px; margin: 14px auto 0; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .showcase .bar i { display: block; height: 100%; width: calc(var(--p, 0) * 100%); background: var(--grad); }
+  @media (min-width: 900px) and (prefers-reduced-motion: no-preference) {
+    .showcase.scroll { height: calc(100vh + var(--slides, 10) * 32vh); }
+    .showcase.scroll .pin { position: sticky; top: 64px; height: calc(100vh - 64px); display: flex; flex-direction: column; justify-content: center; }
+    .showcase.scroll .stage { margin-top: 0; width: min(1080px, calc((100vh - 230px) * 1.55)); }
+  }
+  /* Video promo */
+  .video-wrap { position: relative; max-width: 1080px; margin: 44px auto 0; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); background: #000; aspect-ratio: 16 / 9; }
+  .video-wrap video { width: 100%; height: 100%; display: block; }
+  .video-wrap .play { position: absolute; inset: 0; display: grid; place-items: center; border: 0; cursor: pointer; background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,.45)); transition: opacity .3s; }
+  .video-wrap .play span { width: 92px; height: 92px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; box-shadow: 0 20px 60px -10px color-mix(in srgb, var(--teal) 70%, transparent); transition: transform .25s; }
+  .video-wrap .play:hover span { transform: scale(1.08); }
+  .video-wrap .play svg { width: 34px; height: 34px; margin-left: 5px; fill: #06110f; }
+  .video-wrap.playing .play { opacity: 0; pointer-events: none; }
 
   .stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 80px; }
   .stat { padding: 34px 26px; border-left: 1px solid var(--line); }
@@ -262,8 +280,8 @@
     </a>
     <span class="ver" id="ver">0.1</span>
     <nav class="links">
+      <a href="#video">Video</a>
       <a href="#hosts">Hosts</a>
-      <a href="#keychain">Keychain</a>
       <a href="#sftp">SFTP</a>
       <a href="#database">Database</a>
       <a href="#forwarding">Forwarding</a>
@@ -298,6 +316,8 @@
       </div>
       <div class="meta fade-up d4"><span>macOS 15+ · <span class="sizeMac">DMG ±7 MB</span></span><span>Windows 10/11 · <span class="sizeWin">EXE ±50 MB</span></span><span>MIT · open source</span></div>
 
+      <div class="showcase" id="showcase">
+      <div class="pin">
       <div class="stage reveal" id="stage">
         <div class="chip c1"><i>●</i><span>XChaCha20 + Argon2id</span></div>
         <div class="chip c2"><i>⟳</i><span data-i18n="chip.2">Sync Google Drive</span></div>
@@ -316,6 +336,9 @@
         <button data-shot="logs">Logs</button>
         <button data-shot="hosts-light" data-i18n="pill.light">Mode terang</button>
       </div>
+      <div class="bar"><i></i></div>
+      </div>
+      </div>
     </div>
   </section>
 
@@ -327,6 +350,18 @@
       <div class="stat"><b><span class="count" data-to="100">0</span><small>%</small></b><p data-i18n="st.4">Native SwiftUI &amp; WinUI 3 — bukan web yang dibungkus.</p></div>
     </div>
   </div>
+
+  <section class="feat wrap" id="video">
+    <div class="head reveal" style="text-align:center;margin:0 auto">
+      <span class="eyebrow" data-i18n="v.eye">Video</span>
+      <h2 data-i18n="v.t">Lihat Djie Shell beraksi.</h2>
+      <p class="lead" style="margin:0 auto" data-i18n="v.lead">Satu menit keliling fitur: hosts, terminal, SFTP, database, proxy, sampai keamanan.</p>
+    </div>
+    <div class="video-wrap reveal" id="promoWrap">
+      <video id="promo" src="assets/video/djie-shell-promo.mp4" poster="assets/video/poster.jpg" preload="metadata" playsinline controls></video>
+      <button class="play" id="promoPlay" aria-label="Putar video"><span><svg viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5z"/></svg></span></button>
+    </div>
+  </section>
 
   <section class="feat wrap" id="hosts">
     <div class="head reveal">
@@ -628,6 +663,7 @@ const EN = {
   "db.k3": "Tabs", "db.v3": "Overview, Browse, Structure, Search, SQL", "db.v4": "23 presets: RDS, Supabase, Neon, PlanetScale, TiDB, Atlas, Upstash, …",
   "db.k5": "Connection", "db.v5": "Direct, TLS, or through an SSH tunnel &amp; proxy", "db.k6": "Export", "db.v6": "Save results as CSV",
   "db.v7": "Editor with query history, ⌘/Ctrl+Enter to run",
+  "v.eye": "Video", "v.t": "See Djie Shell in action.", "v.lead": "A one-minute tour: hosts, terminal, SFTP, database, proxy, and security. (Narration in Indonesian.)",
   "ft.lic": "MIT License", "ft.rel": "All releases", "ft.bug": "Report a bug", "ft.priv": "Privacy", "ft.terms": "Terms",
 };
 const ID = {};
@@ -650,15 +686,69 @@ try {
   if (l && l !== "id") setLang(l);
 } catch (e) {}
 
-// Ganti screenshot di hero
+// Showcase screenshot: desktop = berganti mengikuti scroll (menempel), HP = putar otomatis
 const img = document.getElementById("winImg");
-document.querySelectorAll("#pills button").forEach(b => b.addEventListener("click", () => {
-  document.querySelectorAll("#pills button").forEach(x => x.classList.toggle("on", x === b));
+const pills = [...document.querySelectorAll("#pills button")];
+const showcase = document.getElementById("showcase");
+const bar = showcase.querySelector(".bar");
+let shotIdx = 0;
+function showShot(i) {
+  if (i === shotIdx) return;
+  shotIdx = i;
+  pills.forEach((x, j) => x.classList.toggle("on", j === i));
+  pills[i].scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
   img.classList.add("swap");
   const next = new Image();
-  next.onload = () => setTimeout(() => { img.src = next.src; img.classList.remove("swap"); }, 180);
-  next.src = "assets/screens/" + b.dataset.shot + ".jpg";
+  next.onload = () => setTimeout(() => { img.src = next.src; img.classList.remove("swap"); }, 160);
+  next.src = "assets/screens/" + pills[i].dataset.shot + ".jpg";
+}
+pills.forEach(p => { const pre = new Image(); pre.src = "assets/screens/" + p.dataset.shot + ".jpg"; });
+const scrollMode = matchMedia("(min-width: 900px) and (prefers-reduced-motion: no-preference)");
+showcase.style.setProperty("--slides", pills.length);
+function trackProgress() {
+  const r = showcase.getBoundingClientRect(), len = showcase.offsetHeight - innerHeight + 64;
+  return Math.min(1, Math.max(0, (64 - r.top) / Math.max(1, len)));
+}
+function onShowcaseScroll() {
+  if (!showcase.classList.contains("scroll")) return;
+  const p = trackProgress();
+  bar.style.setProperty("--p", p);
+  showShot(Math.min(pills.length - 1, Math.floor(p * pills.length)));
+}
+let auto = null, pauseUntil = 0;
+function setupShowcase() {
+  showcase.classList.toggle("scroll", scrollMode.matches);
+  clearInterval(auto);
+  if (!scrollMode.matches) {
+    auto = setInterval(() => {
+      if (Date.now() < pauseUntil || document.hidden) return;
+      const r = showcase.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > innerHeight) return;
+      showShot((shotIdx + 1) % pills.length);
+      bar.style.setProperty("--p", (shotIdx + 1) / pills.length);
+    }, 3200);
+  }
+  onShowcaseScroll();
+}
+pills.forEach((b, i) => b.addEventListener("click", () => {
+  if (showcase.classList.contains("scroll")) {
+    const len = showcase.offsetHeight - innerHeight + 64;
+    const top = showcase.getBoundingClientRect().top + scrollY - 64 + ((i + 0.5) / pills.length) * len;
+    scrollTo({ top, behavior: "smooth" });
+  } else {
+    pauseUntil = Date.now() + 9000;
+    showShot(i);
+  }
 }));
+addEventListener("scroll", onShowcaseScroll, { passive: true });
+scrollMode.addEventListener("change", setupShowcase);
+setupShowcase();
+
+// Video promo: tombol putar besar, lalu kontrol bawaan
+const promo = document.getElementById("promo"), promoWrap = document.getElementById("promoWrap");
+document.getElementById("promoPlay").addEventListener("click", () => { promo.play(); });
+promo.addEventListener("play", () => promoWrap.classList.add("playing"));
+promo.addEventListener("ended", () => promoWrap.classList.remove("playing"));
 
 // Elemen muncul saat di-scroll
 const io = new IntersectionObserver(es => es.forEach(e => {

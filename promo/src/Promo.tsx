@@ -1,9 +1,11 @@
 import React from "react";
-import { AbsoluteFill, interpolate, Sequence, useCurrentFrame } from "remotion";
+import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
+import VO from "./vo-durations.json";
 import { AppleIcon, AppWindow, Background, C, Callout, Cursor, Eyebrow, Fade, FONT, GRAD, Kinetic, Logo, MONO, useProgress, useSpring, WindowsIcon } from "./ui";
 
-// Durasi tiap scene (frame, 30 fps). Scene bertumpuk 14 frame agar transisinya crossfade.
-const SCENES: [string, number][] = [
+// Durasi minimum tiap scene (frame, 30 fps); diperpanjang agar narasi (public/vo/*.mp3) muat.
+// Scene bertumpuk 14 frame agar transisinya crossfade.
+const BASE: [string, number][] = [
   ["problem", 150],
   ["logo", 120],
   ["hosts", 210],
@@ -16,6 +18,12 @@ const SCENES: [string, number][] = [
   ["cta", 190],
 ];
 const OVERLAP = 14;
+/** Narasi mulai sekian frame setelah scene muncul. */
+const VO_DELAY = 12;
+const SCENES: [string, number][] = BASE.map(([n, d]) => {
+  const vo = (VO as Record<string, number>)[n] ?? 0;
+  return [n, Math.max(d, Math.ceil(vo * 30) + VO_DELAY + 22 + OVERLAP)];
+});
 export const TOTAL = SCENES.reduce((a, [, d]) => a + d, 0) - OVERLAP * (SCENES.length - 1);
 
 export const Promo: React.FC = () => {
@@ -23,6 +31,16 @@ export const Promo: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: C.bg, fontFamily: FONT }}>
       <Background />
+      <Audio
+        src={staticFile("music.mp3")}
+        volume={(f) =>
+          // Musik 70 detik: memudar di bawah kalimat penutup
+          interpolate(f, [0, 30, Math.min(TOTAL, 2100) - 150, Math.min(TOTAL, 2100) - 6], [0, 0.17, 0.17, 0], {
+            extrapolateLeft: "clamp",
+            extrapolateRight: "clamp",
+          })
+        }
+      />
       {SCENES.map(([name, d]) => {
         const from = start;
         start += d - OVERLAP;
@@ -30,6 +48,9 @@ export const Promo: React.FC = () => {
         return (
           <Sequence key={name} from={from} durationInFrames={d} name={name}>
             <Comp d={d} />
+            <Sequence from={VO_DELAY} name={`vo-${name}`}>
+              <Audio src={staticFile(`vo/${name}.mp3`)} volume={1} />
+            </Sequence>
           </Sequence>
         );
       })}
