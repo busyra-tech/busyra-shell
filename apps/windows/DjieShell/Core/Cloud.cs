@@ -26,7 +26,7 @@ internal static class GoogleAuth
 {
     public sealed record Result(string Email, string? Name, string? Picture);
 
-    public static string Scheme => string.Join(".", Config.GoogleClientID.Split('.').Reverse());
+    public static string Scheme => string.Join(".", Enumerable.Reverse(Config.GoogleClientID.Split('.')));
     private static string Redirect => Scheme + ":/oauth2redirect";
     private static string PipeName => "djie-shell-oauth-" + Environment.UserName;
     private static CancellationTokenSource? _pending;
