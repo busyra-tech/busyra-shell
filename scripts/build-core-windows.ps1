@@ -10,9 +10,9 @@ $cargoHome = if ($env:CARGO_HOME) { $env:CARGO_HOME } else { Join-Path $env:USER
 $cargo = Join-Path $cargoHome "bin\cargo.exe"
 if (-not (Test-Path $cargo)) { $cargo = "cargo" }
 
-# crate `ring` butuh clang untuk target ARM64 → pakai LLVM bawaan VS Build Tools
+# crate `ring` butuh clang untuk target ARM64 → pakai LLVM bawaan VS Build Tools.
+# clang harus bisa jalan di mesin ini: versi ARM64 di Windows ARM, versi x64 di runner GitHub.
 $vsLlvm = Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\*\*\VC\Tools\Llvm\*\bin\clang.exe", "$env:ProgramFiles\Microsoft Visual Studio\*\*\VC\Tools\Llvm\*\bin\clang.exe" -ErrorAction SilentlyContinue |
-    # clang harus bisa jalan di mesin ini: ARM64 di Windows ARM, x64 di runner GitHub
     Sort-Object { if ($env:PROCESSOR_ARCHITECTURE -eq "ARM64") { $_.FullName -notmatch "ARM64" } else { $_.FullName -match "ARM64" } } |
     Select-Object -First 1
 if ($vsLlvm) { $env:Path = $vsLlvm.DirectoryName + ";" + $env:Path }

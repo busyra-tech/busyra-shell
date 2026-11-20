@@ -94,6 +94,13 @@ jobs:
           path: dist
           merge-multiple: true
 
+      - name: Salinan nama tetap (link download langsung di website)
+        run: |
+          cd dist
+          cp *-macOS.dmg Djie-Shell-macOS.dmg
+          cp *-Windows-x64-Setup.exe Djie-Shell-Windows-x64-Setup.exe
+          cp *-Windows-arm64-Setup.exe Djie-Shell-Windows-arm64-Setup.exe
+
       - uses: softprops/action-gh-release@v2
         with:
           draft: true
