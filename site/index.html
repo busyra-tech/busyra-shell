@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -325,6 +325,7 @@
         <button data-shot="editor">Editor</button>
         <button data-shot="keychain">Keychain</button>
         <button data-shot="sftp">SFTP</button>
+        <button data-shot="server-info">Info server</button>
         <button data-shot="database">Database</button>
         <button data-shot="forwarding">Forwarding</button>
         <button data-shot="snippets">Snippets</button>
@@ -378,6 +379,23 @@
         </div>
       </div>
       <div class="shot reveal"><img src="assets/screens/editor.jpg" alt="Editor host" loading="lazy" width="1600" height="1032" /></div>
+    </div>
+  </section>
+
+  <section class="feat wrap" id="server">
+    <div class="split rev">
+      <div class="copy reveal">
+        <span class="eyebrow" data-i18n="sv.eye">Info server</span>
+        <h2 style="margin:16px 0 18px" data-i18n="sv.t">Kenali servermu,<br />langsung dari terminal.</h2>
+        <p data-i18n="sv.p">Klik <b>Info server</b> di tab yang sedang terhubung: spesifikasi lengkap dan grafik live muncul di samping terminal, tanpa install apa pun di server.</p>
+        <div class="spec">
+          <div><span class="k" data-i18n="sv.k1">Spesifikasi</span><span class="v" data-i18n="sv.v1">OS & versi, kernel, CPU & jumlah core, uptime, load</span></div>
+          <div><span class="k" data-i18n="sv.k2">Grafik live</span><span class="v" data-i18n="sv.v2">CPU, RAM, dan kecepatan jaringan, diperbarui tiap 3 detik</span></div>
+          <div><span class="k">Storage</span><span class="v" data-i18n="sv.v3">Pemakaian RAM, swap, dan tiap partisi disk</span></div>
+          <div><span class="k" data-i18n="sv.k4">Server</span><span class="v" data-i18n="sv.v4">Linux (Ubuntu, Debian, CentOS, Alpine, …) & macOS — lewat SSH, ikut proxy & key host</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="assets/screens/server-info.jpg" alt="Panel Info server dengan grafik CPU, RAM, dan jaringan" loading="lazy" width="1600" height="1032" /></div>
     </div>
   </section>
 
@@ -659,6 +677,9 @@ const EN = {
   "db.k5": "Connection", "db.v5": "Direct, TLS, or through an SSH tunnel &amp; proxy", "db.k6": "Export", "db.v6": "Save results as CSV",
   "db.v7": "Editor with query history, ⌘/Ctrl+Enter to run",
   "v.eye": "Video", "v.t": "See Djie Shell in action.", "v.lead": "A 90-second tour: hosts, terminal, SFTP, database, proxy, and security. (Narration in Indonesian.)",
+  "sv.eye": "Server info", "sv.t": "Know your server,<br />right from the terminal.", "sv.p": "Click <b>Server info</b> on a connected tab: full specs and live charts appear next to the terminal — nothing to install on the server.",
+  "sv.k1": "Specs", "sv.v1": "OS & version, kernel, CPU & core count, uptime, load", "sv.k2": "Live charts", "sv.v2": "CPU, RAM, and network speed, refreshed every 3 seconds",
+  "sv.v3": "RAM, swap, and per-partition disk usage", "sv.k4": "Servers", "sv.v4": "Linux (Ubuntu, Debian, CentOS, Alpine, …) & macOS — over SSH, honoring the host's proxy & key",
   "ft.lic": "MIT License", "ft.rel": "All releases", "ft.bug": "Report a bug", "ft.priv": "Privacy", "ft.terms": "Terms",
 };
 const ID = {};

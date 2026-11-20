@@ -1,6 +1,7 @@
 import React from "react";
 import { AbsoluteFill, Audio, interpolate, Sequence, staticFile, useCurrentFrame } from "remotion";
 import VO from "./vo-durations.json";
+import NARRATION from "../narration.json";
 import { AppleIcon, AppWindow, Background, C, Callout, Cursor, Eyebrow, Fade, FONT, GRAD, Kinetic, Logo, MONO, useProgress, useSpring, WindowsIcon } from "./ui";
 
 // Durasi minimum tiap scene (frame, 30 fps); diperpanjang agar narasi (public/vo/*.mp3) muat.
@@ -51,6 +52,7 @@ export const Promo: React.FC = () => {
             <Comp d={d} />
             <Sequence from={VO_DELAY} name={`vo-${name}`}>
               <Audio src={staticFile(`vo/${name}.mp3`)} volume={0.8} />
+              <Captions name={name} />
             </Sequence>
             {(SFX[name]?.(d) ?? []).map(([f, sfx, vol], i) => (
               <Sequence key={i} from={Math.max(0, Math.round(f))} name={`sfx-${sfx}`}>
@@ -65,6 +67,65 @@ export const Promo: React.FC = () => {
 };
 
 type P = { d: number };
+
+// Caption: kalimat narasi dipecah per frasa (titik/koma/tanda tanya), lama tampil sebanding panjang teks
+const TEXT: Record<string, string> = Object.fromEntries(NARRATION as [string, string][]);
+function chunks(text: string): string[] {
+  const parts = text.match(/[^.,!?]+[.,!?]*/g)?.map((x) => x.trim()).filter(Boolean) ?? [text];
+  const out: string[] = [];
+  for (const p of parts) {
+    const prev = out[out.length - 1];
+    // Gabungkan frasa pendek agar caption tidak berkedip
+    if (prev && (prev.length < 18 || p.length < 12) && prev.length + p.length < 58) out[out.length - 1] = `${prev} ${p}`;
+    else out.push(p);
+  }
+  return out;
+}
+const Captions: React.FC<{ name: string }> = ({ name }) => {
+  const frame = useCurrentFrame();
+  const text = TEXT[name];
+  const dur = ((VO as Record<string, number>)[name] ?? 0) * 30;
+  if (!text || !dur) return null;
+  const list = chunks(text);
+  const total = list.reduce((a, c) => a + c.length, 0);
+  let t = 0;
+  const spans = list.map((c) => {
+    const from = t;
+    t += (c.length / total) * dur;
+    return { c, from, to: t };
+  });
+  const cur = spans.find((s) => frame >= s.from && frame < s.to + 4);
+  if (!cur) return null;
+  const local = frame - cur.from;
+  const o = interpolate(local, [0, 5], [0, 1], { extrapolateRight: "clamp" }) * interpolate(frame, [cur.to - 2, cur.to + 4], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  const y = interpolate(local, [0, 6], [12, 0], { extrapolateRight: "clamp" });
+  return (
+    <AbsoluteFill style={{ justifyContent: "flex-end", alignItems: "center", paddingBottom: 54, pointerEvents: "none" }}>
+      <div
+        style={{
+          maxWidth: 1500,
+          padding: "14px 30px",
+          borderRadius: 18,
+          background: "rgba(5,7,10,0.72)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          backdropFilter: "blur(10px)",
+          color: "#fff",
+          fontFamily: FONT,
+          fontSize: 40,
+          fontWeight: 650,
+          letterSpacing: "-0.01em",
+          textAlign: "center",
+          lineHeight: 1.25,
+          opacity: o,
+          transform: `translateY(${y}px)`,
+          boxShadow: "0 20px 50px -20px rgba(0,0,0,0.8)",
+        }}
+      >
+        {cur.c}
+      </div>
+    </AbsoluteFill>
+  );
+};
 const Wrap: React.FC<{ d: number; children: React.ReactNode }> = ({ d, children }) => {
   const frame = useCurrentFrame();
   const o = interpolate(frame, [0, OVERLAP, d - OVERLAP, d], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });

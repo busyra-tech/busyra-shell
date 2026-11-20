@@ -73,7 +73,10 @@ final class AppModel {
 
     // Sesi terminal
     var sessions: [TerminalSession] = []
-    var activeSessionID: UUID?
+    var activeSessionID: UUID? { didSet { syncServerStats() } }
+    /// Panel Info server (spesifikasi & grafik) untuk host di tab aktif.
+    var showServerInfo = false { didSet { syncServerStats() } }
+    var serverStats: ServerStats?
 
     // Multi-select host
     var selection: Set<String> = []
@@ -195,6 +198,7 @@ final class AppModel {
                 _ = try? v.upsertSnippet(snippet: Snippet(id: "", label: "Lihat log nginx", command: "tail -f /var/log/nginx/error.log", updatedAt: 0, deleted: false))
                 reload()
                 connect([saved.id])
+                if env["DJIE_DEMO_INFO"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in showServerInfo = true } }
                 let steps = (env["DJIE_TERM_TYPE"] ?? "").components(separatedBy: "|").map { $0.replacingOccurrences(of: "\\r", with: "\r") }
                 for (i, step) in steps.enumerated() where !step.isEmpty {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 3 + Double(i) * 1.2) { [weak self] in
@@ -616,6 +620,25 @@ final class AppModel {
             }
         }
         selection.removeAll()
+    }
+
+    /// Hubungkan / putus panel Info server mengikuti tab aktif.
+    func syncServerStats() {
+        guard showServerInfo, let s = activeSession, !s.isLocal, let target = sshTarget(forId: s.host.id) else {
+            serverStats?.stop()
+            serverStats = nil
+            return
+        }
+        if serverStats?.host.id == s.host.id { return }
+        serverStats?.stop()
+        let st = ServerStats(host: s.host)
+        serverStats = st
+        st.start(target: target)
+    }
+
+    func retryServerStats() {
+        guard let st = serverStats, let target = sshTarget(forId: st.host.id) else { return }
+        st.retry(target: target)
     }
 
     /// Buka tab terminal lokal (shell di Mac ini).

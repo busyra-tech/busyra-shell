@@ -62,6 +62,41 @@ internal sealed class AppModel
 
     public List<TerminalSession> Sessions { get; } = [];
     public Guid? ActiveSessionId { get; private set; }
+
+    /// <summary>Panel Info server (spesifikasi & grafik) untuk host di tab aktif.</summary>
+    public bool ShowServerInfo { get; private set; }
+    public ServerStats? ServerStats { get; private set; }
+
+    public void ToggleServerInfo(bool? show = null)
+    {
+        ShowServerInfo = show ?? !ShowServerInfo;
+        SyncServerStats();
+        Raise("serverinfo");
+    }
+
+    /// <summary>Hubungkan / putus panel Info server mengikuti tab aktif.</summary>
+    public void SyncServerStats()
+    {
+        var s = ActiveSession;
+        if (!ShowServerInfo || s == null || s.IsLocal || SshTarget(s.Host.Id) is not { } target)
+        {
+            if (ServerStats == null) return;
+            ServerStats.Stop();
+            ServerStats = null;
+            Raise("serverinfo");
+            return;
+        }
+        if (ServerStats?.Host.Id == s.Host.Id) return;
+        ServerStats?.Stop();
+        ServerStats = new ServerStats(s.Host);
+        ServerStats.Start(target);
+        Raise("serverinfo");
+    }
+
+    public void RetryServerStats()
+    {
+        if (ServerStats is { } st && SshTarget(st.Host.Id) is { } t) st.Retry(t);
+    }
     public HashSet<string> Selection { get; } = [];
     public string? Toast { get; private set; }
     public Host? EditingHost { get; private set; }
@@ -235,6 +270,7 @@ internal sealed class AppModel
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_CONNECT") == "1" && Hosts.FirstOrDefault(x => x.Label == "server-tes") is { } t)
         {
             Connect([t.Id], Environment.GetEnvironmentVariable("DJIE_DEMO_RUN"));
+            if (Environment.GetEnvironmentVariable("DJIE_DEMO_INFO") == "1") ToggleServerInfo(true);
             // DJIE_DEMO_TYPE = ketikan dipisah "|" (\r = Enter, <accept> = terima saran autocomplete)
             var steps = (Environment.GetEnvironmentVariable("DJIE_DEMO_TYPE") ?? "").Split('|').Select(x => x.Replace("\\r", "\r")).ToList();
             for (int i = 0; i < steps.Count; i++)

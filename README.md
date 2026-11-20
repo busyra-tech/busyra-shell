@@ -45,10 +45,11 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Autentikasi** | Password, SSH key, atau SSH agent |
 | **Lanjutan** | Jump host, proxy SOCKS5/HTTP, agent forwarding, startup snippet, env var |
 | **Terminal lokal** | zsh di Mac, PowerShell / CMD / WSL di Windows — tab di samping sesi SSH |
+| **Info server** | Spesifikasi (OS, kernel, CPU, uptime) + grafik live CPU, RAM, jaringan, dan pemakaian storage |
 | **Autocomplete** | Saran perintah dari riwayat & snippet saat mengetik |
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
 
-<img src="site/assets/screens/editor.jpg" alt="Editor host" width="900" />
+<img src="site/assets/screens/server-info.jpg" alt="Panel Info server dengan grafik live" width="900" />
 
 ### 🗄️ Database ala phpMyAdmin
 

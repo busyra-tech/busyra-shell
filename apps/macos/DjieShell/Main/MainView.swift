@@ -12,6 +12,7 @@ struct MainView: View {
         } detail: {
             VStack(spacing: 0) {
                 TabStrip(columns: $columns)
+                HStack(spacing: 0) {
                 ZStack {
                     if model.activeSessionID == nil {
                         SectionContent(section: model.section)
@@ -28,6 +29,15 @@ struct MainView: View {
                     }
                 }
                 .animation(.djie, value: model.activeSessionID)
+                    if let stats = model.serverStats, model.activeSessionID != nil {
+                        Divider()
+                        ServerInfoPanel(stats: stats)
+                            .frame(width: 330)
+                            .id(stats.host.id)
+                            .transition(.move(edge: .trailing).combined(with: .opacity))
+                    }
+                }
+                .animation(.djie, value: model.serverStats?.host.id)
             }
             .background(Theme.bg)
             .toolbarBackground(.hidden, for: .windowToolbar)
@@ -406,6 +416,22 @@ struct TabStrip: View {
             .foregroundStyle(.secondary)
             .help("Terminal lokal (⇧⌘T)")
             Spacer(minLength: 0)
+            if let s = model.activeSession, !s.isLocal {
+                Button {
+                    withAnimation(.djie) { model.showServerInfo.toggle() }
+                } label: {
+                    Label("Info server", systemImage: "cpu")
+                        .font(.system(size: 12, weight: model.showServerInfo ? .semibold : .regular))
+                        .padding(.horizontal, 9).frame(height: 26)
+                        .background(model.showServerInfo ? Theme.accent.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(model.showServerInfo ? Theme.accent : .secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Spesifikasi & grafik server (⇧⌘I)")
+                .keyboardShortcut("i", modifiers: [.command, .shift])
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
             if model.activeSessionID != nil {
                 AutocompleteMenu()
                     .transition(.opacity.combined(with: .scale(scale: 0.9)))

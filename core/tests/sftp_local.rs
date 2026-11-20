@@ -47,6 +47,16 @@ async fn sftp_roundtrip() {
         assert!(log.contains(&format!("socks 127.0.0.1:{port}")) && log.contains(&format!("http 127.0.0.1:{port}")), "{log}");
     }
 
+    // Panel Info server: info lengkap + 2 sampel grafik lewat satu koneksi
+    let mon = djie_core::ServerMonitor::connect(target.clone()).await.expect("monitor");
+    let info = mon.info().await.expect("info");
+    assert!(!info.os.is_empty() && !info.kernel.is_empty() && info.mem_total_bytes > 0 && !info.disks.is_empty(), "{info:?}");
+    let s1 = mon.sample().await.expect("sample");
+    let s2 = mon.sample().await.expect("sample 2");
+    assert!(s1.mem_total_bytes > 0 && s2.cpu_percent >= 0.0 && s2.net_rx_bytes >= s1.net_rx_bytes, "{s1:?} {s2:?}");
+    eprintln!("info server: {} · {} · {} core · RAM {} · disk {}", info.os, info.cpu_model, info.cpu_cores, info.mem_total_bytes, info.disks.len());
+    mon.close().await;
+
     let c = SftpClient::connect(target).await.expect("connect");
     assert!(!c.home().await.unwrap().is_empty());
 

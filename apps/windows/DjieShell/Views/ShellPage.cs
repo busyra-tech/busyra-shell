@@ -48,6 +48,8 @@ internal sealed class ShellPage : Grid
     private readonly Grid _content = new();
     private readonly Grid _terminals = new();
     private readonly Border _inspector = new() { Width = 392 };
+    private readonly Border _serverPanel = new() { Visibility = Visibility.Collapsed };
+    private ServerStats? _shownStats;
     private readonly Border _toast = new()
     {
         HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom,
@@ -65,7 +67,12 @@ internal sealed class ShellPage : Grid
         ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         SetColumn(_sidebar, 0);
-        var main = Ui.Rows("Auto,*", 0, _tabStrip, new Grid { Children = { _content, _terminals } });
+        var body = new Grid { Children = { _content, _terminals, _serverPanel } };
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        SetColumnSpan(_content, 2);
+        SetColumn(_serverPanel, 1);
+        var main = Ui.Rows("Auto,*", 0, _tabStrip, body);
         SetColumn(main, 1);
         SetColumn(_inspector, 2);
         Children.Add(_sidebar);
@@ -111,7 +118,8 @@ internal sealed class ShellPage : Grid
             case "theme": Retheme(); break;
             case "nav": RenderSidebar(); RenderTabs(); RenderContent(); break;
             case "data": case "sync": case "update": RenderSidebar(); RenderTabs(); break;
-            case "sessions": SyncTerminals(); RenderTabs(); RenderContent(); break;
+            case "sessions": SyncTerminals(); RenderTabs(); RenderContent(); M.SyncServerStats(); RenderServerPanel(); break;
+            case "serverinfo": RenderTabs(); RenderServerPanel(); break;
             case "session": RenderTabs(); break;
             case "editing": RenderInspector(); break;
             case "toast": RenderToast(); break;
@@ -245,6 +253,15 @@ internal sealed class ShellPage : Grid
             HorizontalScrollMode = ScrollMode.Enabled, VerticalScrollMode = ScrollMode.Disabled
         };
         var right = Ui.Row(6);
+        if (M.ActiveSession is { IsLocal: false })
+        {
+            var on = M.ShowServerInfo;
+            var info = Ui.Plain(Ui.Row(6, Ui.Icon("\uE9D9", 12, on ? Theme.AccentBrush : Theme.Text2), Ui.Text("Info server", 12, on ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal, on ? Theme.AccentBrush : Theme.Text2)),
+                () => M.ToggleServerInfo(), new Thickness(10, 5, 10, 5));
+            if (on) info.Background = Theme.Brush(Theme.Accent, 0.14);
+            ToolTipService.SetToolTip(info, "Spesifikasi & grafik server (Ctrl+Shift+I)");
+            right.Children.Add(info);
+        }
         if (M.ActiveSessionId != null)
         {
             right.Children.Add(AutocompleteMenu());
@@ -350,6 +367,16 @@ internal sealed class ShellPage : Grid
     }
 
     // MARK: Konten
+
+    private void RenderServerPanel()
+    {
+        var st = M.ActiveSessionId != null ? M.ServerStats : null;
+        if (st == _shownStats) return;
+        _shownStats = st;
+        _serverPanel.Child = st == null ? null : new ServerInfoPanel(st);
+        _serverPanel.Visibility = st == null ? Visibility.Collapsed : Visibility.Visible;
+        if (st != null) Ui.StaggerIn(_serverPanel, 0);
+    }
 
     private void SyncTerminals()
     {

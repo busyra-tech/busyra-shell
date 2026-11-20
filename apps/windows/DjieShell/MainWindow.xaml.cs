@@ -97,6 +97,7 @@ public sealed partial class MainWindow : Window
         Add(VirtualKey.L, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.Lock);
         Add(VirtualKey.W, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, m.CloseActive);
         Add(VirtualKey.T, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.OpenLocalTerminal());
+        Add(VirtualKey.I, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => { if (m.ActiveSession is { IsLocal: false }) m.ToggleServerInfo(); });
         Add(VirtualKey.Tab, VirtualKeyModifiers.Control, () => m.CycleTab(1));
         Add(VirtualKey.Tab, VirtualKeyModifiers.Control | VirtualKeyModifiers.Shift, () => m.CycleTab(-1));
         for (int i = 0; i <= 9; i++)
