@@ -225,6 +225,74 @@ impl SftpClient {
         Ok(())
     }
 
+    /// Info satu file/folder (untuk mendeteksi file berubah di server sebelum menyimpan).
+    pub async fn stat(&self, path: String) -> Result<RemoteEntry, CoreError> {
+        let m = self.sftp.metadata(path.clone()).await.map_err(err)?;
+        let name = Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.clone());
+        Ok(RemoteEntry {
+            name,
+            is_dir: m.is_dir(),
+            is_symlink: m.is_symlink(),
+            size: m.size.unwrap_or(0),
+            modified: m.mtime.map(i64::from).unwrap_or(0),
+            permissions: m.permissions.unwrap_or(0) & 0o7777,
+            path,
+        })
+    }
+
+    /// Baca isi file (editor teks bawaan). Gagal jika lebih besar dari `max_bytes`.
+    pub async fn read_file(&self, path: String, max_bytes: u64) -> Result<Vec<u8>, CoreError> {
+        let size = self.sftp.metadata(path.clone()).await.map_err(err)?.size.unwrap_or(0);
+        if size > max_bytes {
+            return Err(CoreError::Io { msg: format!("file terlalu besar untuk editor ({size} byte, maks {max_bytes})") });
+        }
+        let mut f = self.sftp.open(path).await.map_err(err)?;
+        let mut out = Vec::with_capacity(size as usize);
+        f.read_to_end(&mut out).await?;
+        Ok(out)
+    }
+
+    /// Tulis ulang isi file di server (izin file tetap). File baru dibuat jika belum ada.
+    pub async fn write_file(&self, path: String, data: Vec<u8>) -> Result<(), CoreError> {
+        let mut f = self
+            .sftp
+            .open_with_flags(path, OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE)
+            .await
+            .map_err(err)?;
+        for chunk in data.chunks(CHUNK) {
+            f.write_all(chunk).await?;
+        }
+        f.flush().await?;
+        f.shutdown().await?;
+        Ok(())
+    }
+
+    /// Salin satu file server ke path lokal persis (untuk "Buka dengan" aplikasi lain).
+    pub async fn download_file_to(&self, remote: String, local_path: String) -> Result<(), CoreError> {
+        if let Some(parent) = Path::new(&local_path).parent() {
+            tokio::fs::create_dir_all(parent).await?;
+        }
+        let mut src = self.sftp.open(remote).await.map_err(err)?;
+        let mut dst = tokio::fs::File::create(&local_path).await?;
+        tokio::io::copy(&mut src, &mut dst).await?;
+        dst.flush().await?;
+        Ok(())
+    }
+
+    /// Unggah satu file lokal ke path server persis, menimpa isinya (izin file di server tetap).
+    pub async fn upload_file_to(&self, local_path: String, remote: String) -> Result<(), CoreError> {
+        let mut src = tokio::fs::File::open(&local_path).await?;
+        let mut dst = self
+            .sftp
+            .open_with_flags(remote, OpenFlags::CREATE | OpenFlags::TRUNCATE | OpenFlags::WRITE)
+            .await
+            .map_err(err)?;
+        tokio::io::copy(&mut src, &mut dst).await?;
+        dst.flush().await?;
+        dst.shutdown().await?;
+        Ok(())
+    }
+
     /// Tutup sesi SFTP dan koneksi SSH.
     pub async fn close(&self) {
         let _ = self.sftp.close().await;

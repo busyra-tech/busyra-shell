@@ -23,6 +23,10 @@ internal sealed class SftpPage : PageBase
     private readonly Border _transfers = new();
     private readonly Grid _connected;
     private readonly Border _picker = new();
+    private readonly Grid _editorLayer = new() { Visibility = Visibility.Collapsed };
+    private RemoteEditorDoc? _shownDoc;
+    private TextBlock? _edDirty, _edLines;
+    private Button? _edSave;
     private ListView? _localList, _remoteList;
     private static readonly CultureInfo Id = new("id-ID");
     private const string DragFormat = "djie-sftp";
@@ -34,6 +38,7 @@ internal sealed class SftpPage : PageBase
         _connected.Padding = new Thickness(20, 16, 20, 16);
         Children.Add(_connected);
         Children.Add(_picker);
+        Children.Add(_editorLayer);
         Render();
     }
 
@@ -53,6 +58,127 @@ internal sealed class SftpPage : PageBase
         RenderLocal();
         RenderRemote();
         RenderTransfers();
+        RenderEditor();
+    }
+
+    // MARK: Editor teks bawaan
+
+    /// <summary>Teks dari TextBox (akhir baris "\r") → akhir baris asli file.</summary>
+    private static string FromBox(string boxText, string eol) => boxText.Replace("\r\n", "\n").Replace("\r", "\n").Replace("\n", eol);
+
+    private void RenderEditor()
+    {
+        var doc = S.Editor;
+        if (doc == null) { _editorLayer.Visibility = Visibility.Collapsed; _editorLayer.Children.Clear(); _shownDoc = null; return; }
+        if (doc == _shownDoc) { UpdateEditorState(doc); return; }
+        _shownDoc = doc;
+
+        var lines = new TextBlock { FontFamily = Theme.MonoFont, FontSize = 13, Foreground = Theme.Text3, TextAlignment = TextAlignment.Right, Padding = new Thickness(0, 9, 10, 9) };
+        var box = new TextBox
+        {
+            AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, FontFamily = Theme.MonoFont, FontSize = 13,
+            IsSpellCheckEnabled = false, IsTextPredictionEnabled = false, BorderThickness = new Thickness(0), Background = new SolidColorBrush(Microsoft.UI.Colors.Transparent),
+            Padding = new Thickness(10, 9, 10, 9), MinWidth = 400,
+        };
+        // Text diisi SETELAH AcceptsReturn: kalau sebelumnya, TextBox memotong teks ke baris pertama.
+        box.Text = doc.Text;
+        ScrollViewer.SetHorizontalScrollBarVisibility(box, ScrollBarVisibility.Disabled);
+        void Numbers()
+        {
+            var n = box.Text.Split('\r').Length;
+            if (box.Text.EndsWith('\r')) n--;
+            lines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, n)));
+            if (_edLines != null) _edLines.Text = $"{Math.Max(1, n)} baris";
+        }
+        box.TextChanged += (_, _) => { doc.Text = FromBox(box.Text, doc.LineEnding); Numbers(); UpdateEditorState(doc); };
+        var gutter = new Border { Child = lines, Background = Theme.Panel, MinWidth = 48 };
+        var body = Ui.Columns("Auto,*", 0, gutter, box);
+        var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollMode = ScrollMode.Enabled, ZoomMode = ZoomMode.Disabled };
+
+        _edDirty = Ui.Text("●", 12, fg: Theme.Brush(Theme.Orange));
+        _edSave = Ui.Primary("Simpan", G.Save, () => _ = Save(doc, false));
+        var openWith = new DropDownButton { Content = Ui.Row(6, Ui.Icon(G.Export, 12), Ui.Text("Buka dengan", 12.5)) };
+        openWith.Flyout = OpenWithFlyout(new FileItem(doc.Name, doc.Path, false, 0, null, 0), () => S.CloseEditor());
+        var title = Ui.Col(1, Ui.Row(8, Ui.Text(doc.Name, 15, FontWeights.SemiBold), _edDirty),
+            Ui.Text(doc.Path, 11, fg: Theme.Text2, mono: true).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis));
+        var head = Ui.Columns("Auto,*,Auto,Auto,Auto", 10, Ui.TintIcon(G.Document, Theme.Accent, 32, 13, 9), title, openWith, _edSave,
+            Ui.IconBtn(G.Close, "Tutup (Esc)", () => _ = CloseEditor(doc)));
+        head.Padding = new Thickness(16, 12, 14, 12);
+        _edLines = Ui.Text("", 11.5, fg: Theme.Text2);
+        var foot = Ui.Columns("Auto,Auto,Auto,*,Auto", 16, _edLines, Ui.Text(doc.LineEnding == "\r\n" ? "UTF-8 · CRLF" : "UTF-8 · LF", 11.5, fg: Theme.Text2),
+            Ui.Text(S.Host is { } h ? $"SFTP · {h.Title()}" : "SFTP", 11.5, fg: Theme.Text2), null, Ui.Text("Ctrl+S simpan · Esc tutup", 11.5, fg: Theme.Text3));
+        foot.Padding = new Thickness(16, 7, 16, 8);
+        var sep1 = new Border { Height = 1, Background = Theme.Ink(0.08) };
+        var sep2 = new Border { Height = 1, Background = Theme.Ink(0.08) };
+        var card = new Border
+        {
+            Child = Ui.Rows("Auto,Auto,*,Auto,Auto", 0, head, sep1, scroll, sep2, foot),
+            Background = Theme.Bg, BorderBrush = Theme.CardStroke, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14),
+            Margin = new Thickness(24),
+        };
+        var save = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.S, Modifiers = Windows.System.VirtualKeyModifiers.Control };
+        save.Invoked += (s, e) => { e.Handled = true; _ = Save(doc, false); };
+        var esc = new Microsoft.UI.Xaml.Input.KeyboardAccelerator { Key = Windows.System.VirtualKey.Escape };
+        esc.Invoked += (s, e) => { e.Handled = true; _ = CloseEditor(doc); };
+        card.KeyboardAccelerators.Add(save);
+        card.KeyboardAccelerators.Add(esc);
+        card.KeyboardAcceleratorPlacementMode = Microsoft.UI.Xaml.Input.KeyboardAcceleratorPlacementMode.Hidden;
+
+        _editorLayer.Children.Clear();
+        _editorLayer.Children.Add(new Border { Background = Theme.Brush("#000000", 0.45) });
+        _editorLayer.Children.Add(card);
+        _editorLayer.Visibility = Visibility.Visible;
+        Numbers();
+        UpdateEditorState(doc);
+        Ui.StaggerIn(card, 0);
+        DispatcherQueue.TryEnqueue(() => box.Focus(FocusState.Programmatic));
+    }
+
+    private void UpdateEditorState(RemoteEditorDoc doc)
+    {
+        if (_edDirty != null) _edDirty.Visibility = doc.Dirty ? Visibility.Visible : Visibility.Collapsed;
+        if (_edSave != null) _edSave.IsEnabled = doc.Dirty && !doc.Saving;
+    }
+
+    private async Task Save(RemoteEditorDoc doc, bool force)
+    {
+        var r = await S.SaveEditor(doc, force);
+        if (r == "conflict" && await Ui.Confirm("File di server sudah berubah", $"{doc.Name} diubah di server setelah kamu membukanya. Simpan akan menimpa perubahan itu.", "Timpa"))
+            await S.SaveEditor(doc, true);
+        else if (r != null && r != "conflict") await Ui.Confirm("Gagal menyimpan", r, "OK", false);
+        UpdateEditorState(doc);
+    }
+
+    private async Task CloseEditor(RemoteEditorDoc doc)
+    {
+        if (!doc.Dirty) { S.CloseEditor(); return; }
+        var d = new ContentDialog
+        {
+            Title = $"Simpan perubahan di {doc.Name}?", Content = "Perubahan belum disimpan ke server.", PrimaryButtonText = "Simpan & tutup",
+            SecondaryButtonText = "Buang perubahan", CloseButtonText = "Batal", DefaultButton = ContentDialogButton.Primary, XamlRoot = Ui.Root,
+        };
+        var res = await d.ShowAsync();
+        if (res == ContentDialogResult.Primary) { if (await S.SaveEditor(doc) == null) S.CloseEditor(); }
+        else if (res == ContentDialogResult.Secondary) S.CloseEditor();
+    }
+
+    /// <summary>Menu "Buka dengan": aplikasi bawaan, aplikasi umum yang terpasang, dialog Open with Windows.</summary>
+    private MenuFlyout OpenWithFlyout(FileItem item, Action? before = null)
+    {
+        var f = new MenuFlyout();
+        void Add(string text, string? app)
+        {
+            var i = new MenuFlyoutItem { Text = text };
+            i.Click += (_, _) => { before?.Invoke(); _ = S.OpenWith(item, app); };
+            f.Items.Add(i);
+        }
+        Add("Aplikasi bawaan", null);
+        var apps = RemoteFiles.CommonApps();
+        if (apps.Count > 0) f.Items.Add(new MenuFlyoutSeparator());
+        foreach (var (name, exe) in apps) Add(name, exe);
+        f.Items.Add(new MenuFlyoutSeparator());
+        Add("Pilih aplikasi lain…", "choose");
+        return f;
     }
 
     // MARK: Pilih server
@@ -137,7 +263,7 @@ internal sealed class SftpPage : PageBase
             if (lv.SelectedItem is ListViewItem { Tag: FileItem f })
             {
                 if (f.IsDir) { if (remote) _ = S.OpenRemote(f.Path); else S.OpenLocal(f.Path); }
-                else if (remote) S.Download([f]);
+                else if (remote) { if (RemoteFiles.IsTextLike(f)) _ = S.OpenEditor(f); else _ = S.OpenWith(f); }
                 else if (S.Connected) S.Upload([f.Path]);
             }
         };
@@ -211,6 +337,20 @@ internal sealed class SftpPage : PageBase
             i.Click += (_, _) => { var sel = Selected(lv); if (sel.Count > 0 && (!single || sel.Count == 1)) a(sel); };
             f.Items.Add(i);
         }
+        Item("Edit di Djie Shell", G.Edit, sel => { if (!sel[0].IsDir) _ = S.OpenEditor(sel[0]); }, true);
+        var openWith = new MenuFlyoutSubItem { Text = "Buka dengan", Icon = new FontIcon { Glyph = G.Export } };
+        void OW(string text, string? app)
+        {
+            var i = new MenuFlyoutItem { Text = text };
+            i.Click += (_, _) => { var sel = Selected(lv); if (sel.Count == 1 && !sel[0].IsDir) _ = S.OpenWith(sel[0], app); };
+            openWith.Items.Add(i);
+        }
+        OW("Aplikasi bawaan", null);
+        foreach (var (name, exe) in RemoteFiles.CommonApps()) OW(name, exe);
+        openWith.Items.Add(new MenuFlyoutSeparator());
+        OW("Pilih aplikasi lain…", "choose");
+        f.Items.Add(openWith);
+        f.Items.Add(new MenuFlyoutSeparator());
         Item("Download", G.Download, sel => S.Download(sel));
         Item("Buka", G.Folder, sel => { if (sel[0].IsDir) _ = S.OpenRemote(sel[0].Path); }, true);
         Item("Ganti nama…", G.Rename, sel => _ = Rename(sel[0], true), true);
@@ -308,8 +448,22 @@ internal sealed class SftpPage : PageBase
 
     private void RenderTransfers()
     {
-        if (S.Transfers.Count == 0) { _transfers.Child = null; _transfers.Visibility = Visibility.Collapsed; return; }
+        if (S.Transfers.Count == 0 && S.Watched.Count == 0) { _transfers.Child = null; _transfers.Visibility = Visibility.Collapsed; return; }
         _transfers.Visibility = Visibility.Visible;
+        var watched = Ui.Col(6);
+        if (S.Watched.Count > 0)
+        {
+            watched.Children.Add(Ui.Row(8, Ui.Icon(G.Sync, 13, Theme.AccentBrush), Ui.Text("Dibuka di aplikasi lain — disimpan otomatis ke server", 13, FontWeights.SemiBold)));
+            foreach (var w in S.Watched)
+            {
+                var state = w.Uploading ? Ui.Text("Mengunggah…", 11.5, fg: Theme.AccentBrush)
+                    : w.LastUpload is { } t ? Ui.Text($"✓ Tersimpan {t:HH.mm}", 11.5, fg: Theme.Brush(Theme.Green)) : Ui.Text("Menunggu perubahan", 11.5, fg: Theme.Text3);
+                watched.Children.Add(Ui.Columns("Auto,Auto,*,Auto,Auto", 10, Ui.Icon(G.Document, 13, Theme.Text2),
+                    Ui.Text(System.IO.Path.GetFileName(w.LocalPath), 12.5, FontWeights.Medium), Ui.Text($"di {w.AppName}", 11.5, fg: Theme.Text2), state,
+                    Ui.Secondary("Berhenti", null, () => S.StopWatching(w))));
+            }
+        }
+        if (S.Transfers.Count == 0) { _transfers.Child = Ui.Card(watched, 12, 12); return; }
         var head = Ui.Columns("*,Auto", 8, Ui.Row(8, Ui.Text("Transfer", 13, FontWeights.SemiBold), Ui.Pill(S.Transfers.Count(t => t.Status == Transfer.State.Running) + " berjalan")),
             Ui.Secondary("Bersihkan", null, S.ClearFinished));
         var list = Ui.Col(6);
@@ -331,6 +485,6 @@ internal sealed class SftpPage : PageBase
             if (t.Status == Transfer.State.Running && t.CurrentFile.Length > 0) ToolTipService.SetToolTip(row, t.CurrentFile);
             list.Children.Add(row);
         }
-        _transfers.Child = Ui.Card(Ui.Col(8, head, new ScrollViewer { Content = list, MaxHeight = 150 }), 12, 12);
+        _transfers.Child = Ui.Card(Ui.Col(8, S.Watched.Count > 0 ? watched : null, head, new ScrollViewer { Content = list, MaxHeight = 150 }), 12, 12);
     }
 }

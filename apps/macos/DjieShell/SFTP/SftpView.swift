@@ -23,6 +23,9 @@ struct SftpView: View {
                     RemotePane().frame(minWidth: 300)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.98)))
+                if !sftp.watched.isEmpty {
+                    WatchedFilesBar().transition(.move(edge: .bottom).combined(with: .opacity))
+                }
                 if !sftp.transfers.isEmpty {
                     TransferList().transition(.move(edge: .bottom).combined(with: .opacity))
                 }
@@ -31,7 +34,20 @@ struct SftpView: View {
         .onAppear { SftpDragContext.model = model.sftp }
         .animation(.djie, value: sftp.status)
         .animation(.djie, value: sftp.transfers.isEmpty)
+        .animation(.djie, value: sftp.watched.isEmpty)
+        .sheet(item: Binding(get: { sftp.editor }, set: { sftp.editor = $0 })) { doc in
+            RemoteEditorView(doc: doc)
+        }
         .overlay(alignment: .bottom) {
+            if let n = sftp.notice, sftp.error == nil {
+                Label(n, systemImage: "checkmark.circle.fill")
+                    .font(.callout)
+                    .padding(.horizontal, 14).padding(.vertical, 9)
+                    .background(.ultraThickMaterial, in: Capsule())
+                    .overlay(Capsule().strokeBorder(Color(hex: "#4ADE80").opacity(0.5)))
+                    .padding(.bottom, 20)
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
             if let e = sftp.error {
                 Label(e, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)

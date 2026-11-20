@@ -58,6 +58,23 @@ async fn sftp_roundtrip() {
     mon.close().await;
 
     let c = SftpClient::connect(target).await.expect("connect");
+
+    // Editor teks bawaan & "Buka dengan": baca, tulis, stat, salin persis
+    let root_dir = std::env::var("DJIE_TEST_ROOT").unwrap();
+    let note = format!("{root_dir}/catatan.txt");
+    c.write_file(note.clone(), "halo\nbaris dua — ünïcode\n".as_bytes().to_vec()).await.unwrap();
+    assert_eq!(c.read_file(note.clone(), 1024).await.unwrap(), "halo\nbaris dua — ünïcode\n".as_bytes());
+    let st = c.stat(note.clone()).await.unwrap();
+    assert_eq!((st.name.as_str(), st.is_dir, st.size), ("catatan.txt", false, "halo\nbaris dua — ünïcode\n".len() as u64));
+    assert!(c.read_file(note.clone(), 4).await.is_err(), "batas ukuran editor");
+    c.write_file(note.clone(), b"lebih pendek".to_vec()).await.unwrap();
+    assert_eq!(c.read_file(note.clone(), 1024).await.unwrap(), b"lebih pendek");
+    let local_copy = format!("{root_dir}/edit/catatan.txt");
+    c.download_file_to(note.clone(), local_copy.clone()).await.unwrap();
+    std::fs::write(&local_copy, "diubah di app lain").unwrap();
+    c.upload_file_to(local_copy, note.clone()).await.unwrap();
+    assert_eq!(c.read_file(note, 1024).await.unwrap(), b"diubah di app lain");
+
     assert!(!c.home().await.unwrap().is_empty());
 
     // Siapkan folder lokal berisi file kecil + file 3 MB

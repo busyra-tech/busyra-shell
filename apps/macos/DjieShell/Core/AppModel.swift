@@ -239,7 +239,26 @@ final class AppModel {
                 reload()
                 sftp.localPath = env["DJIE_SFTP_LOCAL"] ?? sftp.localPath
                 sftp.reloadLocal()
-                Task { await openSftp(saved); if let r = env["DJIE_SFTP_REMOTE"] { await sftp.openRemote(r) } }
+                Task {
+                    await openSftp(saved)
+                    if let r = env["DJIE_SFTP_REMOTE"] { await sftp.openRemote(r) }
+                    // DJIE_SFTP_EDIT / DJIE_SFTP_OPENWITH = nama file di folder remote
+                    for (k, edit) in [("DJIE_SFTP_EDIT", true), ("DJIE_SFTP_OPENWITH", false)] {
+                        if let n = env[k], let item = sftp.remoteItems.first(where: { $0.name == n }) {
+                            if edit {
+                                await sftp.openEditor(item)
+                                // DJIE_SFTP_EDIT_APPEND: tambahkan teks lalu simpan (tes alur simpan)
+                                if let add = env["DJIE_SFTP_EDIT_APPEND"], let doc = sftp.editor {
+                                    doc.text += add + "\n"
+                                    await sftp.saveEditor(doc)
+                                }
+                            } else {
+                                let app = env["DJIE_SFTP_APP"].map { URL(fileURLWithPath: $0) }
+                                await sftp.openWith(item, app: app)
+                            }
+                        }
+                    }
+                }
             }
         }
         if args.contains("-DjieDemoLockCycle") {

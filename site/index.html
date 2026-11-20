@@ -49,7 +49,7 @@
   "license": "https://opensource.org/licenses/MIT",
   "author": { "@type": "Person", "name": "Adjie Kurniawan" },
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" },
-  "featureList": ["SSH multi-host", "SFTP drag & drop", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
+  "featureList": ["SSH multi-host", "SFTP drag & drop", "Editor file SFTP & buka dengan app lokal", "Database ala phpMyAdmin (MySQL, PostgreSQL, SQL Server, SQLite, Redis, MongoDB)", "Proxy SOCKS5/HTTP", "Terminal lokal (zsh, PowerShell, CMD, WSL)", "Info server & grafik live (CPU, RAM, storage)", "Keychain SSH Ed25519", "Port forwarding local/remote/SOCKS", "Snippets", "Sync terenkripsi Google Drive", "Touch ID", "Windows Hello"]
 }
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -423,6 +423,18 @@
         </div>
       </div>
     </div>
+    <div class="split rev">
+      <div class="copy reveal">
+        <h3 data-i18n="sf.h3">Edit file langsung di server</h3>
+        <p data-i18n="sf.p">Klik dua kali file teks untuk membukanya di editor bawaan — nomor baris, cari, dan simpan dengan ⌘S / Ctrl+S. Djie Shell memberi peringatan kalau file sudah diubah orang lain sebelum kamu menyimpan.</p>
+        <div class="spec">
+          <div><span class="k" data-i18n="sf.k7">Editor bawaan</span><span class="v" data-i18n="sf.v7">Config, script, .env, log — line ending CRLF/LF tetap dijaga</span></div>
+          <div><span class="k" data-i18n="sf.k8">Buka dengan</span><span class="v" data-i18n="sf.v8">VS Code, Sublime, Notepad++, Preview, atau app apa pun di komputermu</span></div>
+          <div><span class="k" data-i18n="sf.k9">Simpan otomatis</span><span class="v" data-i18n="sf.v9">Setiap kali kamu menyimpan di app itu, file langsung di-upload ke server</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="assets/screens/sftp-editor.jpg" alt="Editor file bawaan di SFTP Djie Shell" loading="lazy" width="1600" height="1032" /></div>
+    </div>
   </section>
 
   <section class="feat wrap" id="database">
@@ -671,6 +683,9 @@ const EN = {
   "sf.v1": "Upload &amp; download files and folders, in parallel", "sf.k2": "Manage files", "sf.v2": "New folder, rename, delete, chmod with checkboxes",
   "sf.k3": "Login", "sf.v3": "Uses saved hosts: password, SSH key, or agent", "sf.k4": "Security", "sf.v4": "Server fingerprints checked against known_hosts",
   "sf.k5": "Engine", "sf.v5": "Native SSH in the Rust core — no extra apps", "sf.v6": "Clickable breadcrumb, or type a path directly",
+  "sf.h3": "Edit files right on the server", "sf.p": "Double-click a text file to open it in the built-in editor — line numbers, find, and save with ⌘S / Ctrl+S. Djie Shell warns you if someone else changed the file before you save.",
+  "sf.k7": "Built-in editor", "sf.v7": "Configs, scripts, .env, logs — CRLF/LF line endings preserved", "sf.k8": "Open with", "sf.v8": "VS Code, Sublime, Notepad++, Preview, or any app on your computer",
+  "sf.k9": "Auto-save", "sf.v9": "Every time you save in that app, the file is uploaded to the server",
   "db.t": "phpMyAdmin-style databases,<br />right in the app.", "db.lead": "MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, and 15 more services. Browse tables, view structure, run SQL — no browser needed, and it works over an SSH tunnel.",
   "db.h1": "Search like phpMyAdmin", "db.p1": "The <b>Search</b> tab has one row per column: pick an operator (<code>=</code>, <code>LIKE %…%</code>, <code>IN</code>, <code>BETWEEN</code>, <code>IS NULL</code>, …), enter a value, and submit. Results show up in Browse with paging and a row count.",
   "db.k1": "Quick search", "db.v1": "Type once, search every column of the table", "db.k2": "Table list", "db.v2": "Show or hide it for more room",

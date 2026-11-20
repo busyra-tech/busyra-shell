@@ -144,7 +144,11 @@ struct RemotePane: View {
         FilePane(
             title: sftp.host?.title ?? "Server", icon: "server.rack", path: sftp.remotePath, items: sftp.remoteItems,
             selection: $selection, isDropTarget: dropTarget, loading: sftp.remoteLoading, dropHint: "Lepas untuk upload ke sini",
-            onOpen: { item in if item.isDir { Task { await sftp.openRemote(item.path) } } else { sftp.download([item]) } },
+            onOpen: { item in
+                if item.isDir { Task { await sftp.openRemote(item.path) } }
+                else if RemoteFiles.isTextLike(item) { Task { await sftp.openEditor(item) } }
+                else { Task { await sftp.openWith(item) } }
+            },
             onUp: { Task { await sftp.remoteUp() } },
             onRefresh: { Task { await sftp.refreshRemote() } },
             onPath: { p in Task { await sftp.openRemote(p) } },
@@ -153,6 +157,23 @@ struct RemotePane: View {
             remoteDrag: { RemoteDragItem(item: $0) },
             onDropOnFolder: { folder, providers in handleDrop(providers, into: folder.path) }
         ) { item in
+            if !item.isDir {
+                Button("Edit di Djie Shell") { Task { await sftp.openEditor(item) } }
+                    .disabled(item.size > RemoteFiles.editorLimit)
+                Menu("Buka dengan") {
+                    let apps = RemoteFiles.apps(for: item.name)
+                    if let def = apps.first {
+                        Button("\(RemoteFiles.appName(def)) (bawaan)") { Task { await sftp.openWith(item, app: def) } }
+                        Divider()
+                    }
+                    ForEach(apps.dropFirst(), id: \.self) { app in
+                        Button(RemoteFiles.appName(app)) { Task { await sftp.openWith(item, app: app) } }
+                    }
+                    Divider()
+                    Button("Aplikasi lain…") { sftp.chooseAppAndOpen(item) }
+                }
+                Divider()
+            }
             Button("Download ke Mac") { sftp.download([item]) }
             Button("Ganti nama…") { renaming = item }
             Button("Ubah izin (chmod)…") { chmodding = item }

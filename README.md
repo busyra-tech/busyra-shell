@@ -66,6 +66,11 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 
 Dua panel berdampingan: komputermu di kiri, server di kanan. Seret file atau folder untuk upload/download, dengan progress, kecepatan, dan tombol batal. Folder baru, ganti nama, hapus, dan chmod dengan centang.
 
+- **Editor bawaan** — klik dua kali file teks (config, script, `.env`, log) untuk mengeditnya langsung di server: nomor baris, cari, simpan ⌘S / Ctrl+S, dan peringatan kalau file sudah diubah orang lain
+- **Buka dengan** — buka file di VS Code, Sublime, Notepad++, Preview, atau app lain di komputermu; setiap kali kamu menyimpan, file otomatis di-upload ke server
+
+<img src="site/assets/screens/sftp-editor.jpg" alt="Editor file bawaan di SFTP" width="900" />
+
 <img src="site/assets/screens/sftp.jpg" alt="SFTP dua panel" width="900" />
 
 ### 🔑 Keychain, tunnel & proxy

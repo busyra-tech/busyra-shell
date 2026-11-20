@@ -217,7 +217,7 @@ internal sealed class AppModel
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_LIGHT") == "1") SetAppearance("light");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") is "1" or "test") Edit(Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "test" ? test : Hosts.FirstOrDefault());
-        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP") == "1" && test != null) _ = OpenSftp(test);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP") == "1" && test != null) _ = DemoSftp(test);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_TUNNEL") is { Length: > 0 } tport && test != null)
         {
             // Tunnel tes: 127.0.0.1:<tport> → 127.0.0.1:<port ssh server> lewat server-tes
@@ -666,6 +666,29 @@ internal sealed class AppModel
         Raise("logs");
         ScheduleSync();
     }
+
+#if DEBUG
+    /// <summary>Demo SFTP: DJIE_DEMO_SFTP_DIR = folder server, DJIE_DEMO_SFTP_EDIT / _OPENWITH = nama file, DJIE_DEMO_SFTP_APPEND = teks ditambah lalu disimpan.</summary>
+    private async Task DemoSftp(Host test)
+    {
+        await OpenSftp(test);
+        for (int i = 0; i < 50 && Sftp.State != SftpModel.Status.Connected; i++) await Task.Delay(200);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP_DIR") is { Length: > 0 } dir) await Sftp.OpenRemote(dir);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP_EDIT") is { Length: > 0 } e && Sftp.RemoteItems.FirstOrDefault(x => x.Name == e) is { } ef)
+        {
+            await Sftp.OpenEditor(ef);
+            if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP_APPEND") is { Length: > 0 } add && Sftp.Editor is { } doc)
+            {
+                doc.Text += add + doc.LineEnding;
+                await Sftp.SaveEditor(doc);
+                Sftp.CloseEditor();
+                await Sftp.OpenEditor(ef);
+            }
+        }
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP_OPENWITH") is { Length: > 0 } o && Sftp.RemoteItems.FirstOrDefault(x => x.Name == o) is { } of)
+            await Sftp.OpenWith(of, Environment.GetEnvironmentVariable("DJIE_DEMO_SFTP_APP"));
+    }
+#endif
 
     public void ClearLogs() { try { _vault?.ClearLogs(); } catch { } DataChanged(); }
 

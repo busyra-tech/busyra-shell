@@ -79,6 +79,12 @@ final class SftpModel {
     var showHidden = false
     var transfers: [Transfer] = []
     var error: String?
+    /// Pesan sukses singkat (mis. "tersimpan ke server").
+    var notice: String?
+    /// File yang sedang dibuka di editor teks bawaan.
+    var editor: RemoteEditorDoc?
+    /// File yang dibuka di aplikasi lain dan diawasi untuk diunggah balik.
+    var watched: [WatchedFile] = []
 
     /// Item yang sedang di-drag di dalam app (untuk drop antarpanel / banyak file sekaligus).
     @ObservationIgnored var dragging: (remote: Bool, paths: [String])?
@@ -87,6 +93,7 @@ final class SftpModel {
 
     @ObservationIgnored private var client: SftpClient?
     @ObservationIgnored private var bridges: [UUID: ProgressBridge] = [:]
+    @ObservationIgnored private var watchTimer: Timer?
 
     init() { reloadLocal() }
 
@@ -115,6 +122,11 @@ final class SftpModel {
 
     func disconnect() async {
         bridges.values.forEach { $0.cancel() }
+        editor = nil
+        watched.forEach { try? FileManager.default.removeItem(at: $0.localURL.deletingLastPathComponent()) }
+        watched = []
+        watchTimer?.invalidate()
+        watchTimer = nil
         if let c = client { await c.close() }
         client = nil
         remoteItems = []
@@ -301,8 +313,137 @@ final class SftpModel {
         }
     }
 
+    // MARK: Editor bawaan
+
+    /// Buka file server di editor teks bawaan.
+    func openEditor(_ item: FileItem) async {
+        guard let client else { return }
+        if item.size > RemoteFiles.editorLimit {
+            flashError(CoreError.Io(msg: "\(item.name) terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”"))
+            return
+        }
+        do {
+            let data = try await client.readFile(path: item.path, maxBytes: RemoteFiles.editorLimit)
+            guard let text = String(data: data, encoding: .utf8) else {
+                flashError(CoreError.Io(msg: "\(item.name) bukan file teks UTF-8 — pakai “Buka dengan”"))
+                return
+            }
+            let st = try? await client.stat(path: item.path)
+            withAnimation(.djie) { editor = RemoteEditorDoc(path: item.path, name: item.name, text: text, modified: st?.modified ?? 0) }
+        } catch {
+            flashError(error)
+        }
+    }
+
+    /// Simpan isi editor ke server. Mengembalikan `true` jika berhasil.
+    @discardableResult
+    func saveEditor(_ doc: RemoteEditorDoc, force: Bool = false) async -> Bool {
+        guard let client, !doc.saving else { return false }
+        doc.saving = true
+        doc.error = nil
+        defer { doc.saving = false }
+        do {
+            if !force, let st = try? await client.stat(path: doc.path), doc.remoteModified != 0, st.modified != doc.remoteModified {
+                doc.conflict = true
+                return false
+            }
+            let snapshot = doc.text
+            try await client.writeFile(path: doc.path, data: Data(snapshot.utf8))
+            doc.original = snapshot
+            doc.remoteModified = (try? await client.stat(path: doc.path))?.modified ?? doc.remoteModified
+            showNotice("✓ \(doc.name) tersimpan ke server")
+            await refreshRemote()
+            return true
+        } catch {
+            doc.error = error.djieMessage
+            return false
+        }
+    }
+
+    // MARK: Buka dengan aplikasi lain
+
+    /// Unduh ke folder sementara, buka di aplikasi pilihan (atau bawaan), lalu awasi untuk diunggah balik.
+    func openWith(_ item: FileItem, app: URL? = nil) async {
+        guard let client else { return }
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("djie-shell-open/\(UUID().uuidString)", isDirectory: true)
+        let local = dir.appendingPathComponent(item.name)
+        do {
+            try await client.downloadFileTo(remote: item.path, localPath: local.path)
+        } catch {
+            flashError(error)
+            return
+        }
+        let appURL = app ?? NSWorkspace.shared.urlForApplication(toOpen: local)
+        let w = WatchedFile(remotePath: item.path, localURL: local, appName: appURL.map(RemoteFiles.appName) ?? "aplikasi bawaan")
+        withAnimation(.djie) {
+            watched.removeAll { $0.remotePath == item.path }
+            watched.append(w)
+        }
+        startWatchTimer()
+        if let appURL {
+            let cfg = NSWorkspace.OpenConfiguration()
+            cfg.activates = true
+            NSWorkspace.shared.open([local], withApplicationAt: appURL, configuration: cfg) { _, err in
+                if let err { Task { @MainActor in self.flashError(err) } }
+            }
+        } else {
+            NSWorkspace.shared.open(local)
+        }
+    }
+
+    /// Pilih aplikasi lain lewat panel Finder, lalu buka.
+    func chooseAppAndOpen(_ item: FileItem) {
+        let panel = NSOpenPanel()
+        panel.directoryURL = URL(fileURLWithPath: "/Applications")
+        panel.allowedContentTypes = [.application]
+        panel.prompt = "Buka"
+        panel.message = "Pilih aplikasi untuk membuka \(item.name)"
+        guard panel.runModal() == .OK, let app = panel.url else { return }
+        Task { await openWith(item, app: app) }
+    }
+
+    func stopWatching(_ w: WatchedFile) {
+        withAnimation(.djie) { watched.removeAll { $0.id == w.id } }
+        try? FileManager.default.removeItem(at: w.localURL.deletingLastPathComponent())
+        if watched.isEmpty { watchTimer?.invalidate(); watchTimer = nil }
+    }
+
+    private func startWatchTimer() {
+        guard watchTimer == nil else { return }
+        watchTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.checkWatched() }
+        }
+    }
+
+    /// Editor seperti VS Code menyimpan dengan mengganti file — cukup bandingkan waktu ubah.
+    private func checkWatched() async {
+        guard let client else { return }
+        for w in watched where !w.uploading {
+            guard let m = (try? w.localURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
+                  m != w.lastModified else { continue }
+            w.lastModified = m
+            w.uploading = true
+            do {
+                try await client.uploadFileTo(localPath: w.localURL.path, remote: w.remotePath)
+                withAnimation(.djie) { w.lastUpload = Date() }
+                showNotice("✓ \(w.localURL.lastPathComponent) tersimpan ke server")
+                if (w.remotePath as NSString).deletingLastPathComponent == remotePath { await refreshRemote() }
+            } catch {
+                flashError(error)
+            }
+            w.uploading = false
+        }
+    }
+
+    private func showNotice(_ msg: String) {
+        withAnimation(.djie) { notice = msg }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            if self?.notice == msg { withAnimation(.djie) { self?.notice = nil } }
+        }
+    }
+
     private func flashError(_ e: Error) {
-        withAnimation(.djie) { error = e.localizedDescription }
+        withAnimation(.djie) { error = e.djieMessage }
         let msg = error
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in
             if self?.error == msg { withAnimation(.djie) { self?.error = nil } }

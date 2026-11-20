@@ -11,6 +11,75 @@ namespace DjieShell;
 /// <summary>Satu file / folder di panel lokal atau server.</summary>
 internal sealed record FileItem(string Name, string Path, bool IsDir, ulong Size, DateTimeOffset? Modified, uint Permissions);
 
+/// <summary>File server yang dibuka di editor teks bawaan.</summary>
+internal sealed class RemoteEditorDoc
+{
+    public required string Path { get; init; }
+    public required string Name { get; init; }
+    public string Text { get; set; } = "";
+    public string Original { get; set; } = "";
+    /// <summary>mtime server saat dibuka / terakhir disimpan (deteksi bentrok).</summary>
+    public long RemoteModified { get; set; }
+    public bool Saving { get; set; }
+    public string? Error { get; set; }
+    /// <summary>Akhir baris asli file ("\n" atau "\r\n") — dipakai lagi saat menyimpan.</summary>
+    public string LineEnding { get; init; } = "\n";
+    public bool Dirty => Text != Original;
+}
+
+/// <summary>File server yang dibuka di aplikasi lain; perubahan lokal diunggah balik otomatis.</summary>
+internal sealed class WatchedFile
+{
+    public required string RemotePath { get; init; }
+    public required string LocalPath { get; init; }
+    public required string AppName { get; init; }
+    public DateTime LastWrite { get; set; }
+    public bool Uploading { get; set; }
+    public DateTime? LastUpload { get; set; }
+}
+
+internal static class RemoteFiles
+{
+    public const ulong EditorLimit = 5 * 1024 * 1024;
+
+    private static readonly HashSet<string> TextExt = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "txt","md","markdown","json","jsonc","yaml","yml","toml","ini","conf","cfg","config","env","log","properties","sh","bash","zsh","fish",
+        "ps1","bat","cmd","py","rb","php","pl","lua","js","mjs","cjs","ts","tsx","jsx","vue","svelte","go","rs","java","kt","kts","swift","c","h",
+        "cc","cpp","hpp","cs","scala","dart","r","html","htm","css","scss","sass","less","xml","svg","sql","csv","tsv","service","socket","timer",
+        "gradle","lock","gitignore","dockerignore","editorconfig","htaccess","pem","pub","crt","csr","key","tf","hcl","graphql","proto","twig",
+        "erb","ejs","mustache","tpl","rst","tex","srt","vtt",
+    };
+    private static readonly HashSet<string> TextNames = new(StringComparer.OrdinalIgnoreCase)
+    { "dockerfile","makefile","procfile","vagrantfile","gemfile","rakefile","license","readme","authorized_keys","known_hosts","crontab","hosts","fstab" };
+
+    public static bool IsTextLike(FileItem f)
+    {
+        if (f.IsDir || f.Size > EditorLimit) return false;
+        var ext = System.IO.Path.GetExtension(f.Name).TrimStart('.');
+        if (TextExt.Contains(ext) || TextNames.Contains(f.Name)) return true;
+        return (f.Name.StartsWith('.') || ext.Length == 0) && f.Size <= 1024 * 1024;
+    }
+
+    /// <summary>Aplikasi umum yang terpasang untuk menu "Buka dengan" (nama, path exe).</summary>
+    public static List<(string Name, string Exe)> CommonApps()
+    {
+        var list = new List<(string, string)>();
+        var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+        foreach (var (n, p) in new[]
+        {
+            ("Visual Studio Code", System.IO.Path.Combine(local, "Programs", "Microsoft VS Code", "Code.exe")),
+            ("Visual Studio Code", System.IO.Path.Combine(pf, "Microsoft VS Code", "Code.exe")),
+            ("Notepad++", System.IO.Path.Combine(pf, "Notepad++", "notepad++.exe")),
+            ("Sublime Text", System.IO.Path.Combine(pf, "Sublime Text", "sublime_text.exe")),
+            ("Notepad", System.IO.Path.Combine(Environment.SystemDirectory, "notepad.exe")),
+        })
+            if (File.Exists(p) && !list.Any(x => x.Item1 == n)) list.Add((n, p));
+        return list;
+    }
+}
+
 /// <summary>Satu transfer (upload / download).</summary>
 internal sealed class Transfer
 {
@@ -70,6 +139,9 @@ internal sealed class SftpModel
     public bool ShowHidden { get; private set; }
     public List<Transfer> Transfers { get; } = [];
     public string? Error { get; private set; }
+    public RemoteEditorDoc? Editor { get; private set; }
+    public List<WatchedFile> Watched { get; } = [];
+    private DispatcherQueueTimer? _watchTimer;
 
     public SftpModel(AppModel model)
     {
@@ -111,6 +183,10 @@ internal sealed class SftpModel
     public async Task Disconnect()
     {
         foreach (var b in _bridges.Values) b.Cancel();
+        Editor = null;
+        foreach (var w in Watched) try { Directory.Delete(System.IO.Path.GetDirectoryName(w.LocalPath)!, true); } catch { }
+        Watched.Clear();
+        _watchTimer?.Stop();
         if (_client is { } c) { try { await c.Close(); } catch { } }
         _client = null;
         RemoteItems = [];
@@ -308,6 +384,124 @@ internal sealed class SftpModel
             RaiseTransfers();
             await onDone();
         }
+    }
+
+    // MARK: Editor bawaan
+
+    public async Task OpenEditor(FileItem item)
+    {
+        if (_client == null) return;
+        if (item.Size > RemoteFiles.EditorLimit) { FlashText($"{item.Name} terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”"); return; }
+        try
+        {
+            var data = await _client.ReadFile(item.Path, RemoteFiles.EditorLimit);
+            string text;
+            try { text = new System.Text.UTF8Encoding(false, true).GetString(data); }
+            catch (System.Text.DecoderFallbackException) { FlashText($"{item.Name} bukan file teks UTF-8 — pakai “Buka dengan”"); return; }
+            long mod = 0;
+            try { mod = (await _client.Stat(item.Path)).Modified; } catch { }
+            // TextBox Windows memakai \r; simpan ulang dengan akhir baris asli (\n atau \r\n)
+            Editor = new RemoteEditorDoc { Path = item.Path, Name = item.Name, Text = text, Original = text, RemoteModified = mod, LineEnding = text.Contains("\r\n") ? "\r\n" : "\n" };
+            Raise();
+        }
+        catch (Exception e) { FlashError(e); }
+    }
+
+    public void CloseEditor() { Editor = null; Raise(); }
+
+    /// <summary>Simpan isi editor. Hasil: null = berhasil, "conflict" = file di server berubah, selain itu pesan error.</summary>
+    public async Task<string?> SaveEditor(RemoteEditorDoc doc, bool force = false)
+    {
+        if (_client == null || doc.Saving) return "Tidak tersambung";
+        doc.Saving = true; doc.Error = null; Raise();
+        try
+        {
+            if (!force && doc.RemoteModified != 0)
+            {
+                try { if ((await _client.Stat(doc.Path)).Modified != doc.RemoteModified) return "conflict"; } catch { }
+            }
+            var snapshot = doc.Text;
+            await _client.WriteFile(doc.Path, System.Text.Encoding.UTF8.GetBytes(snapshot));
+            doc.Original = snapshot;
+            try { doc.RemoteModified = (await _client.Stat(doc.Path)).Modified; } catch { }
+            _model.Flash($"✓ {doc.Name} tersimpan ke server");
+            _ = RefreshRemote();
+            return null;
+        }
+        catch (Exception e) { doc.Error = Errors.Text(e); return doc.Error; }
+        finally { doc.Saving = false; Raise(); }
+    }
+
+    // MARK: Buka dengan aplikasi lain
+
+    /// <summary>mode: null = aplikasi bawaan, "choose" = dialog Open with Windows, selain itu path exe.</summary>
+    public async Task OpenWith(FileItem item, string? app = null)
+    {
+        if (_client == null) return;
+        var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "djie-shell-open", Guid.NewGuid().ToString("N"));
+        var local = System.IO.Path.Combine(dir, item.Name);
+        try { await _client.DownloadFileTo(item.Path, local); }
+        catch (Exception e) { FlashError(e); return; }
+        var appName = app switch { null => "aplikasi bawaan", "choose" => "aplikasi pilihan", _ => RemoteFiles.CommonApps().FirstOrDefault(a => a.Exe == app).Name ?? System.IO.Path.GetFileNameWithoutExtension(app) };
+        Watched.RemoveAll(w => w.RemotePath == item.Path);
+        Watched.Add(new WatchedFile { RemotePath = item.Path, LocalPath = local, AppName = appName, LastWrite = File.GetLastWriteTimeUtc(local) });
+        StartWatchTimer();
+        Raise();
+        try
+        {
+            if (app == null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(local) { UseShellExecute = true });
+            else if (app == "choose") System.Diagnostics.Process.Start("rundll32.exe", $"shell32.dll,OpenAs_RunDLL {local}");
+            else System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(app) { ArgumentList = { local }, UseShellExecute = false });
+        }
+        catch (Exception e) { FlashError(e); }
+    }
+
+    public void StopWatching(WatchedFile w)
+    {
+        Watched.Remove(w);
+        try { Directory.Delete(System.IO.Path.GetDirectoryName(w.LocalPath)!, true); } catch { }
+        if (Watched.Count == 0) _watchTimer?.Stop();
+        Raise();
+    }
+
+    private void StartWatchTimer()
+    {
+        if (_watchTimer == null)
+        {
+            _watchTimer = _dq.CreateTimer();
+            _watchTimer.Interval = TimeSpan.FromSeconds(1.5);
+            _watchTimer.Tick += async (_, _) => await CheckWatched();
+        }
+        _watchTimer.Start();
+    }
+
+    private async Task CheckWatched()
+    {
+        if (_client == null) return;
+        foreach (var w in Watched.ToList())
+        {
+            if (w.Uploading || !File.Exists(w.LocalPath)) continue;
+            var t = File.GetLastWriteTimeUtc(w.LocalPath);
+            if (t == w.LastWrite) continue;
+            w.LastWrite = t;
+            w.Uploading = true; Raise();
+            try
+            {
+                await _client.UploadFileTo(w.LocalPath, w.RemotePath);
+                w.LastUpload = DateTime.Now;
+                _model.Flash($"✓ {System.IO.Path.GetFileName(w.LocalPath)} tersimpan ke server");
+                if (w.RemotePath.StartsWith(RemotePath)) _ = RefreshRemote();
+            }
+            catch (Exception e) { FlashError(e); }
+            w.Uploading = false; Raise();
+        }
+    }
+
+    private void FlashText(string msg)
+    {
+        Error = msg;
+        Raise();
+        _ = Task.Delay(4000).ContinueWith(_ => _dq.TryEnqueue(() => { if (Error == msg) { Error = null; Raise(); } }));
     }
 
     private void FlashError(Exception e)
