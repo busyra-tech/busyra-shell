@@ -6,6 +6,7 @@ import { AppleIcon, AppWindow, Background, C, Callout, Cursor, Eyebrow, Fade, FO
 // Durasi minimum tiap scene (frame, 30 fps); diperpanjang agar narasi (public/vo/*.mp3) muat.
 // Scene bertumpuk 14 frame agar transisinya crossfade.
 const BASE: [string, number][] = [
+  ["chaos", 150],
   ["problem", 150],
   ["logo", 120],
   ["hosts", 210],
@@ -34,8 +35,8 @@ export const Promo: React.FC = () => {
       <Audio
         src={staticFile("music.mp3")}
         volume={(f) =>
-          // Musik 70 detik: memudar di bawah kalimat penutup
-          interpolate(f, [0, 30, Math.min(TOTAL, 2100) - 150, Math.min(TOTAL, 2100) - 6], [0, 0.17, 0.17, 0], {
+          // Musik memudar di akhir video
+          interpolate(f, [0, 20, TOTAL - 90, TOTAL - 4], [0, 0.13, 0.13, 0], {
             extrapolateLeft: "clamp",
             extrapolateRight: "clamp",
           })
@@ -49,8 +50,13 @@ export const Promo: React.FC = () => {
           <Sequence key={name} from={from} durationInFrames={d} name={name}>
             <Comp d={d} />
             <Sequence from={VO_DELAY} name={`vo-${name}`}>
-              <Audio src={staticFile(`vo/${name}.mp3`)} volume={1} />
+              <Audio src={staticFile(`vo/${name}.mp3`)} volume={0.8} />
             </Sequence>
+            {(SFX[name]?.(d) ?? []).map(([f, sfx, vol], i) => (
+              <Sequence key={i} from={Math.max(0, Math.round(f))} name={`sfx-${sfx}`}>
+                <Audio src={staticFile(`sfx/${sfx}.mp3`)} volume={Math.min(1, vol * (SFX_GAIN[sfx] ?? 1))} />
+              </Sequence>
+            ))}
           </Sequence>
         );
       })}
@@ -63,6 +69,132 @@ const Wrap: React.FC<{ d: number; children: React.ReactNode }> = ({ d, children 
   const frame = useCurrentFrame();
   const o = interpolate(frame, [0, OVERLAP, d - OVERLAP, d], [0, 1, 1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
   return <AbsoluteFill style={{ opacity: o }}>{children}</AbsoluteFill>;
+};
+
+// Efek suara per scene: [frame relatif scene, nama file di public/sfx, volume]
+type Cue = [number, string, number];
+/** Penyeimbang level tiap file SFX (riser & whoosh hasil generator jauh lebih keras). */
+const SFX_GAIN: Record<string, number> = { riser: 0.35, whoosh: 0.45, typing: 0.7, error: 0.7, lock: 0.7, pop: 0.9, ding: 0.8, click: 0.9 };
+const SFX: Record<string, (d: number) => Cue[]> = {
+  chaos: (d) => [
+    ...TERMS.map((_, i): Cue => [TERM_AT(i), i % 3 === 1 ? "error" : "pop", i % 3 === 1 ? 0.35 : 0.4]),
+    ...NOTES.map((_, i): Cue => [NOTE_AT(i), "pop", 0.35]),
+    [d - 95, "error", 0.4],
+    [d - 22, "whoosh", 0.5],
+  ],
+  problem: (d) => [...[0, 1, 2, 3, 4, 5, 6].map((i): Cue => [6 + i * 5, "pop", 0.3]), [d - 42, "whoosh", 0.55]],
+  logo: () => [[0, "riser", 0.6], [16, "ding", 0.35]],
+  hosts: () => [[2, "whoosh", 0.45], [70, "pop", 0.4], [80, "click", 0.6], [84, "pop", 0.35], [120, "click", 0.6]],
+  terminal: () => [[2, "whoosh", 0.45], [38, "typing", 0.45]],
+  sftp: () => [[2, "whoosh", 0.45], [60, "whoosh", 0.25], [78, "whoosh", 0.25], [96, "whoosh", 0.25], [100, "pop", 0.4]],
+  database: () => [[2, "whoosh", 0.45], [120, "click", 0.6], [130, "whoosh", 0.3], [150, "pop", 0.4]],
+  tools: () => [[6, "whoosh", 0.4], [20, "pop", 0.35], [30, "pop", 0.35], [40, "pop", 0.35]],
+  security: () => [[4, "whoosh", 0.35], [52, "lock", 0.7], [50, "pop", 0.25], [64, "pop", 0.25]],
+  platforms: () => [[6, "whoosh", 0.45], [16, "whoosh", 0.35]],
+  cta: () => [[0, "riser", 0.45], [34, "pop", 0.45], [56, "ding", 0.4]],
+};
+
+// 0. Hook: ribetnya ngurus banyak server — terminal di mana-mana, error, password tercecer
+const TERMS: [number, number, number, string, string, string][] = [
+  // x%, y%, rotasi, judul, baris 1, baris error/terakhir
+  [14, 20, -4, "root@10.0.1.10", "$ ssh root@10.0.1.10", "ssh: connect to host 10.0.1.10 port 22: Connection timed out"],
+  [52, 14, 3, "deploy@staging", "deploy@staging's password:", "Permission denied, please try again."],
+  [80, 30, -2, "admin@db-prod", "$ ssh -i ~/keys/old.pem admin@db-prod", "Permission denied (publickey)."],
+  [26, 58, 2, "ubuntu@api-2", "$ ssh ubuntu@api-2", "Host key verification failed."],
+  [62, 52, -3, "root@10.0.3.7", "root@10.0.3.7's password:", "Too many authentication failures"],
+  [42, 82, 4, "pi@homelab", "$ ssh pi@192.168.1.5 -p 2222", "Could not resolve hostname"],
+  [86, 76, -5, "ec2-user@web-1", "$ ssh -i ???.pem ec2-user@web-1", "Warning: Identity file ???.pem not accessible"],
+  [10, 86, 3, "root@vps-lama", "$ ssh root@103.21.xx.xx", "Connection refused"],
+];
+const NOTES: [number, number, number, string][] = [
+  [30, 36, -7, "prod-db: 10.0.1.20\npw: ???"],
+  [72, 62, 6, "pw staging\nada di grup WA"],
+  [50, 70, -4, "key .pem-nya\ndi laptop siapa?"],
+];
+const TERM_AT = (i: number) => 6 + i * 11;
+const NOTE_AT = (i: number) => 70 + i * 14;
+
+const Chaos: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const textAt = d - 95;
+  const dim = interpolate(frame, [textAt - 10, textAt + 10], [1, 0.25], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <Wrap d={d}>
+      <AbsoluteFill style={{ opacity: dim }}>
+        {TERMS.map(([x, y, rot, title, l1, l2], i) => {
+          const at = TERM_AT(i);
+          const s = useSpring(at, 11);
+          const shake = frame >= at && frame < at + 10 ? Math.sin((frame - at) * 2.6) * (10 - (frame - at)) * 0.8 : 0;
+          const showErr = frame > at + 12;
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: `${x}%`,
+                top: `${y}%`,
+                width: 520,
+                transform: `translate(-50%,-50%) translateX(${shake}px) rotate(${rot}deg) scale(${0.5 + 0.5 * s})`,
+                opacity: s,
+                borderRadius: 14,
+                overflow: "hidden",
+                background: "rgba(10,12,16,0.96)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                boxShadow: "0 30px 70px -20px rgba(0,0,0,0.9)",
+                fontFamily: MONO,
+                fontSize: 17,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", background: "rgba(255,255,255,0.05)", color: C.ink3, fontSize: 14 }}>
+                {[C.red, C.orange, C.green].map((c) => (
+                  <span key={c} style={{ width: 10, height: 10, borderRadius: 5, background: c }} />
+                ))}
+                <span style={{ marginLeft: 8 }}>{title}</span>
+              </div>
+              <div style={{ padding: "12px 14px 14px", lineHeight: 1.5 }}>
+                <div style={{ color: C.ink2 }}>{l1}</div>
+                <div style={{ color: showErr ? C.red : "transparent" }}>{l2}</div>
+              </div>
+            </div>
+          );
+        })}
+        {NOTES.map(([x, y, rot, text], i) => {
+          const s = useSpring(NOTE_AT(i), 10);
+          return (
+            <div
+              key={i}
+              style={{
+                position: "absolute",
+                left: `${x}%`,
+                top: `${y}%`,
+                transform: `translate(-50%,-50%) rotate(${rot}deg) scale(${1.4 - 0.4 * s})`,
+                opacity: s,
+                width: 250,
+                padding: "22px 20px",
+                background: "linear-gradient(160deg, #FFE58A, #F7CF4C)",
+                color: "#3b2f00",
+                fontFamily: '"Marker Felt", "Comic Sans MS", cursive',
+                fontSize: 27,
+                lineHeight: 1.25,
+                whiteSpace: "pre-line",
+                boxShadow: "0 24px 40px -12px rgba(0,0,0,0.7)",
+              }}
+            >
+              {text}
+            </div>
+          );
+        })}
+      </AbsoluteFill>
+      {frame >= textAt - 4 && (
+        <AbsoluteFill style={{ alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 26 }}>
+          <Kinetic text="Ribet, kan?" delay={textAt} size={150} gradientWords={["Ribet,"]} />
+          <Fade delay={textAt + 14}>
+            <div style={{ fontFamily: MONO, fontSize: 32, color: C.ink2 }}>12 server · 12 password · akses SSH di mana-mana</div>
+          </Fade>
+        </AbsoluteFill>
+      )}
+    </Wrap>
+  );
 };
 
 // 1. Masalah: terlalu banyak aplikasi
@@ -455,6 +587,7 @@ const Cta: React.FC<P> = ({ d }) => {
 };
 
 const COMPONENTS: Record<string, React.FC<P>> = {
+  chaos: Chaos,
   problem: Problem,
   logo: LogoScene,
   hosts: Hosts,

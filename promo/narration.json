@@ -1,12 +1,13 @@
 [
-  ["problem", "Satu server, tapi harus buka terminal, klien FTP, phpMyAdmin, dan catatan password sekaligus?"],
-  ["logo", "Kenalkan, Djie Shell. Semua servermu, dalam satu terminal."],
-  ["hosts", "Simpan semua server dengan rapi. Kelompokkan, beri warna, lalu sambungkan ke banyak host sekaligus."],
-  ["terminal", "Buka sesi SSH dan terminal lokal berdampingan, lengkap dengan autocomplete dan snippet."],
-  ["sftp", "Pindahkan file ke server, cukup dengan seret dan lepas."],
-  ["database", "Kelola database ala phpMyAdmin, dari MySQL, PostgreSQL, sampai Redis, dan cari data per kolom dalam hitungan detik."],
-  ["tools", "SSH key, port forwarding, dan proxy kantor. Semuanya siap pakai."],
-  ["security", "Semua data terenkripsi end to end. Kuncinya, cuma kamu yang pegang."],
-  ["platforms", "Berjalan native di Mac dan Windows, dengan vault yang sama di semua perangkat."],
-  ["cta", "Djie Shell. Gratis dan open source. Download sekarang, untuk Mac dan Windows."]
+  ["chaos", "Ngurus banyak server itu ribet banget. Terminal kebuka di mana-mana, password nyebar di catatan, dan akses SSH-nya nggak pernah tersimpan rapi."],
+  ["problem", "Belum lagi harus bolak-balik buka FTP, phpMyAdmin, sampai aplikasi tunnel. Cuma buat satu server!"],
+  ["logo", "Nah, kenalin, Djie Shell. Semua servermu, cukup di satu tempat."],
+  ["hosts", "Semua akses server tersimpan rapi dan aman. Tinggal pilih, klik, langsung connect ke banyak host sekaligus."],
+  ["terminal", "SSH dan terminal lokal? Buka berdampingan. Plus autocomplete yang ngerti kebiasaanmu."],
+  ["sftp", "Mau upload file? Seret, lepas, beres."],
+  ["database", "Database juga bisa! Rasanya kayak phpMyAdmin, tapi jauh lebih cepat. Dari MySQL, PostgreSQL, sampai Redis, cari data cuma hitungan detik."],
+  ["tools", "SSH key, port forwarding, sampai proxy kantor. Semua siap dipakai."],
+  ["security", "Dan tenang aja, semua datamu terenkripsi. Kuncinya, cuma kamu yang pegang."],
+  ["platforms", "Pakai Mac atau Windows? Dua-duanya bisa, datanya tetap sinkron."],
+  ["cta", "Djie Shell. Gratis, open source. Yuk, download sekarang!"]
 ]
