@@ -39,7 +39,7 @@ internal sealed class DashboardPage : PageBase
             if (cols != _columns) { _columns = cols; RenderGrid(); }
         };
         Loaded += (s, e) => { D.Start(); Render(); };
-        Unloaded += (s, e) => D.Stop();
+        Unloaded += (s, e) => { if (!D.Alerts) D.Stop(); };
         Render();
     }
 
@@ -53,7 +53,19 @@ internal sealed class DashboardPage : PageBase
     {
         _actions.Children.Clear();
         if (D.Tiles.Values.Any(t => t.State == ServerTile.Status.Offline))
-            _actions.Children.Add(Ui.Secondary("Coba lagi yang offline", G.Refresh, D.RetryOffline));
+            _actions.Children.Add(Ui.IconBtn(G.Refresh, "Coba lagi semua server yang offline", D.RetryOffline));
+        var bell = Ui.Secondary(D.Alerts ? "Notifikasi aktif" : "Notifikasi", D.Alerts ? "\uEA8F" : "\uE7ED", () => M.SetDashboardAlerts(!D.Alerts),
+            D.Alerts ? Theme.Brush(Theme.Accent) : null);
+        ToolTipService.SetToolTip(bell, D.Alerts
+            ? "Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan."
+            : "Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%");
+        _actions.Children.Add(bell);
+        if (M.Hosts.Length > 0)
+        {
+            var run = Ui.Primary("Jalankan perintah", G.Play, () => new RunManyDialog(M.NewRunMany(D.SelectedIds)).Show());
+            ToolTipService.SetToolTip(run, "Jalankan satu perintah di banyak server sekaligus, hasilnya per server");
+            _actions.Children.Add(run);
+        }
 
         var empty = M.Hosts.Length == 0;
         _summary.Visibility = _filters.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
@@ -283,6 +295,7 @@ internal sealed class DashboardPage : PageBase
         };
         var cancel = Ui.Plain(Ui.Text("Batal", 13, fg: Theme.Text2), () => { D.Selection.Clear(); Render(); }, new Thickness(8, 4, 8, 4));
         var open = Ui.Secondary("Buka tab", G.Terminal, () => { M.Connect(ids); D.Selection.Clear(); });
+        var runMany = Ui.Secondary("Jalankan perintah", G.Play, () => new RunManyDialog(M.NewRunMany(ids)).Show());
         var split = Ui.Primary("Split & broadcast", "", () => { M.OpenSplit(ids, true); D.Selection.Clear(); });
         split.IsEnabled = ids.Count >= 2 && ids.Count <= AppModel.MaxSplit;
         ToolTipService.SetToolTip(split, ids.Count > AppModel.MaxSplit ? $"Maksimal {AppModel.MaxSplit} server dalam satu split" : "Buka berdampingan, ketikan dikirim ke semua");
@@ -291,7 +304,7 @@ internal sealed class DashboardPage : PageBase
             CornerRadius = new CornerRadius(24), Padding = new Thickness(14, 8, 8, 8), BorderThickness = new Thickness(1), BorderBrush = Theme.Ink(0.1),
             Background = Theme.Dark ? Theme.Brush("#1A1F27") : new SolidColorBrush(Microsoft.UI.Colors.White),
             Shadow = new ThemeShadow(), Translation = new System.Numerics.Vector3(0, 0, 24),
-            Child = Ui.Row(12, count, Ui.Text("server dipilih", 13).With(t => t.VerticalAlignment = VerticalAlignment.Center), cancel, open, split),
+            Child = Ui.Row(12, count, Ui.Text("server dipilih", 13).With(t => t.VerticalAlignment = VerticalAlignment.Center), cancel, open, runMany, split),
         });
     }
 }

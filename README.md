@@ -74,7 +74,8 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Lanjutan** | Jump host, proxy SOCKS5/HTTP, agent forwarding, startup snippet, env var |
 | **Terminal lokal** | zsh di Mac, PowerShell / CMD / WSL di Windows — tab di samping sesi SSH |
 | **Info server** | Spesifikasi (OS, kernel, CPU, uptime) + grafik live CPU, RAM, jaringan, dan storage |
-| **Dashboard** *(v0.5)* | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; peringatan merah, langsung split & broadcast |
+| **Dashboard** *(v0.5)* | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; notifikasi saat server mati atau penuh; langsung split & broadcast |
+| **Jalankan perintah** *(v0.5)* | Satu perintah ke banyak server paralel, hasil per server (exit code, output, durasi) |
 | **Split & broadcast** *(v0.5)* | 2–4 terminal berdampingan; ketik sekali, jalan di semua panel (⌘D, ⇧⌘B) |
 | **Autocomplete** | Saran perintah dari riwayat & snippet saat mengetik |
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
@@ -82,6 +83,8 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 <img src="site/assets/screens/server-info.jpg" alt="Panel Info server dengan grafik live" width="900" />
 
 <img src="site/assets/screens/dashboard.jpg" alt="Dashboard semua server" width="900" />
+
+<img src="site/assets/screens/run-many.jpg" alt="Jalankan satu perintah di banyak server" width="900" />
 
 <img src="site/assets/screens/split.jpg" alt="Split tiga terminal dengan broadcast aktif" width="900" />
 

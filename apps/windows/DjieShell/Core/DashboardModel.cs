@@ -30,6 +30,11 @@ internal sealed class ServerTile
     private CancellationTokenSource? _cts;
     private ServerMonitor? _monitor;
     private (ServerSample s, DateTime t)? _prev;
+    /// <summary>Kejadian yang layak dinotifikasi: (judul, isi, kunci).</summary>
+    public Action<string, string, string>? OnAlert { get; set; }
+    private bool _wasOnline;
+    /// <summary>Metrik yang sedang di atas 90% (sudah dinotifikasi; dilepas lagi di bawah 85%).</summary>
+    private readonly HashSet<string> _alerting = [];
 
     public ServerTile(Host host, Action changed) { Host = host; _changed = changed; }
 
@@ -69,7 +74,12 @@ internal sealed class ServerTile
                     if (m != null) { try { await m.Close(); } catch { } }
                     _prev = null;
                     var msg = Errors.Text(e);
-                    Post(cts, () => { State = Status.Offline; Error = msg; });
+                    Post(cts, () =>
+                    {
+                        if (State == Status.Online) OnAlert?.Invoke($"{Host.Title()} tidak bisa dihubungi", msg, "down:" + Id);
+                        _alerting.Clear();
+                        State = Status.Offline; Error = msg;
+                    });
                     try { await Task.Delay(20000, cts.Token); } catch (OperationCanceledException) { return; }
                 }
             }
@@ -112,9 +122,28 @@ internal sealed class ServerTile
             tx = (s.NetTxBytes - p.s.NetTxBytes) / dt;
         }
         _prev = (s, now);
+        if (State == Status.Offline && _wasOnline) OnAlert?.Invoke($"{Host.Title()} kembali online", "Server bisa dihubungi lagi.", "down:" + Id);
+        _wasOnline = true;
         Sample = s; State = Status.Online; Error = null; Rx = rx; Tx = tx;
         Cpu.Add(s.CpuPercent);
         if (Cpu.Count > 30) Cpu.RemoveRange(0, Cpu.Count - 30);
+        CheckAlerts(s);
+    }
+
+    /// <summary>Notifikasi sekali saat CPU / RAM / disk melewati 90%; aktif lagi setelah turun di bawah 85%.</summary>
+    private void CheckAlerts(ServerSample s)
+    {
+        var metrics = new (string Name, double F, string Detail)[]
+        {
+            ("CPU", Cpu.Count >= 3 ? CpuNow / 100 : 0, "rata-rata 15 detik terakhir"),
+            ("RAM", MemFraction, $"{Ui.Bytes(s.MemUsedBytes)} dari {Ui.Bytes(s.MemTotalBytes)} terpakai"),
+            ("Disk", DiskFraction, $"{Ui.Bytes(s.DiskUsedBytes)} dari {Ui.Bytes(s.DiskTotalBytes)} terpakai"),
+        };
+        foreach (var (name, f, detail) in metrics)
+        {
+            if (f >= 0.9 && _alerting.Add(name)) OnAlert?.Invoke($"{Host.Title()}: {name} {f * 100:0}%", detail, $"{name}:{Id}");
+            else if (f < 0.85) _alerting.Remove(name);
+        }
     }
 
     // MARK: Kesehatan
@@ -153,6 +182,12 @@ internal sealed class DashboardModel
     public Dictionary<string, ServerTile> Tiles { get; } = [];
     public HashSet<string> Selection { get; } = [];
     public Filter Current { get; set; } = Filter.All;
+    /// <summary>Pantau terus di latar belakang & kirim notifikasi (tersimpan di PC ini).</summary>
+    public bool Alerts
+    {
+        get => Settings.Bool(Settings.DashboardAlerts, false);
+        set => Settings.Set(Settings.DashboardAlerts, value);
+    }
     public string Query { get; set; } = "";
 
     private readonly AppModel _app;
@@ -168,7 +203,11 @@ internal sealed class DashboardModel
         Selection.IntersectWith(ids);
         foreach (var h in _app.Hosts)
         {
-            if (!Tiles.TryGetValue(h.Id, out var t)) { t = new ServerTile(h, Raise); Tiles[h.Id] = t; }
+            if (!Tiles.TryGetValue(h.Id, out var t))
+            {
+                t = new ServerTile(h, Raise) { OnAlert = (title, body, key) => { if (Alerts) Notifier.Send(title, body, key); } };
+                Tiles[h.Id] = t;
+            }
             else if (!t.Host.Equals(h))
             {
                 var o = t.Host;
@@ -181,6 +220,9 @@ internal sealed class DashboardModel
     }
 
     public void Stop() { foreach (var t in Tiles.Values) t.Stop(); }
+
+    /// <summary>Saat vault dikunci: putus semua dan lupakan datanya.</summary>
+    public void Reset() { Stop(); Tiles.Clear(); Selection.Clear(); }
 
     public void RetryOffline()
     {

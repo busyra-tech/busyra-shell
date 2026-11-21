@@ -27,6 +27,11 @@ final class ServerTile: Identifiable {
     @ObservationIgnored private var monitor: ServerMonitor?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var prev: (ServerSample, Date)?
+    /// Dipanggil saat ada kejadian yang layak dinotifikasi: (judul, isi, kunci).
+    @ObservationIgnored var onAlert: ((String, String, String) -> Void)?
+    @ObservationIgnored private var wasOnline = false
+    /// Metrik yang sedang di atas 90% (sudah dinotifikasi; dilepas lagi di bawah 85%).
+    @ObservationIgnored private var alerting: Set<String> = []
 
     static let interval: Duration = .seconds(5)
     static let retry: Duration = .seconds(20)
@@ -59,6 +64,10 @@ final class ServerTile: Identifiable {
                     self.monitor = nil
                     await m?.close()
                     self.prev = nil
+                    if self.state == .online {
+                        self.onAlert?("\(self.host.title) tidak bisa dihubungi", error.djieMessage, "down:\(self.id)")
+                    }
+                    self.alerting.removeAll()
                     withAnimation(.djie) { self.state = .offline(error.djieMessage) }
                     try? await Task.sleep(for: Self.retry)
                 }
@@ -89,6 +98,9 @@ final class ServerTile: Identifiable {
             t = Double(s.netTxBytes - p.netTxBytes) / dt
         }
         prev = (s, now)
+        if isOffline, wasOnline { onAlert?("\(host.title) kembali online", "Server bisa dihubungi lagi.", "down:\(id)") }
+        wasOnline = true
+        defer { checkAlerts() }
         withAnimation(.easeOut(duration: 0.4)) {
             sample = s
             state = .online
@@ -96,6 +108,28 @@ final class ServerTile: Identifiable {
             cpu.append(Double(s.cpuPercent))
             if cpu.count > 30 { cpu.removeFirst(cpu.count - 30) }
         }
+    }
+
+    /// Notifikasi sekali saat CPU / RAM / disk melewati 90%; aktif lagi setelah turun di bawah 85%.
+    private func checkAlerts() {
+        guard let s = sample else { return }
+        let metrics: [(String, Double, String)] = [
+            ("CPU", cpu.count >= 3 ? cpuNow / 100 : 0, "rata-rata 15 detik terakhir"),
+            ("RAM", memFraction, "\(Self.bytes(s.memUsedBytes)) dari \(Self.bytes(s.memTotalBytes)) terpakai"),
+            ("Disk", diskFraction, "\(Self.bytes(s.diskUsedBytes)) dari \(Self.bytes(s.diskTotalBytes)) terpakai"),
+        ]
+        for (name, f, detail) in metrics {
+            if f >= 0.9, !alerting.contains(name) {
+                alerting.insert(name)
+                onAlert?("\(host.title): \(name) \(Int((f * 100).rounded()))%", detail, "\(name):\(id)")
+            } else if f < 0.85 {
+                alerting.remove(name)
+            }
+        }
+    }
+
+    private static func bytes(_ b: UInt64) -> String {
+        ByteCountFormatter.string(fromByteCount: Int64(min(b, UInt64(Int64.max))), countStyle: .memory)
     }
 
     // MARK: Kesehatan
@@ -155,6 +189,10 @@ final class DashboardModel {
 
     var tiles: [String: ServerTile] = [:]
     var selection: Set<String> = []
+    /// Pantau terus di latar belakang & kirim notifikasi (tersimpan di Mac ini).
+    var alerts = UserDefaults.standard.bool(forKey: "dashboard.alerts") {
+        didSet { UserDefaults.standard.set(alerts, forKey: "dashboard.alerts") }
+    }
     var filter: Filter = .all
     var query = ""
 
@@ -165,6 +203,11 @@ final class DashboardModel {
         selection.formIntersection(ids)
         for h in app.hosts {
             let t = tiles[h.id] ?? ServerTile(host: h)
+            if t.onAlert == nil {
+                t.onAlert = { [weak self] title, body, key in
+                    if self?.alerts == true { Notifier.shared.send(title: title, body: body, key: key) }
+                }
+            }
             if t.host != h {
                 let reconnect = t.host.hostname != h.hostname || t.host.port != h.port || t.host.username != h.username
                     || t.host.auth != h.auth || t.host.keyId != h.keyId || t.host.password != h.password
@@ -177,6 +220,13 @@ final class DashboardModel {
     }
 
     func stop() { tiles.values.forEach { $0.stop() } }
+
+    /// Saat vault dikunci: putus semua dan lupakan datanya.
+    func reset() {
+        stop()
+        tiles = [:]
+        selection = []
+    }
 
     /// Coba lagi semua server yang offline sekarang juga.
     func retryOffline(_ app: AppModel) {
@@ -212,8 +262,20 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 20) {
                 PageHeader(title: "Dashboard", subtitle: "Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik") {
                     if dash.tiles.values.contains(where: \.isOffline) {
-                        Button { dash.retryOffline(model) } label: { Label("Coba lagi yang offline", systemImage: "arrow.clockwise") }
+                        Button { dash.retryOffline(model) } label: { Image(systemName: "arrow.clockwise") }
                             .buttonStyle(SecondaryButtonStyle())
+                            .help("Coba lagi semua server yang offline")
+                    }
+                    Button { Task { await model.setDashboardAlerts(!dash.alerts) } } label: {
+                        Label(dash.alerts ? "Notifikasi aktif" : "Notifikasi", systemImage: dash.alerts ? "bell.badge.fill" : "bell.slash")
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .help(dash.alerts ? "Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan."
+                                      : "Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%")
+                    if !model.hosts.isEmpty {
+                        Button { model.openRunMany(Array(dash.selection)) } label: { Label("Jalankan perintah", systemImage: "play.rectangle.on.rectangle") }
+                            .buttonStyle(PrimaryButtonStyle())
+                            .help("Jalankan satu perintah di banyak server sekaligus, hasilnya per server")
                     }
                 }
                 if model.hosts.isEmpty {
@@ -256,7 +318,8 @@ struct DashboardView: View {
         .animation(.djieSnappy, value: dash.selection)
         .onAppear { dash.start(model) }
         .onChange(of: model.hosts) { dash.start(model) }
-        .onDisappear { dash.stop() }
+        .onDisappear { if !dash.alerts { dash.stop() } }
+        .sheet(item: Binding(get: { model.runMany }, set: { model.runMany = $0 })) { RunManyView(run: $0) }
     }
 }
 
@@ -523,6 +586,8 @@ private struct DashboardSelectionBar: View {
                 model.connect(ids)
                 dash.selection.removeAll()
             } label: { Label("Buka tab", systemImage: "terminal") }
+                .buttonStyle(SecondaryButtonStyle())
+            Button { model.openRunMany(ids) } label: { Label("Jalankan perintah", systemImage: "play.rectangle.on.rectangle") }
                 .buttonStyle(SecondaryButtonStyle())
             Button {
                 model.openSplit(ids, broadcast: true)

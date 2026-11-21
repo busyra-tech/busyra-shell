@@ -92,6 +92,7 @@ internal static class Settings
     public const string ProfilePicture = "profile.picture";
     public const string DbShowTree = "db.showTree";
     public const string DriveFileScope = "google.driveFile";
+    public const string DashboardAlerts = "dashboard.alerts";
     public const string LocalShell = "terminal.localShell";   // shell bawaan tab terminal lokal        // daftar database & tabel di kiri
 }
 

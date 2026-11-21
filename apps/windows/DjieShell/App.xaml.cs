@@ -24,6 +24,7 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         Model = new AppModel();
+        Notifier.Install(Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread());
         Window = new MainWindow();
         Window.Activate();
     }

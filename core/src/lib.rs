@@ -12,6 +12,7 @@ mod error;
 mod keys;
 mod model;
 mod proxy;
+mod remote_run;
 mod server_info;
 mod sftp;
 mod ssh;
@@ -24,6 +25,7 @@ pub use docker::{ComposeProject, DockerClient, DockerContainer, DockerDetail, Do
 pub use db::{DbFilter, DbSession, DbTable, QueryResult};
 pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, HostProxy, PortForward, ProxyKind, SessionLog, Snippet, SshKey, SyncOutcome};
 pub use proxy::proxy_stdio;
+pub use remote_run::{run_remote, RemoteRun};
 pub use server_info::{DiskInfo, ServerInfo, ServerMonitor, ServerSample};
 pub use sftp::{RemoteEntry, SftpClient, TransferProgress};
 pub use ssh::SshTarget;

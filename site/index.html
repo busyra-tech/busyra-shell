@@ -392,10 +392,12 @@
       <div class="copy reveal">
         <span class="eyebrow" data-i18n="db2.eye">Dashboard · segera di v0.5</span>
         <h2 style="margin:16px 0 18px" data-i18n="db2.t">Semua server,<br />sekali lihat.</h2>
-        <p data-i18n="db2.p">CPU, RAM, disk, uptime, dan jaringan tiap server dalam satu layar, diperbarui tiap 5 detik. Server yang hampir penuh atau tidak bisa dihubungi langsung ditandai merah — pilih beberapa, lalu buka berdampingan dengan broadcast.</p>
+        <p data-i18n="db2.p">CPU, RAM, disk, uptime, dan jaringan tiap server dalam satu layar, diperbarui tiap 5 detik. Server yang hampir penuh atau mati langsung ditandai merah, plus notifikasi desktop. Jalankan satu perintah di puluhan server sekaligus dan lihat hasilnya per server.</p>
         <div class="spec">
           <div><span class="k" data-i18n="db2.k1">Pantau</span><span class="v" data-i18n="db2.v1">CPU + grafik kecil, RAM, disk, load, uptime, ↓↑ jaringan — tanpa agen, cukup SSH</span></div>
           <div><span class="k" data-i18n="db2.k2">Peringatan</span><span class="v" data-i18n="db2.v2">Oranye di atas 75%, merah di atas 90%; server offline dicoba ulang otomatis</span></div>
+          <div><span class="k" data-i18n="db2.k4">Notifikasi</span><span class="v" data-i18n="db2.v4">Pantau di latar belakang: kabar saat server mati, pulih, atau CPU/RAM/disk lewat 90%</span></div>
+          <div><span class="k" data-i18n="db2.k5">Jalankan</span><span class="v" data-i18n="db2.v5">Satu perintah ke banyak server paralel — sukses/gagal, exit code, output &amp; durasi per server</span></div>
           <div><span class="k" data-i18n="db2.k3">Aksi</span><span class="v" data-i18n="db2.v3">Pilih 2–4 server → Split &amp; broadcast; atau buka terminal / SFTP langsung dari kartu</span></div>
         </div>
       </div>
@@ -776,8 +778,8 @@ const EN = {
   "sf.h3": "Edit files right on the server", "sf.p": "Double-click a text file to open it in the built-in editor — line numbers, find, and save with ⌘S / Ctrl+S. Djie Shell warns you if someone else changed the file before you save.",
   "sf.k7": "Built-in editor", "sf.v7": "Configs, scripts, .env, logs — CRLF/LF line endings preserved", "sf.k8": "Open with", "sf.v8": "VS Code, Sublime, Notepad++, Preview, or any app on your computer",
   "sf.k9": "Auto-save", "sf.v9": "Every time you save in that app, the file is uploaded to the server",
-  "db2.eye": "Dashboard · coming in v0.5", "db2.t": "Every server,<br />at a glance.", "db2.p": "CPU, RAM, disk, uptime, and network for every server on one screen, refreshed every 5 seconds. Servers that are nearly full or unreachable turn red right away — pick a few, then open them side by side with broadcast.",
-  "db2.k1": "Monitor", "db2.v1": "CPU + sparkline, RAM, disk, load, uptime, ↓↑ network — no agent, just SSH", "db2.k2": "Alerts", "db2.v2": "Orange above 75%, red above 90%; offline servers are retried automatically", "db2.k3": "Actions", "db2.v3": "Pick 2–4 servers → Split &amp; broadcast; or open a terminal / SFTP right from the card",
+  "db2.eye": "Dashboard · coming in v0.5", "db2.t": "Every server,<br />at a glance.", "db2.p": "CPU, RAM, disk, uptime, and network for every server on one screen, refreshed every 5 seconds. Servers that are nearly full or down turn red right away, with desktop notifications. Run one command on dozens of servers at once and see the result per server.",
+  "db2.k1": "Monitor", "db2.v1": "CPU + sparkline, RAM, disk, load, uptime, ↓↑ network — no agent, just SSH", "db2.k2": "Alerts", "db2.v2": "Orange above 75%, red above 90%; offline servers are retried automatically", "db2.k4": "Alerts", "db2.v4": "Background monitoring: get notified when a server goes down, recovers, or CPU/RAM/disk passes 90%", "db2.k5": "Run", "db2.v5": "One command on many servers in parallel — success/failure, exit code, output & duration per server", "db2.k3": "Actions", "db2.v3": "Pick 2–4 servers → Split &amp; broadcast; or open a terminal / SFTP right from the card",
   "sp.eye": "Split & broadcast · coming in v0.5", "sp.t": "One command,<br />many servers.", "sp.p": "Split the screen into 2–4 terminals side by side, then turn on <b>Broadcast</b>: what you type in one pane runs in every pane — update many servers at once.",
   "sp.v1": "2 columns, 3 columns, or 2×2 — duplicate a tab, join a tab, or open a new host", "sp.v2": "Type once, send to every pane; panes turn orange so it's obvious", "sp.k3": "Shortcuts", "sp.v3": "⌘D / Ctrl+Shift+D split · ⇧⌘B / Ctrl+Shift+B broadcast",
   "dk.eye": "Docker · coming in v0.5", "dk.t": "Docker on every server,<br />one screen.", "dk.p": "Feels like OrbStack: containers grouped by Compose project, a detail panel on the side, plus volumes, images, and networks — on your computer or any server over SSH. No exposed Docker port, no agent to install.",

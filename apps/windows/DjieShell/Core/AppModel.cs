@@ -393,6 +393,7 @@ internal sealed class AppModel
         DbWorkspace = null;
         EditingHost = null;
         Selection.Clear();
+        Dashboard.Reset();
         Raise("sessions");
         SetPhase(Phase.Locked);
     }
@@ -437,6 +438,32 @@ internal sealed class AppModel
         Forwards = _vault.Forwards();
         Logs = _vault.Logs();
         Databases = _vault.Databases();
+        // Notifikasi Dashboard aktif → pantau terus, ikut perubahan host
+        if (Dashboard?.Alerts == true) Dashboard.Start();
+    }
+
+    // MARK: Dashboard
+
+    public void SetDashboardAlerts(bool on)
+    {
+        if (on && !Notifier.Allowed)
+        {
+            Flash("Notifikasi diblokir — izinkan Djie Shell di Settings Windows → Sistem → Notifikasi");
+            return;
+        }
+        Dashboard.Alerts = on;
+        if (on) { Dashboard.Start(); Flash("Notifikasi aktif — Dashboard memantau semua server di latar belakang"); }
+        else if (Section != Section.Dashboard || ActiveSessionId != null) Dashboard.Stop();
+        Raise("dashboard");
+    }
+
+    /// <summary>Dialog "Jalankan perintah"; <paramref name="ids"/> kosong → semua server online (atau semua host).</summary>
+    public RunManyModel NewRunMany(IEnumerable<string> ids)
+    {
+        var chosen = ids.ToHashSet();
+        if (chosen.Count == 0) chosen = Dashboard.Tiles.Values.Where(t => t.State == ServerTile.Status.Online).Select(t => t.Id).ToHashSet();
+        if (chosen.Count == 0) chosen = Hosts.Select(h => h.Id).ToHashSet();
+        return new RunManyModel(this, chosen);
     }
 
     /// <summary>Setelah setiap perubahan data: muat ulang tampilan & jadwalkan sync.</summary>
@@ -727,6 +754,29 @@ internal sealed class AppModel
     private async Task DemoDashboard(string names)
     {
         Navigate(Section.Dashboard);
+        // DJIE_DEMO_ALERTS=<file> : pantau di latar belakang, catat peringatan ke file (tanpa notifikasi)
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_ALERTS") is { Length: > 0 } alertLog)
+        {
+            Dashboard.Alerts = true;
+            Dashboard.Start();
+            foreach (var t in Dashboard.Tiles.Values)
+                t.OnAlert = (title, body, key) => File.AppendAllText(alertLog, $"ALERT [{key}] {title} — {body}\n");
+        }
+        // DJIE_DEMO_RUNMANY=<perintah>, DJIE_DEMO_RUNMANY_LOG=<file> : buka dialog Jalankan perintah untuk semua host, jalankan, catat hasil
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_RUNMANY") is { Length: > 0 } cmd)
+        {
+            await Task.Delay(1500);
+            var run = NewRunMany(Hosts.Select(h => h.Id));
+            run.Command = cmd;
+            new Views.RunManyDialog(run).Show();
+            run.Run();
+            if (Environment.GetEnvironmentVariable("DJIE_DEMO_RUNMANY_LOG") is { Length: > 0 } log)
+            {
+                while (run.Running) await Task.Delay(300);
+                File.WriteAllText(log, $"RUNMANY ok={run.OkCount} fail={run.FailCount}\n{run.Report()}\n");
+            }
+            return;
+        }
         var set = names.Split(',').ToHashSet();
         foreach (var h in Hosts.Where(h => set.Contains(h.Title()))) Dashboard.Selection.Add(h.Id);
         Raise("dashboard");

@@ -15,6 +15,11 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
   - Peringatan oranye di atas 75% dan merah di atas 90%; server offline ditandai dan dicoba ulang otomatis tiap 20 detik
   - Filter *Semua · Perlu perhatian · Offline* dan pencarian (nama, OS, grup)
   - Pilih 2–4 server → **Split & broadcast** dalam satu klik; atau buka terminal / SFTP langsung dari kartu
+- **🔔 Notifikasi server** — tombol *Notifikasi* di Dashboard: tetap memantau di latar belakang dan memberi notifikasi desktop (macOS & Windows) saat server mati, pulih lagi, atau CPU/RAM/disk melewati 90%; klik notifikasi membuka Dashboard
+- **▶️ Jalankan perintah di banyak server** — satu perintah ke banyak server sekaligus (8 paralel)
+  - Hasil per server: sukses/gagal, exit code, output (stdout + stderr), durasi; yang gagal otomatis terbuka
+  - Pilih server (semua / hanya online), ambil dari Snippet, atur batas waktu (30 detik – 30 menit)
+  - *Ulangi yang gagal* dan *Salin semua* output
 - **🐳 Docker** — kelola Docker di komputer ini atau di server mana pun lewat SSH, tanpa expose port Docker
   - Container dikelompokkan per proyek Compose: start, stop, restart, pause, hapus
   - CPU & RAM live tiap container, log yang ikut berjalan (300 – 5.000 baris)

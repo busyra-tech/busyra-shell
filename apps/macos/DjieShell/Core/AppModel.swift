@@ -92,6 +92,8 @@ final class AppModel {
     var showServerInfo = false { didSet { syncServerStats() } }
     var serverStats: ServerStats?
     let dashboard = DashboardModel()
+    /// Sheet "Jalankan perintah di banyak server".
+    var runMany: RunManyModel?
 
     // Multi-select host
     var selection: Set<String> = []
@@ -310,6 +312,29 @@ final class AppModel {
         }
         if env["DJIE_DEMO_DASHBOARD"] != nil {
             section = .dashboard
+            // DJIE_DEMO_ALERTS=1 : nyalakan pemantauan + catat peringatan ke stderr (tanpa minta izin notifikasi)
+            if env["DJIE_DEMO_ALERTS"] != nil {
+                dashboard.alerts = true
+                dashboard.start(self)
+                for t in dashboard.tiles.values {
+                    t.onAlert = { title, body, key in FileHandle.standardError.write(Data("ALERT [\(key)] \(title) — \(body)\n".utf8)) }
+                }
+            }
+            // DJIE_DEMO_RUNMANY=perintah : buka "Jalankan perintah" untuk semua host lalu jalankan
+            if let cmd = env["DJIE_DEMO_RUNMANY"] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [self] in
+                    openRunMany(hosts.map(\.id))
+                    runMany?.command = cmd
+                    runMany?.run(self)
+                    // Catat hasil ke stderr setelah selesai (tes otomatis)
+                    Task { [self] in
+                        while runMany?.running == true || runMany?.rows.isEmpty == true { try? await Task.sleep(for: .milliseconds(300)) }
+                        if let r = runMany {
+                            FileHandle.standardError.write(Data("RUNMANY ok=\(r.okCount) fail=\(r.failCount)\n\(r.report(self))\nRUNMANY-END\n".utf8))
+                        }
+                    }
+                }
+            }
             if let list = env["DJIE_DEMO_DASHBOARD_SELECT"] {
                 let names = Set(list.split(separator: ",").map(String.init))
                 dashboard.selection = Set(hosts.filter { names.contains($0.title) }.map(\.id))
@@ -430,6 +455,8 @@ final class AppModel {
         vault = nil
         hosts = []; keys = []; snippets = []; forwards = []; logs = []; databases = []
         dbWorkspace = nil
+        dashboard.reset()
+        runMany = nil
         withAnimation(.djie) { phase = .locked }
     }
 
@@ -466,6 +493,34 @@ final class AppModel {
         forwards = vault.forwards()
         logs = vault.logs()
         databases = vault.databases()
+        // Notifikasi Dashboard aktif → pantau terus, ikut perubahan host
+        if dashboard.alerts { dashboard.start(self) }
+    }
+
+    // MARK: Dashboard
+
+    func setDashboardAlerts(_ on: Bool) async {
+        if on, !(await Notifier.shared.requestPermission()) {
+            flash("Notifikasi diblokir — izinkan Djie Shell di System Settings → Notifications")
+            return
+        }
+        withAnimation(.djieSnappy) { dashboard.alerts = on }
+        if on {
+            dashboard.start(self)
+            flash("Notifikasi aktif — Dashboard memantau semua server di latar belakang")
+        } else if section != .dashboard || activeSessionID != nil {
+            dashboard.stop()
+        }
+    }
+
+    /// Buka sheet "Jalankan perintah"; `ids` kosong → semua server yang online (atau semua host).
+    func openRunMany(_ ids: [String]) {
+        var chosen = Set(ids)
+        if chosen.isEmpty {
+            chosen = Set(dashboard.tiles.values.filter { $0.state == .online }.map(\.id))
+            if chosen.isEmpty { chosen = Set(hosts.map(\.id)) }
+        }
+        runMany = RunManyModel(targets: chosen)
     }
 
     /// Dipanggil setelah setiap perubahan data: muat ulang tampilan & jadwalkan sync.

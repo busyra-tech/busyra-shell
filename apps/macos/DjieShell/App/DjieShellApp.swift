@@ -13,6 +13,7 @@ struct DjieShellApp: App {
                 .onAppear {
                     appearance.apply()
                     KeyRouter.install(model: model)
+                    Notifier.shared.install(model: model)
                 }
                 .onChange(of: appearance) { _, mode in mode.apply() }
         }
