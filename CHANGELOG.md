@@ -8,6 +8,10 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-11-21
+
+Rilis terbesar sejauh ini: Dashboard semua server, Kelola Server, backup database, Docker, split & broadcast, dan versi Linux (beta).
+
 ### Baru
 - **🐧 Linux (beta)** — app Linux pertama (GTK4 + libadwaita + terminal VTE) di atas core Rust yang sama: vault terenkripsi, daftar & editor host (password / SSH key / agent, jump host, proxy), tab terminal SSH & lokal, Keychain, dan Snippets. Skrip build AppImage & Flatpak dasar di `scripts/`. SFTP, Database, Docker, Dashboard, Tim, dan sync Google menyusul
 - **📊 Dashboard semua server** — menu baru paling atas di sidebar

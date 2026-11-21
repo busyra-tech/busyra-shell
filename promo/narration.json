@@ -1,13 +1,74 @@
 [
-  ["chaos", "Ngurus banyak server itu ribet banget. Terminal kebuka di mana-mana, password nyebar di catatan, dan akses SSH-nya nggak pernah tersimpan rapi."],
-  ["problem", "Belum lagi harus bolak-balik buka FTP, phpMyAdmin, sampai aplikasi tunnel. Cuma buat satu server!"],
-  ["logo", "Nah, kenalin, Djie Shell. Semua servermu, cukup di satu tempat."],
-  ["hosts", "Semua akses server tersimpan rapi dan aman. Tinggal pilih, klik, langsung connect ke banyak host sekaligus."],
-  ["terminal", "SSH dan terminal lokal? Buka berdampingan. Plus autocomplete yang ngerti kebiasaanmu."],
-  ["sftp", "Mau upload file? Seret, lepas, beres."],
-  ["database", "Database juga bisa! Rasanya kayak phpMyAdmin, tapi jauh lebih cepat. Dari MySQL, PostgreSQL, sampai Redis, cari data cuma hitungan detik."],
-  ["tools", "SSH key, port forwarding, sampai proxy kantor. Semua siap dipakai."],
-  ["security", "Dan tenang aja, semua datamu terenkripsi. Kuncinya, cuma kamu yang pegang."],
-  ["platforms", "Pakai Mac atau Windows? Dua-duanya bisa, datanya tetap sinkron."],
-  ["cta", "Djie Shell. Gratis, open source. Yuk, download sekarang!"]
+  [
+    "chaos",
+    "Ngurus banyak server itu ribet banget. Terminal kebuka di mana-mana, password nyebar di catatan, dan akses SSH-nya nggak pernah tersimpan rapi."
+  ],
+  [
+    "problem",
+    "Belum lagi harus bolak-balik buka FTP, phpMyAdmin, sampai aplikasi tunnel. Cuma buat satu server!"
+  ],
+  [
+    "logo",
+    "Nah, kenalin, Djie Shell. Semua servermu, cukup di satu tempat."
+  ],
+  [
+    "hosts",
+    "Semua akses server tersimpan rapi dan aman. Tinggal pilih, klik, langsung connect ke banyak host sekaligus."
+  ],
+  [
+    "dashboard",
+    "Semua server kelihatan dalam satu layar. CPU, RAM, sampai disk. Ada yang tumbang? Kamu langsung dapat notifikasi."
+  ],
+  [
+    "terminal",
+    "SSH dan terminal lokal? Buka berdampingan. Plus autocomplete yang ngerti kebiasaanmu."
+  ],
+  [
+    "multi",
+    "Mau jalanin perintah di banyak server? Ketik sekali, langsung jalan di semuanya."
+  ],
+  [
+    "admin",
+    "Proses, service, cron, sampai log server. Semua bisa diatur tanpa hafal perintah."
+  ],
+  [
+    "docker",
+    "Container Docker di laptop atau di server? Kelola semuanya dari satu tempat."
+  ],
+  [
+    "sftp",
+    "Mau upload file? Seret, lepas, beres."
+  ],
+  [
+    "database",
+    "Database juga bisa! Rasanya kayak phpMyAdmin, tapi jauh lebih cepat. Dari MySQL, PostgreSQL, sampai Redis, cari data cuma hitungan detik."
+  ],
+  [
+    "backup",
+    "Databasenya juga aman. Backup sekali klik, atau otomatis tiap malam, bahkan langsung ke Google Drive."
+  ],
+  [
+    "extras",
+    "Butuh server lokal ala MAMP, atau mau berbagi akses server ke tim? Semuanya sudah ada."
+  ],
+  [
+    "tools",
+    "SSH key, port forwarding, sampai proxy kantor. Semua siap dipakai."
+  ],
+  [
+    "security",
+    "Dan tenang aja, semua datamu terenkripsi. Kuncinya, cuma kamu yang pegang."
+  ],
+  [
+    "platforms",
+    "Pakai Mac atau Windows? Dua-duanya bisa, datanya tetap sinkron."
+  ],
+  [
+    "platforms3",
+    "Pakai Mac, Windows, atau Linux? Semuanya bisa!"
+  ],
+  [
+    "cta",
+    "Djie Shell. Gratis, open source. Yuk, download sekarang!"
+  ]
 ]

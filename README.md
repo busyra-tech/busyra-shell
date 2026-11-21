@@ -6,9 +6,9 @@
 
 **Semua servermu, satu terminal.**
 
-SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
+SSH client native untuk **macOS**, **Windows**, dan **Linux (beta)** — dashboard semua server, terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
 Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.<br />
-Versi **Linux (beta)** sedang dibangun — lihat [Linux (beta)](#linux-beta).
+Versi **Linux** masih beta — lihat [Linux (beta)](#linux-beta).
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)
 [![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-5B9CF5)](LICENSE)
@@ -19,9 +19,10 @@ Versi **Linux (beta)** sedang dibangun — lihat [Linux (beta)](#linux-beta).
 [**⬇ Download untuk Mac**](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-macOS.dmg) &nbsp;·&nbsp;
 [**⬇ Download untuk Windows**](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-x64-Setup.exe) &nbsp;·&nbsp;
 [Windows ARM64](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-arm64-Setup.exe) &nbsp;·&nbsp;
+[**⬇ Linux (AppImage, beta)**](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-x86_64.AppImage) &nbsp;·&nbsp;
 [Website](https://masadjie.github.io/djie-shell/)
 
-[Yang baru](#-yang-baru-di-v04) · [Fitur](#fitur) · [Install](#install) · [Changelog](#changelog) · [Development](#development)
+[Yang baru](#-yang-baru-di-v05) · [Fitur](#fitur) · [Install](#install) · [Changelog](#changelog) · [Development](#development)
 
 <br />
 
@@ -31,15 +32,18 @@ Versi **Linux (beta)** sedang dibangun — lihat [Linux (beta)](#linux-beta).
 
 ---
 
-## ✨ Yang baru di v0.4
+## ✨ Yang baru di v0.5
 
 <a href="https://masadjie.github.io/djie-shell/#video"><img src="site/assets/video/poster-0.4.jpg" alt="Video pengenalan Djie Shell 0.4" width="420" align="right" /></a>
 
-- **🧱 Server Lokal** — Apache / Nginx + PHP 8.4, MySQL, PostgreSQL, MongoDB di komputermu, sekali klik
-- **👥 Tim** — bagikan host ke rekan kerja lewat email, terenkripsi end-to-end
-- **📝 Edit file SFTP** — editor bawaan, atau buka di VS Code dan file ter-upload otomatis saat disimpan
+- **📊 Dashboard** — semua server dalam satu layar (CPU, RAM, disk, uptime), notifikasi saat server mati atau penuh
+- **▶️ Jalankan perintah di banyak server** — satu perintah, hasil per server; plus **split & broadcast** terminal
+- **🛠️ Kelola Server** — proses, service systemd, crontab, dan log tanpa hafal perintah
+- **💾 Backup database** — sekali klik atau terjadwal, opsional ke Google Drive
+- **🐳 Docker** gaya OrbStack — lokal atau di server lewat SSH
+- **🐧 Linux (beta)** — AppImage untuk x86_64 & ARM64
 
-▶ [Tonton video 45 detiknya](https://masadjie.github.io/djie-shell/#video) · [Catatan rilis lengkap](CHANGELOG.md)
+▶ [Tonton videonya](https://masadjie.github.io/djie-shell/#video) · [Catatan rilis lengkap](CHANGELOG.md)
 
 <br clear="right" />
 
@@ -54,16 +58,20 @@ Versi **Linux (beta)** sedang dibangun — lihat [Linux (beta)](#linux-beta).
 
 ## Fitur
 
-| Fitur | Isi | macOS | Windows |
-|---|---|:-:|:-:|
-| 🖥️ [Hosts & terminal](#️-hosts--terminal) | SSH multi-tab, terminal lokal, autocomplete, info server | ✅ | ✅ |
-| 🧱 [Server Lokal](#-server-lokal) | Apache / Nginx + PHP, MySQL, PostgreSQL, MongoDB | ✅ | ✅ |
-| 👥 [Tim](#-tim) | Berbagi host terenkripsi ke rekan kerja | ✅ | ✅ |
-| 📁 [SFTP](#-sftp) | Dua panel, drag & drop, editor bawaan, buka dengan app lain | ✅ | ✅ |
-| 🐳 [Docker](#-docker) · *segera* | Container, image & Compose — lokal atau di server lewat SSH | v0.5 | v0.5 |
-| 🗄️ [Database](#️-database-ala-phpmyadmin) | 8 engine + 15 layanan cloud, cari ala phpMyAdmin | ✅ | ✅ |
-| 🔑 [Keychain, tunnel & proxy](#-keychain-tunnel--proxy) | SSH key, port forwarding, SOCKS5/HTTP proxy, snippets | ✅ | ✅ |
-| 🔒 [Keamanan & sync](#-keamanan--sync) | Vault terenkripsi, sync Google Drive, Touch ID / Windows Hello | ✅ | ✅ |
+| Fitur | Isi | macOS | Windows | Linux (beta) |
+|---|---|:-:|:-:|:-:|
+| 🖥️ [Hosts & terminal](#️-hosts--terminal) | SSH multi-tab, terminal lokal, autocomplete, info server, split & broadcast | ✅ | ✅ | ✅ |
+| 📊 [Dashboard](#️-hosts--terminal) | Semua server sekali lihat, notifikasi, jalankan perintah di banyak server | ✅ | ✅ | — |
+| 🛠️ [Kelola Server](#️-hosts--terminal) | Proses, service systemd, crontab, log | ✅ | ✅ | — |
+| 🧱 [Server Lokal](#-server-lokal) | Apache / Nginx + PHP, MySQL, PostgreSQL, MongoDB | ✅ | ✅ | — |
+| 👥 [Tim](#-tim) | Berbagi host terenkripsi ke rekan kerja | ✅ | ✅ | — |
+| 📁 [SFTP](#-sftp) | Dua panel, drag & drop, editor bawaan, buka dengan app lain | ✅ | ✅ | — |
+| 🐳 [Docker](#-docker) | Container, image & Compose — lokal atau di server lewat SSH | ✅ | ✅ | — |
+| 🗄️ [Database](#️-database-ala-phpmyadmin) | 8 engine + 15 layanan cloud, cari ala phpMyAdmin, backup & restore | ✅ | ✅ | — |
+| 🔑 [Keychain, tunnel & proxy](#-keychain-tunnel--proxy) | SSH key, port forwarding, SOCKS5/HTTP proxy, snippets | ✅ | ✅ | ◐ |
+| 🔒 [Keamanan & sync](#-keamanan--sync) | Vault terenkripsi, sync Google Drive, Touch ID / Windows Hello | ✅ | ✅ | ◐ |
+
+◐ = sebagian (Linux: SSH key, proxy, snippets, vault terenkripsi; port forwarding & sync menyusul)
 
 ### 🖥️ Hosts & terminal
 
@@ -75,10 +83,10 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Lanjutan** | Jump host, proxy SOCKS5/HTTP, agent forwarding, startup snippet, env var |
 | **Terminal lokal** | zsh di Mac, PowerShell / CMD / WSL di Windows — tab di samping sesi SSH |
 | **Info server** | Spesifikasi (OS, kernel, CPU, uptime) + grafik live CPU, RAM, jaringan, dan storage |
-| **Dashboard** *(v0.5)* | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; notifikasi saat server mati atau penuh; langsung split & broadcast |
-| **Jalankan perintah** *(v0.5)* | Satu perintah ke banyak server paralel, hasil per server (exit code, output, durasi) |
-| **Kelola Server** *(v0.5)* | Proses ala htop (kill), service systemd (start/stop/restart/boot), editor crontab dengan bahasa biasa, log journalctl & file log |
-| **Split & broadcast** *(v0.5)* | 2–4 terminal berdampingan; ketik sekali, jalan di semua panel (⌘D, ⇧⌘B) |
+| **Dashboard** | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; notifikasi saat server mati atau penuh; langsung split & broadcast |
+| **Jalankan perintah** | Satu perintah ke banyak server paralel, hasil per server (exit code, output, durasi) |
+| **Kelola Server** | Proses ala htop (kill), service systemd (start/stop/restart/boot), editor crontab dengan bahasa biasa, log journalctl & file log |
+| **Split & broadcast** | 2–4 terminal berdampingan; ketik sekali, jalan di semua panel (⌘D, ⇧⌘B) |
 | **Autocomplete** | Saran perintah dari riwayat & snippet saat mengetik |
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
 
@@ -153,7 +161,7 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 - **Telusuri** dengan paging, **Struktur** tabel, editor **SQL** dengan riwayat, ekspor **CSV**
 - **Cari** per kolom seperti phpMyAdmin: `=`, `LIKE %…%`, `IN`, `BETWEEN`, `IS NULL`, …
 - **Cari cepat** di semua kolom tabel sekaligus; daftar database & tabel bisa ditampilkan / disembunyikan
-- **Backup & restore** *(v0.5)* — MySQL, MariaDB, PostgreSQL, MongoDB, SQLite ke file `.gz` (lewat SSH dump dijalankan di server); jadwal harian/mingguan, simpan N terakhir, opsional ke Google Drive
+- **Backup & restore** — MySQL, MariaDB, PostgreSQL, MongoDB, SQLite ke file `.gz` (lewat SSH dump dijalankan di server); jadwal harian/mingguan, simpan N terakhir, opsional ke Google Drive
 
 <img src="site/assets/screens/database.jpg" alt="Tab Cari per kolom" width="900" />
 
@@ -198,7 +206,16 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 
 ### Linux (beta)
 
-Versi Linux memakai **GTK4 + libadwaita** dan terminal **VTE**, langsung di atas `djie-core` (tanpa UniFFI). Belum ada rilis resmi — untuk sekarang build sendiri (lihat [Build Linux](#development)).
+Versi Linux memakai **GTK4 + libadwaita** dan terminal **VTE**, langsung di atas `djie-core` (tanpa UniFFI).
+
+1. Download [`Djie-Shell-Linux-x86_64.AppImage`](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-x86_64.AppImage) — atau [`aarch64`](https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-aarch64.AppImage) untuk PC ARM.
+2. Jadikan bisa dijalankan lalu buka:
+
+   ```bash
+   chmod +x Djie-Shell-Linux-*.AppImage && ./Djie-Shell-Linux-*.AppImage
+   ```
+
+Butuh distro yang cukup baru (glibc 2.39+), mis. Ubuntu 24.04, Debian 13, Fedora 40. Bisa juga build sendiri (lihat [Build Linux](#development)).
 
 Yang sudah ada: vault terenkripsi (buat / buka dengan master password), daftar host (grup, cari, warna), editor host (password / SSH key / agent, jump host, proxy SOCKS5/HTTP), tab terminal SSH & terminal lokal, Keychain (generate / import key), dan Snippets.<br />
 Menyusul: SFTP, Database, Docker, Dashboard, Tim, dan sync Google Drive.
@@ -209,8 +226,8 @@ Menyusul: SFTP, Database, Docker, Dashboard, Tim, dan sync Google Drive.
 
 | Versi | Tanggal | Sorotan |
 |---|---|---|
-| [*Berikutnya*](CHANGELOG.md#unreleased) | — | Dashboard semua server, Docker gaya OrbStack, split & broadcast terminal |
-| [**0.4.0**](CHANGELOG.md#040--2026-11-20) | 20 Nov 2026 | Server Lokal (Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB), Tim, edit file SFTP & buka dengan app lain |
+| [**0.5.0**](CHANGELOG.md#050--2026-11-21) | 21 Nov 2026 | Dashboard & notifikasi, jalankan perintah di banyak server, Kelola Server, backup database, Docker, split & broadcast, Linux (beta) |
+| [0.4.0](CHANGELOG.md#040--2026-11-20) | 20 Nov 2026 | Server Lokal (Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB), Tim, edit file SFTP & buka dengan app lain |
 | [0.3.0](CHANGELOG.md#030--2026-11-20) | 20 Nov 2026 | Info server dengan grafik live CPU, RAM, jaringan, storage |
 | [0.2.0](CHANGELOG.md#020--2026-11-20) | 20 Nov 2026 | Versi Windows, proxy SOCKS5/HTTP, database ala phpMyAdmin, terminal lokal |
 | [0.1.0](CHANGELOG.md#010--2026-11-20) | 20 Nov 2026 | Rilis pertama (macOS) |
@@ -318,7 +335,7 @@ cd core && DJIE_STACK_ROOT=/tmp/djie-stack cargo test --test stack_live -- --ign
 Naikkan versi (`core/Cargo.toml`, `apps/macos/project.yml`, `DjieShell.csproj`, `DjieShell.iss`), tambahkan catatan di `CHANGELOG.md`, lalu push tag — GitHub Actions membuat draft release berisi DMG macOS dan `Setup.exe` Windows.
 
 ```bash
-git tag v0.4.0 && git push origin v0.4.0
+git tag v0.5.0 && git push origin v0.5.0
 ```
 
 </details>

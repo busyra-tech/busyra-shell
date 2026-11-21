@@ -11,12 +11,18 @@ const BASE: [string, number][] = [
   ["problem", 150],
   ["logo", 120],
   ["hosts", 210],
+  ["dashboard", 210],
   ["terminal", 180],
+  ["multi", 210],
+  ["admin", 230],
+  ["docker", 190],
   ["sftp", 170],
   ["database", 240],
+  ["backup", 200],
+  ["extras", 210],
   ["tools", 190],
   ["security", 160],
-  ["platforms", 160],
+  ["platforms3", 180],
   ["cta", 190],
 ];
 export const OVERLAP = 14;
@@ -172,6 +178,13 @@ const SFX: Record<string, (d: number) => Cue[]> = {
   tools: () => [[6, "whoosh", 0.4], [20, "pop", 0.35], [30, "pop", 0.35], [40, "pop", 0.35]],
   security: () => [[4, "whoosh", 0.35], [52, "lock", 0.7], [50, "pop", 0.25], [64, "pop", 0.25]],
   platforms: () => [[6, "whoosh", 0.45], [16, "whoosh", 0.35]],
+  dashboard: () => [[2, "whoosh", 0.45], [70, "pop", 0.4], [110, "error", 0.3], [116, "ding", 0.35]],
+  multi: () => [[2, "whoosh", 0.45], [40, "typing", 0.4], [118, "whoosh", 0.3], [140, "pop", 0.4], [152, "pop", 0.35]],
+  admin: () => [[2, "whoosh", 0.45], [80, "click", 0.6], [126, "whoosh", 0.3], [150, "pop", 0.4]],
+  docker: () => [[2, "whoosh", 0.45], [74, "pop", 0.4], [90, "pop", 0.35]],
+  backup: () => [[2, "whoosh", 0.45], [70, "click", 0.6], [96, "ding", 0.35], [130, "pop", 0.4]],
+  extras: () => [[4, "whoosh", 0.4], [18, "whoosh", 0.35], [60, "pop", 0.35], [72, "pop", 0.35]],
+  platforms3: () => [[6, "whoosh", 0.45], [16, "whoosh", 0.35], [26, "whoosh", 0.35], [70, "ding", 0.3]],
   cta: () => [[0, "riser", 0.45], [34, "pop", 0.45], [56, "ding", 0.4]],
 };
 
@@ -730,6 +743,200 @@ const Platforms: React.FC<P> = ({ d }) => {
   );
 };
 
+
+// 3b. Dashboard semua server + notifikasi
+const Dashboard: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const v = useV();
+  const n = useSpring(100, 13);
+  return (
+    <FeatureLayout
+      d={d}
+      eyebrow="Dashboard"
+      color={C.red}
+      title="Semua server, sekali lihat."
+      grad={["sekali", "lihat."]}
+      lines={["CPU, RAM, disk & uptime tiap 5 detik", "Merah saat penuh atau mati", "Notifikasi desktop, tanpa agen"]}
+    >
+      <SlideWindow src="dashboard.jpg" d={d} zoomTo={1.12} origin="70% 40%" glow={C.red} />
+      <div
+        style={{
+          position: "absolute",
+          right: v ? 70 : 60,
+          top: v ? 470 : 70,
+          width: v ? 640 : 520,
+          transform: `translateY(${(1 - n) * -60}px)`,
+          opacity: n * interpolate(frame, [d - 30, d - 14], [1, 0], { extrapolateLeft: "clamp", extrapolateRight: "clamp" }),
+          padding: "18px 22px",
+          borderRadius: 18,
+          background: "rgba(22,26,34,0.92)",
+          border: "1px solid rgba(255,255,255,0.12)",
+          boxShadow: "0 30px 60px -20px rgba(0,0,0,0.8)",
+          display: "flex",
+          gap: 16,
+          alignItems: "center",
+        }}
+      >
+        <Logo size={54} />
+        <div>
+          <div style={{ fontSize: v ? 30 : 25, fontWeight: 700, color: C.ink }}>web-2 tidak bisa dihubungi</div>
+          <div style={{ fontSize: v ? 24 : 20, color: C.ink2, marginTop: 4 }}>Djie Shell · Dashboard</div>
+        </div>
+      </div>
+    </FeatureLayout>
+  );
+};
+
+// 4b. Split & broadcast + jalankan perintah di banyak server
+const Multi: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const v = useV();
+  const swap = interpolate(frame, [118, 138], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <FeatureLayout
+      d={d}
+      eyebrow="Split · Broadcast · Jalankan"
+      color={C.orange}
+      title="Satu perintah, banyak server."
+      grad={["banyak", "server."]}
+      lines={["2–4 terminal berdampingan", "Broadcast: ketik sekali, jalan di semua", "Hasil per server: exit code & output"]}
+    >
+      <div style={{ opacity: 1 - swap }}>
+        <SlideWindow src="split.jpg" d={d} aspect={900 / 1600} glow={C.orange} />
+      </div>
+      <div style={{ opacity: swap }}>
+        <SlideWindow src="run-many.jpg" d={d} aspect={1025 / 1600} glow={C.orange} />
+      </div>
+      <Callout text="Broadcast ke 3 terminal" icon="◉" color={C.orange} delay={60} style={v ? { left: 380, top: 1080 } : { left: 1260, top: 860 }} />
+    </FeatureLayout>
+  );
+};
+
+// 4c. Kelola Server: proses, service, cron, log
+const Admin: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const v = useV();
+  const swap = interpolate(frame, [126, 146], [0, 1], { extrapolateLeft: "clamp", extrapolateRight: "clamp" });
+  return (
+    <FeatureLayout
+      d={d}
+      eyebrow="Kelola Server"
+      color={C.blue}
+      title="Urus server tanpa hafal perintah."
+      grad={["tanpa", "hafal"]}
+      lines={["Proses ala htop, kill sekali klik", "Service systemd: start, stop, restart", "Cron dalam bahasa biasa · log live"]}
+    >
+      <div style={{ opacity: 1 - swap }}>
+        <SlideWindow src="server-admin.jpg" d={d} glow={C.blue} />
+      </div>
+      <div style={{ opacity: swap }}>
+        <SlideWindow src="cron.jpg" d={d} aspect={820 / 1280} glow={C.blue} />
+      </div>
+      {!v && <Cursor path={[{ f: 50, x: 1900, y: 900 }, { f: 80, x: 1560, y: 640, click: true }]} />}
+      <Callout text="“Tiap hari pukul 02.30”" icon="◷" color={C.blue} delay={150} style={v ? { left: 420, top: 1080 } : { left: 1300, top: 860 }} />
+    </FeatureLayout>
+  );
+};
+
+// 4d. Docker
+const Docker: React.FC<P> = ({ d }) => {
+  const v = useV();
+  return (
+    <FeatureLayout
+      d={d}
+      eyebrow="Docker"
+      color="#2496ED"
+      title="Docker di semua server, satu layar."
+      grad={["satu", "layar."]}
+      lines={["Container per proyek Compose", "CPU, RAM, log & shell container", "Lokal atau lewat SSH, tanpa agen"]}
+    >
+      <SlideWindow src="docker.jpg" d={d} aspect={880 / 1600} glow="#2496ED" />
+      <Callout text="Lokal · lewat SSH" icon="◆" color="#2496ED" delay={74} style={v ? { left: 460, top: 1060 } : { left: 1380, top: 840 }} />
+    </FeatureLayout>
+  );
+};
+
+// 6b. Backup database
+const Backup: React.FC<P> = ({ d }) => {
+  const v = useV();
+  return (
+    <FeatureLayout
+      d={d}
+      eyebrow="Backup database"
+      color={C.green}
+      title="Backup sekali klik, atau tiap malam."
+      grad={["tiap", "malam."]}
+      lines={["MySQL, PostgreSQL, MongoDB, SQLite", "Dump di server lewat SSH, tanpa install", "Opsional langsung ke Google Drive"]}
+    >
+      <SlideWindow src="backup.jpg" d={d} aspect={820 / 1280} glow={C.green} />
+      {!v && <Cursor path={[{ f: 40, x: 1900, y: 900 }, { f: 70, x: 1390, y: 455, click: true }]} />}
+      <Callout text="Backup selesai · 900 B" icon="✓" color={C.green} delay={96} style={v ? { left: 440, top: 1080 } : { left: 1340, top: 860 }} />
+    </FeatureLayout>
+  );
+};
+
+// 6c. Server Lokal & Tim
+const Extras: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const v = useV();
+  const a = useSpring(8, 16);
+  const b = useSpring(20, 16);
+  const card = (src: string, aspect: number, title: string, sub: string, color: string, s: number, dir: number) => (
+    <div style={{ transform: `translateY(${(1 - s) * 120 * dir}px)`, opacity: s, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+      <AppWindow src={src} width={v ? 900 : 780} aspect={aspect} glow={color} />
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: v ? 40 : 34, fontWeight: 700, color: C.ink }}>{title}</div>
+        <div style={{ fontSize: v ? 28 : 24, color: C.ink2, marginTop: 6 }}>{sub}</div>
+      </div>
+    </div>
+  );
+  return (
+    <Wrap d={d}>
+      <div style={{ position: "absolute", top: v ? 150 : 80, left: v ? 70 : 0, right: v ? 70 : 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+        <Eyebrow color={C.orange}>Server Lokal · Tim</Eyebrow>
+        <Kinetic text="Server lokal & tim, sudah termasuk." delay={6} size={v ? 74 : 70} gradientWords={["sudah", "termasuk."]} />
+      </div>
+      <div style={{ position: "absolute", top: v ? 480 : 330 + Math.sin(frame / 40) * 5, left: 0, right: 0, display: "flex", flexDirection: v ? "column" : "row", justifyContent: "center", alignItems: "center", gap: v ? 50 : 70 }}>
+        {card("local-server.jpg", 900 / 1600, "Server Lokal", "Apache/Nginx + PHP, MySQL, Postgres, Mongo", C.orange, a, 1)}
+        {card("team.jpg", 838 / 1300, "Tim", "Bagikan host lewat email, terenkripsi", C.green, b, -1)}
+      </div>
+    </Wrap>
+  );
+};
+
+// 9b. Mac, Windows & Linux
+const Platforms3: React.FC<P> = ({ d }) => {
+  const frame = useCurrentFrame();
+  const v = useV();
+  const springs = [useSpring(6, 16), useSpring(14, 16), useSpring(22, 16)];
+  const items: [string, number, string, React.ReactNode, string][] = [
+    ["hosts.jpg", 1032 / 1600, C.teal, <AppleIcon key="a" />, "macOS · SwiftUI"],
+    ["db-win.png", 1640 / 2560, C.blue, <WindowsIcon key="w" />, "Windows · WinUI 3"],
+    ["linux-hosts.jpg", 1038 / 1600, C.orange, <span key="l" style={{ fontSize: 30 }}>🐧</span>, "Linux · GTK4 (beta)"],
+  ];
+  return (
+    <Wrap d={d}>
+      <div style={{ position: "absolute", top: v ? 150 : 80, left: v ? 70 : 0, right: v ? 70 : 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
+        <Eyebrow color={C.blue}>macOS · Windows · Linux</Eyebrow>
+        <Kinetic text="Mac, Windows, dan sekarang Linux." delay={4} size={v ? 76 : 74} gradientWords={["Linux."]} />
+      </div>
+      <div style={{ position: "absolute", top: v ? 470 : 360, left: 0, right: 0, display: "flex", flexDirection: v ? "column" : "row", justifyContent: "center", alignItems: "center", gap: v ? 40 : 44 }}>
+        {items.map(([src, aspect, color, icon, label], i) => (
+          <div key={src} style={{ transform: `translateY(${(1 - springs[i]) * 160 + Math.sin(frame / 35 + i) * 5}px)`, opacity: springs[i] }}>
+            <AppWindow src={src} width={v ? 620 : 540} aspect={aspect} rotateY={v ? 0 : (1 - i) * 10} glow={color} />
+            <div style={{ marginTop: 22, textAlign: "center", fontSize: v ? 32 : 28, fontWeight: 700, color: C.ink, display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
+              {icon} {label}
+            </div>
+          </div>
+        ))}
+      </div>
+      <Fade delay={40} style={{ position: "absolute", left: 0, right: 0, bottom: v ? 330 : 60, textAlign: "center" }}>
+        <div style={{ fontFamily: MONO, fontSize: v ? 28 : 26, color: C.ink2 }}>Satu inti Rust untuk semua platform</div>
+      </Fade>
+    </Wrap>
+  );
+};
+
 // 10. Ajakan
 const Cta: React.FC<P> = ({ d }) => {
   const v = useV();
@@ -753,6 +960,9 @@ const Cta: React.FC<P> = ({ d }) => {
             <WindowsIcon size={30} /> Download untuk Windows
           </div>
         </div>
+        <Fade delay={46} style={{ marginTop: 26 }}>
+          <div style={{ fontSize: v ? 30 : 26, color: C.ink2 }}>🐧 Linux (beta) · build dari source di GitHub</div>
+        </Fade>
         <Fade delay={56} style={{ marginTop: 48 }}>
           <div style={{ fontFamily: MONO, fontSize: 30, color: C.teal }}>masadjie.github.io/djie-shell</div>
         </Fade>
@@ -772,5 +982,12 @@ const COMPONENTS: Record<string, React.FC<P>> = {
   tools: Tools,
   security: Security,
   platforms: Platforms,
+  platforms3: Platforms3,
+  dashboard: Dashboard,
+  multi: Multi,
+  admin: Admin,
+  docker: Docker,
+  backup: Backup,
+  extras: Extras,
   cta: Cta,
 };
