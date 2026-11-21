@@ -17,9 +17,9 @@ internal sealed class SnippetsPage : PageBase
 
     public SnippetsPage() : base("data", "sessions")
     {
-        var header = Ui.Header("Snippets", "Perintah yang sering dipakai — jalankan di tab aktif atau di banyak server sekaligus.",
-            Ui.Search("Cari snippet…", "", q => { _query = q; Render(); }, 190),
-            Ui.Primary("Snippet Baru", G.Add, () => _ = Editor(HostExt.BlankSnippet())));
+        var header = Ui.Header(L.T("Snippets"), L.T("Perintah yang sering dipakai — jalankan di tab aktif atau di banyak server sekaligus."),
+            Ui.Search(L.T("Cari snippet…"), "", q => { _query = q; Render(); }, 190),
+            Ui.Primary(L.T("Snippet Baru"), G.Add, () => _ = Editor(HostExt.BlankSnippet())));
         Children.Add(Ui.Scroll(Ui.Col(22, header, _list)));
         Render();
     }
@@ -29,8 +29,8 @@ internal sealed class SnippetsPage : PageBase
         _list.Children.Clear();
         if (M.Snippets.Length == 0)
         {
-            _list.Children.Add(Ui.EmptyState(G.Code, "Belum ada snippet", "Simpan perintah yang sering dipakai, lalu jalankan dengan satu klik.",
-                Ui.Primary("Snippet Baru", G.Add, () => _ = Editor(HostExt.BlankSnippet()))));
+            _list.Children.Add(Ui.EmptyState(G.Code, L.T("Belum ada snippet"), L.T("Simpan perintah yang sering dipakai, lalu jalankan dengan satu klik."),
+                Ui.Primary(L.T("Snippet Baru"), G.Add, () => _ = Editor(HostExt.BlankSnippet()))));
             return;
         }
         var q = _query.Trim();
@@ -53,24 +53,24 @@ internal sealed class SnippetsPage : PageBase
         };
         var info = Ui.Col(5, Ui.Text(s.Label, 14, FontWeights.SemiBold), cmd);
         var active = M.ActiveSession;
-        var inTab = Ui.Secondary("Tab aktif", G.Terminal, () => { M.RunInActiveSession(s); M.FocusTab(M.Sessions.IndexOf(active!) + 1); });
+        var inTab = Ui.Secondary(L.T("Tab aktif"), G.Terminal, () => { M.RunInActiveSession(s); M.FocusTab(M.Sessions.IndexOf(active!) + 1); });
         inTab.IsEnabled = active != null;
-        ToolTipService.SetToolTip(inTab, active == null ? "Tidak ada tab terminal yang terbuka" : $"Jalankan di {active.Title}");
-        var run = Ui.Primary("Jalankan", G.Play, () => _ = RunDialog(s));
+        ToolTipService.SetToolTip(inTab, active == null ? L.T("Tidak ada tab terminal yang terbuka") : L.T("Jalankan di {}", active.Title));
+        var run = Ui.Primary(L.T("Jalankan"), G.Play, () => _ = RunDialog(s));
         var actions = Ui.Row(4, inTab, run,
-            Ui.IconBtn(G.Copy, "Salin perintah", () => { Ui.CopyText(s.Command); M.Flash("Perintah disalin"); }),
-            Ui.IconBtn(G.Edit, "Edit", () => _ = Editor(s)),
-            Ui.IconBtn(G.Delete, "Hapus", async () => { if (await Ui.Confirm($"Hapus “{s.Label}”?", "Snippet akan dihapus dari semua perangkat.")) M.Delete(s); }, Theme.Brush("#E5484D")));
+            Ui.IconBtn(G.Copy, L.T("Salin perintah"), () => { Ui.CopyText(s.Command); M.Flash(L.T("Perintah disalin")); }),
+            Ui.IconBtn(G.Edit, L.T("Edit"), () => _ = Editor(s)),
+            Ui.IconBtn(G.Delete, L.T("Hapus"), async () => { if (await Ui.Confirm(L.T("Hapus “{}”?", s.Label), L.T("Snippet akan dihapus dari semua perangkat."))) M.Delete(s); }, Theme.Brush("#E5484D")));
         return Ui.HoverCard(Ui.Columns("Auto,*,Auto", 14, icon, info, actions), 14);
     }
 
     private async Task Editor(Snippet s)
     {
-        var label = Ui.Field("Nama (mis. Cek disk)", s.Label);
+        var label = Ui.Field(L.T("Nama (mis. Cek disk)"), s.Label);
         var cmd = new TextBox { Text = s.Command, PlaceholderText = "df -h && free -m", AcceptsReturn = true, FontFamily = Theme.MonoFont, TextWrapping = TextWrapping.Wrap, MinHeight = 90 };
         var content = Ui.Col(10, label, cmd);
         content.Width = 440;
-        var d = Ui.Dialog(string.IsNullOrEmpty(s.Id) ? "Snippet baru" : "Edit snippet", content, "Simpan");
+        var d = Ui.Dialog(string.IsNullOrEmpty(s.Id) ? L.T("Snippet baru") : L.T("Edit snippet"), content, L.T("Simpan"));
         label.Loaded += (_, _) => label.Focus(FocusState.Programmatic);
         if (await d.ShowAsync() != ContentDialogResult.Primary) return;
         if (cmd.Text.Trim().Length == 0) return;
@@ -80,7 +80,7 @@ internal sealed class SnippetsPage : PageBase
     /// <summary>Pilih host, lalu buka satu tab per host yang langsung menjalankan perintah.</summary>
     private async Task RunDialog(Snippet s)
     {
-        if (M.Hosts.Length == 0) { M.Flash("Tambahkan host dulu"); return; }
+        if (M.Hosts.Length == 0) { M.Flash(L.T("Tambahkan host dulu")); return; }
         var picked = new HashSet<string>();
         var list = Ui.Col(6);
         Button? runButton = null;
@@ -103,11 +103,11 @@ internal sealed class SnippetsPage : PageBase
             }
             if (d != null)
             {
-                d.PrimaryButtonText = $"Jalankan di {picked.Count} host";
+                d.PrimaryButtonText = L.T("Jalankan di {} host", picked.Count);
                 d.IsPrimaryButtonEnabled = picked.Count > 0;
             }
         }
-        var all = Ui.Plain(Ui.Text("Pilih semua / batal", 12.5, fg: Theme.AccentBrush), () =>
+        var all = Ui.Plain(Ui.Text(L.T("Pilih semua / batal"), 12.5, fg: Theme.AccentBrush), () =>
         {
             if (picked.Count == M.Hosts.Length) picked.Clear(); else foreach (var h in M.Hosts) picked.Add(h.Id);
             RenderList();
@@ -116,7 +116,7 @@ internal sealed class SnippetsPage : PageBase
         var content = Ui.Col(10, Ui.Text(s.Command, 12, fg: Theme.Text2, mono: true),
             new ScrollViewer { Content = list, Height = 260 }, all);
         content.Width = 460;
-        d = Ui.Dialog($"Jalankan “{s.Label}”", content, "Jalankan di 0 host");
+        d = Ui.Dialog(L.T("Jalankan “{}”", s.Label), content, L.T("Jalankan di {} host", 0));
         d.IsPrimaryButtonEnabled = false;
         RenderList();
         _ = runButton;

@@ -303,12 +303,12 @@ internal static class Ui
 
     public static XamlRoot Root => App.Window!.Content.XamlRoot;
 
-    public static async Task<bool> Confirm(string title, string message, string primary = "Hapus", bool destructive = true)
+    public static async Task<bool> Confirm(string title, string message, string? primary = null, bool destructive = true)
     {
         var d = new ContentDialog
         {
             Title = title, Content = new TextBlock { Text = message, TextWrapping = TextWrapping.WrapWholeWords },
-            PrimaryButtonText = primary, CloseButtonText = "Batal", DefaultButton = ContentDialogButton.Close, XamlRoot = Root,
+            PrimaryButtonText = primary ?? L.T("Hapus"), CloseButtonText = L.T("Batal"), DefaultButton = ContentDialogButton.Close, XamlRoot = Root,
             RequestedTheme = App.Model.IsDark ? ElementTheme.Dark : ElementTheme.Light
         };
         if (destructive) d.PrimaryButtonStyle = DangerStyle();
@@ -323,9 +323,9 @@ internal static class Ui
         return s;
     }
 
-    public static ContentDialog Dialog(string title, UIElement content, string? primary, string close = "Batal") => new()
+    public static ContentDialog Dialog(string title, UIElement content, string? primary, string? close = null) => new()
     {
-        Title = title, Content = content, PrimaryButtonText = primary ?? "", CloseButtonText = close,
+        Title = title, Content = content, PrimaryButtonText = primary ?? "", CloseButtonText = close ?? L.T("Batal"),
         DefaultButton = primary != null ? ContentDialogButton.Primary : ContentDialogButton.Close, XamlRoot = Root,
         RequestedTheme = App.Model.IsDark ? ElementTheme.Dark : ElementTheme.Light
     };
@@ -429,11 +429,11 @@ internal static class Ui
     public static string Relative(DateTimeOffset d)
     {
         var s = DateTimeOffset.Now - d;
-        if (s.TotalSeconds < 60) return "baru saja";
-        if (s.TotalMinutes < 60) return $"{(int)s.TotalMinutes} mnt lalu";
-        if (s.TotalHours < 24) return $"{(int)s.TotalHours} jam lalu";
-        if (s.TotalDays < 30) return $"{(int)s.TotalDays} hari lalu";
-        return d.LocalDateTime.ToString("d MMM yyyy", new System.Globalization.CultureInfo("id-ID"));
+        if (s.TotalSeconds < 60) return L.T("baru saja");
+        if (s.TotalMinutes < 60) return L.T("{} mnt lalu", (int)s.TotalMinutes);
+        if (s.TotalHours < 24) return L.T("{} jam lalu", (int)s.TotalHours);
+        if (s.TotalDays < 30) return L.T("{} hari lalu", (int)s.TotalDays);
+        return d.LocalDateTime.ToString("d MMM yyyy", new System.Globalization.CultureInfo(L10n.English ? "en-US" : "id-ID"));
     }
 
     public static DateTimeOffset FromMs(long ms) => DateTimeOffset.FromUnixTimeMilliseconds(ms);

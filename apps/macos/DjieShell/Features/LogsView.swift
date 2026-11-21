@@ -10,8 +10,8 @@ struct LogsView: View {
         let cal = Calendar.current
         let dict = Dictionary(grouping: model.logs) { cal.startOfDay(for: Date(ms: $0.startedAt)) }
         return dict.keys.sorted(by: >).map { day in
-            let title = cal.isDateInToday(day) ? "Hari ini"
-                : cal.isDateInYesterday(day) ? "Kemarin"
+            let title = cal.isDateInToday(day) ? L("Hari ini")
+                : cal.isDateInYesterday(day) ? L("Kemarin")
                 : day.formatted(.dateTime.weekday(.wide).day().month(.wide).year())
             return (title, dict[day]!)
         }
@@ -20,13 +20,13 @@ struct LogsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Logs", subtitle: "Riwayat sesi SSH di semua perangkat yang tersinkron") {
-                    Button(role: .destructive) { confirmClear = true } label: { Label("Bersihkan", systemImage: "trash") }
+                PageHeader(title: L("Logs"), subtitle: L("Riwayat sesi SSH di semua perangkat yang tersinkron")) {
+                    Button(role: .destructive) { confirmClear = true } label: { Label(L("Bersihkan"), systemImage: "trash") }
                         .buttonStyle(SecondaryButtonStyle())
                         .disabled(model.logs.isEmpty)
                 }
                 if model.logs.isEmpty {
-                    EmptyState(icon: "clock", title: "Belum ada riwayat", text: "Setiap sesi SSH yang kamu buka akan tercatat di sini.")
+                    EmptyState(icon: "clock", title: L("Belum ada riwayat"), text: L("Setiap sesi SSH yang kamu buka akan tercatat di sini."))
                 } else {
                     ForEach(grouped, id: \.0) { day, logs in
                         VStack(alignment: .leading, spacing: 8) {
@@ -42,8 +42,8 @@ struct LogsView: View {
             }
             .padding(28)
         }
-        .confirmationDialog("Hapus semua riwayat sesi?", isPresented: $confirmClear) {
-            Button("Hapus semua", role: .destructive) { model.clearLogs() }
+        .confirmationDialog(L("Hapus semua riwayat sesi?"), isPresented: $confirmClear) {
+            Button(L("Hapus semua"), role: .destructive) { model.clearLogs() }
         }
     }
 }
@@ -58,13 +58,13 @@ struct LogRow: View {
     private var status: (String, Color) {
         guard log.endedAt != nil else {
             let live = model.sessions.contains { $0.host.id == log.hostId && $0.status != .connecting }
-            return live ? ("Berjalan", Color(hex: "#4ADE80")) : ("Terputus", .gray)
+            return live ? (L("Berjalan"), Color(hex: "#4ADE80")) : (L("Terputus"), .gray)
         }
         switch log.exitCode {
-        case .some(0): return ("Selesai", Theme.accent)
-        case .some(255): return ("Gagal connect", .orange)
-        case .some(let c): return ("Keluar (\(c))", .yellow)
-        case .none: return ("Ditutup", .secondary)
+        case .some(0): return (L("Selesai"), Theme.accent)
+        case .some(255): return (L("Gagal connect"), .orange)
+        case .some(let c): return (L("Keluar ({})", c), .yellow)
+        case .none: return (L("Ditutup"), .secondary)
         }
     }
 
@@ -97,7 +97,7 @@ struct LogRow: View {
                     .frame(width: 70, alignment: .trailing)
                 Badge(text: status.0, color: status.1).frame(width: 100, alignment: .trailing)
                 if let host {
-                    IconButton(symbol: "bolt.fill", help: "Connect lagi", tint: Theme.accent) { model.connect([host.id]) }
+                    IconButton(symbol: "bolt.fill", help: L("Connect lagi"), tint: Theme.accent) { model.connect([host.id]) }
                 }
             }
         }

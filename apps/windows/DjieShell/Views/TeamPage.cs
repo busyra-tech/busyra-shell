@@ -21,7 +21,7 @@ internal sealed class TeamPage : PageBase
 
     public TeamPage() : base("data", "team", "sync")
     {
-        _header = Ui.Header("Tim", "Bagikan host ke rekan kerja — terenkripsi end-to-end lewat Google Drive");
+        _header = Ui.Header(L.T("Tim"), L.T("Bagikan host ke rekan kerja — terenkripsi end-to-end lewat Google Drive"));
         Children.Add(Ui.Scroll(Ui.Col(22, _header, _body)));
         Render();
         Loaded += async (s, e) => { await M.SyncTeams(); await M.RefreshInvites(); };
@@ -48,8 +48,8 @@ internal sealed class TeamPage : PageBase
         if (M.TeamReady)
         {
             if (M.TeamBusy) actions.Children.Add(new ProgressRing { IsActive = true, Width = 18, Height = 18 });
-            actions.Children.Add(Ui.Secondary("Gabung tim", G.AddFriend, () => _ = JoinDialog()));
-            actions.Children.Add(Ui.Primary("Buat tim", G.Add, () => _ = CreateDialog()));
+            actions.Children.Add(Ui.Secondary(L.T("Gabung tim"), G.AddFriend, () => _ = JoinDialog()));
+            actions.Children.Add(Ui.Primary(L.T("Buat tim"), G.Add, () => _ = CreateDialog()));
         }
 
         _body.Children.Clear();
@@ -64,7 +64,7 @@ internal sealed class TeamPage : PageBase
 
         if (M.TeamInvites.Length > 0)
         {
-            _body.Children.Add(Ui.Caps("Undangan"));
+            _body.Children.Add(Ui.Caps(L.T("Undangan")));
             foreach (var inv in M.TeamInvites) _body.Children.Add(InviteRow(inv));
         }
         if (M.Teams.Length == 0) { _body.Children.Add(Intro()); return; }
@@ -79,13 +79,13 @@ internal sealed class TeamPage : PageBase
     private UIElement SetupCard()
     {
         var signedIn = M.AccountEmail != null;
-        var btn = Ui.Primary(signedIn ? "Izinkan akses Google Drive" : "Masuk dengan Google", G.Cloud, () => _ = M.GrantTeamAccess());
+        var btn = Ui.Primary(signedIn ? L.T("Izinkan akses Google Drive") : L.T("Masuk dengan Google"), G.Cloud, () => _ = M.GrantTeamAccess());
         btn.HorizontalAlignment = HorizontalAlignment.Left;
         var text = Ui.Col(8,
-            Ui.Text(signedIn ? "Izinkan Djie Shell mengelola file Tim" : "Masuk dengan Google untuk memakai Tim", 18, FontWeights.Bold),
+            Ui.Text(signedIn ? L.T("Izinkan Djie Shell mengelola file Tim") : L.T("Masuk dengan Google untuk memakai Tim"), 18, FontWeights.Bold),
             Ui.Secondary(signedIn
-                ? "Tim butuh izin Google Drive tambahan: hanya file yang dibuat atau kamu pilih di Djie Shell — bukan seluruh Drive-mu. Masuk ulang dengan Google lalu centang izin Drive."
-                : "Tim memakai Google Drive milik admin untuk menyimpan host yang dibagikan. Isinya terenkripsi — Google tidak bisa membacanya.", 13, wrap: true),
+                ? L.T("Tim butuh izin Google Drive tambahan: hanya file yang dibuat atau kamu pilih di Djie Shell — bukan seluruh Drive-mu. Masuk ulang dengan Google lalu centang izin Drive.")
+                : L.T("Tim memakai Google Drive milik admin untuk menyimpan host yang dibagikan. Isinya terenkripsi — Google tidak bisa membacanya."), 13, wrap: true),
             btn);
         return Ui.Card(Ui.Columns("Auto,*", 18, Ui.TintIcon(G.People, Section.Team.Tint(), 56, 24, 14), text), 22);
     }
@@ -93,11 +93,11 @@ internal sealed class TeamPage : PageBase
     private UIElement Intro()
     {
         var steps = Ui.Columns("*,*,*", 12,
-            Step(1, "Buat tim", "Pilih host yang dibagikan — password & SSH key ikut, terenkripsi."),
-            Step(2, "Undang email", "Google mengirim email undangan ke rekanmu."),
-            Step(3, "Rekan bergabung", "Mereka klik Gabung tim di Djie Shell; host muncul di daftar Hosts."));
+            Step(1, L.T("Buat tim"), L.T("Pilih host yang dibagikan — password & SSH key ikut, terenkripsi.")),
+            Step(2, L.T("Undang email"), L.T("Google mengirim email undangan ke rekanmu.")),
+            Step(3, L.T("Rekan bergabung"), L.T("Mereka klik Gabung tim di Djie Shell; host muncul di daftar Hosts.")));
         steps.MaxWidth = 780;
-        return Ui.Col(18, Ui.EmptyState(G.People, "Belum ada tim", "Buat tim untuk membagikan host ke rekan kerja, atau gabung ke tim yang mengundangmu."), steps);
+        return Ui.Col(18, Ui.EmptyState(G.People, L.T("Belum ada tim"), L.T("Buat tim untuk membagikan host ke rekan kerja, atau gabung ke tim yang mengundangmu.")), steps);
     }
 
     private static UIElement Step(int n, string title, string text) => Ui.Card(Ui.Col(6,
@@ -110,42 +110,42 @@ internal sealed class TeamPage : PageBase
 
     private UIElement InviteRow(TeamInvite inv)
     {
-        var join = Ui.Primary("Gabung", null, () => { });
+        var join = Ui.Primary(L.T("Gabung"), null, () => { });
         join.Click += async (s, e) => { join.IsEnabled = false; await M.JoinTeam(inv.FileId); join.IsEnabled = true; };
         return Ui.HoverCard(Ui.Columns("Auto,*,Auto", 12, Ui.TintIcon(G.Mail, Section.Team.Tint(), 34, 14, 9),
-            Ui.Col(2, Ui.Text(inv.Name, 13, FontWeights.SemiBold), Ui.Text($"dari {inv.OwnerEmail}", 11, fg: Theme.Text2)), join));
+            Ui.Col(2, Ui.Text(inv.Name, 13, FontWeights.SemiBold), Ui.Text(L.T("dari {}", inv.OwnerEmail), 11, fg: Theme.Text2)), join));
     }
 
     // MARK: Kartu tim
 
     private UIElement TeamCard(TeamInfo t)
     {
-        var title = Ui.Row(8, Ui.Text(t.Name, 17, FontWeights.Bold), Ui.Badge(t.IsOwner ? "ADMIN" : "ANGGOTA", t.IsOwner ? Theme.Accent : Theme.Accent2));
+        var title = Ui.Row(8, Ui.Text(t.Name, 17, FontWeights.Bold), Ui.Badge(t.IsOwner ? "ADMIN" : L.T("ANGGOTA"), t.IsOwner ? Theme.Accent : Theme.Accent2));
         if (!t.IsOwner)
             title.Children.Add(t.Status switch
             {
-                TeamStatus.Active => Ui.Badge("AKTIF", Theme.Green),
-                TeamStatus.Waiting => Ui.Badge("MENUNGGU ADMIN", Theme.Orange),
-                _ => Ui.Badge("AKSES DICABUT", Theme.Red),
+                TeamStatus.Active => Ui.Badge(L.T("AKTIF"), Theme.Green),
+                TeamStatus.Waiting => Ui.Badge(L.T("MENUNGGU ADMIN"), Theme.Orange),
+                _ => Ui.Badge(L.T("AKSES DICABUT"), Theme.Red),
             });
-        var sub = new List<string> { t.IsOwner ? $"{t.Members.Length} anggota" : $"Admin: {t.OwnerEmail}" };
-        if (t.LastSync > 0) sub.Add("disinkron " + Ui.Relative(Ui.FromMs(t.LastSync)));
-        if (t.Error is { } e) sub.Add("⚠ " + e);
+        var sub = new List<string> { t.IsOwner ? L.T("{} anggota", t.Members.Length) : L.T("Admin: {}", t.OwnerEmail) };
+        if (t.LastSync > 0) sub.Add(L.T("disinkron {}", Ui.Relative(Ui.FromMs(t.LastSync))));
+        if (t.Error is { } e) sub.Add("⚠ " + L.Msg(e));
 
         var menu = new MenuFlyout();
-        var syncItem = new MenuFlyoutItem { Text = "Sinkronkan sekarang", Icon = new FontIcon { Glyph = G.Sync } };
+        var syncItem = new MenuFlyoutItem { Text = L.T("Sinkronkan sekarang"), Icon = new FontIcon { Glyph = G.Sync } };
         syncItem.Click += (s, e2) => _ = M.SyncTeams();
-        var leave = new MenuFlyoutItem { Text = t.IsOwner ? "Hapus tim…" : "Keluar dari tim…", Icon = new FontIcon { Glyph = G.Delete }, Foreground = Theme.Brush("#E5484D") };
+        var leave = new MenuFlyoutItem { Text = t.IsOwner ? L.T("Hapus tim…") : L.T("Keluar dari tim…"), Icon = new FontIcon { Glyph = G.Delete }, Foreground = Theme.Brush("#E5484D") };
         leave.Click += async (s, e2) =>
         {
-            var ok = await Ui.Confirm(t.IsOwner ? $"Hapus tim {t.Name}?" : $"Keluar dari {t.Name}?",
-                t.IsOwner ? "File tim dipindah ke sampah Google Drive-mu dan semua anggota kehilangan akses ke host tim."
-                          : "Host tim hilang dari Djie Shell-mu. Admin bisa mengundangmu lagi nanti.",
-                t.IsOwner ? "Hapus tim" : "Keluar");
+            var ok = await Ui.Confirm(t.IsOwner ? L.T("Hapus tim {}?", t.Name) : L.T("Keluar dari {}?", t.Name),
+                t.IsOwner ? L.T("File tim dipindah ke sampah Google Drive-mu dan semua anggota kehilangan akses ke host tim.")
+                          : L.T("Host tim hilang dari Djie Shell-mu. Admin bisa mengundangmu lagi nanti."),
+                t.IsOwner ? L.T("Hapus tim") : (L10n.English ? "Leave" : "Keluar"));
             if (ok) await M.LeaveTeam(t);
         };
         menu.Items.Add(syncItem); menu.Items.Add(new MenuFlyoutSeparator()); menu.Items.Add(leave);
-        var more = Ui.IconBtn(G.More, "Lainnya", () => { });
+        var more = Ui.IconBtn(G.More, L.T("Lainnya"), () => { });
         more.Flyout = menu;
 
         var head = Ui.Columns("Auto,*,Auto", 12, Ui.TintIcon(G.People, Section.Team.Tint(), 42, 18, 12),
@@ -160,13 +160,13 @@ internal sealed class TeamPage : PageBase
         var members = Ui.Col(0);
         foreach (var m in t.Members)
         {
-            var status = Ui.Text(m.IsAdmin ? "Admin" : m.Status == MemberStatus.Joined ? "Aktif" : "Belum bergabung di Djie Shell", 11,
+            var status = Ui.Text(m.IsAdmin ? "Admin" : m.Status == MemberStatus.Joined ? L.T("Aktif") : L.T("Belum bergabung di Djie Shell"), 11,
                 fg: m.IsAdmin || m.Status == MemberStatus.Joined ? Theme.Text2 : Theme.Brush(Theme.Orange));
-            UIElement? remove = m.IsAdmin ? null : Ui.IconBtn(G.RemovePerson, "Keluarkan dari tim", async () =>
+            UIElement? remove = m.IsAdmin ? null : Ui.IconBtn(G.RemovePerson, L.T("Keluarkan dari tim"), async () =>
             {
-                if (await Ui.Confirm($"Keluarkan {m.Email}?",
-                        "Akses Google Drive-nya dicabut dan kunci tim diganti, jadi perubahan host berikutnya tidak bisa dibaca lagi olehnya. Ganti juga password server yang sempat ia lihat.",
-                        "Keluarkan"))
+                if (await Ui.Confirm(L.T("Keluarkan {}?", m.Email),
+                        L.T("Akses Google Drive-nya dicabut dan kunci tim diganti, jadi perubahan host berikutnya tidak bisa dibaca lagi olehnya. Ganti juga password server yang sempat ia lihat."),
+                        L.T("Keluarkan")))
                     await M.RemoveFromTeam(t, m.Email);
             }, Theme.Brush("#E5484D"));
             members.Children.Add(new Border
@@ -176,8 +176,8 @@ internal sealed class TeamPage : PageBase
                 Child = Ui.Columns("Auto,*,Auto", 10, Ui.Avatar(null, m.Email, 28), Ui.Col(1, Ui.Text(m.Email, 12.5, FontWeights.Medium), status), remove)
             });
         }
-        var email = Ui.Field("email@rekan.com", _inviteDrafts.GetValueOrDefault(t.Id, ""));
-        var invite = Ui.Primary("Undang", null, () => { });
+        var email = Ui.Field(L.T("email@rekan.com"), _inviteDrafts.GetValueOrDefault(t.Id, ""));
+        var invite = Ui.Primary(L.T("Undang"), null, () => { });
         async Task DoInvite()
         {
             var v = email.Text.Trim();
@@ -189,8 +189,8 @@ internal sealed class TeamPage : PageBase
         invite.Click += async (s, e) => await DoInvite();
         email.TextChanged += (s, e) => _inviteDrafts[t.Id] = email.Text;
         email.KeyDown += async (s, e) => { if (e.Key == Windows.System.VirtualKey.Enter) await DoInvite(); };
-        var left = Ui.Col(10, Ui.Caps("Anggota"), members, Ui.Columns("*,Auto", 8, email, invite),
-            Ui.Text("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang.", 11, fg: Theme.Text3, wrap: true));
+        var left = Ui.Col(10, Ui.Caps(L.T("Anggota")), members, Ui.Columns("*,Auto", 8, email, invite),
+            Ui.Text(L.T("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang."), 11, fg: Theme.Text3, wrap: true));
 
         // Host dibagikan
         var shared = M.OwnHosts.Where(h => t.SharedHostIds.Contains(h.Id)).ToList();
@@ -199,13 +199,13 @@ internal sealed class TeamPage : PageBase
             hosts.Children.Add(new Border
             {
                 MinHeight = 80, CornerRadius = new CornerRadius(12), Background = Theme.Ink(0.04),
-                Child = Ui.Secondary("Belum ada host yang dibagikan.").With(x => { x.HorizontalAlignment = HorizontalAlignment.Center; x.VerticalAlignment = VerticalAlignment.Center; })
+                Child = Ui.Secondary(L.T("Belum ada host yang dibagikan.")).With(x => { x.HorizontalAlignment = HorizontalAlignment.Center; x.VerticalAlignment = VerticalAlignment.Center; })
             });
         foreach (var h in shared) hosts.Children.Add(HostChip(h));
         var right = Ui.Col(10,
-            Ui.Columns("*,Auto", 8, Ui.Caps("Host dibagikan"), Ui.Secondary("Pilih host", G.Checklist, () => _ = ShareDialog(t))),
+            Ui.Columns("*,Auto", 8, Ui.Caps(L.T("Host dibagikan")), Ui.Secondary(L.T("Pilih host"), G.Checklist, () => _ = ShareDialog(t))),
             hosts,
-            Ui.Text("Password & SSH key host ikut dibagikan, terenkripsi. Perubahan host otomatis terkirim ke anggota.", 11, fg: Theme.Text3, wrap: true));
+            Ui.Text(L.T("Password & SSH key host ikut dibagikan, terenkripsi. Perubahan host otomatis terkirim ke anggota."), 11, fg: Theme.Text3, wrap: true));
         return Ui.Columns("*,*", 18, left, right);
     }
 
@@ -218,13 +218,13 @@ internal sealed class TeamPage : PageBase
                 var grid = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemWidth = 260, ItemHeight = 52 };
                 foreach (var h in mine) grid.Children.Add(HostChip(h).With(c => c.Margin = new Thickness(0, 0, 8, 8)));
                 return Ui.Col(10,
-                    Ui.Columns("*,Auto", 8, Ui.Caps($"{mine.Count} host dari tim"), Ui.Secondary("Buka Hosts", G.Server, () => M.Navigate(Section.Hosts))),
+                    Ui.Columns("*,Auto", 8, Ui.Caps(L.T("{} host dari tim", mine.Count)), Ui.Secondary(L.T("Buka Hosts"), G.Server, () => M.Navigate(Section.Hosts))),
                     grid);
             case TeamStatus.Waiting:
                 return Ui.Row(8, Ui.Icon(G.Clock, 14, Theme.Text2),
-                    Ui.Secondary($"Menunggu {t.OwnerEmail} membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.", 13, wrap: true));
+                    Ui.Secondary(L.T("Menunggu {} membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.", t.OwnerEmail), 13, wrap: true));
             default:
-                return Ui.Row(8, Ui.Icon(G.Lock, 14, Theme.Text2), Ui.Secondary("Akses ke tim ini sudah dicabut atau timnya dihapus.", 13));
+                return Ui.Row(8, Ui.Icon(G.Lock, 14, Theme.Text2), Ui.Secondary(L.T("Akses ke tim ini sudah dicabut atau timnya dihapus."), 13));
         }
     }
 
@@ -246,10 +246,10 @@ internal sealed class TeamPage : PageBase
 
     private async Task CreateDialog()
     {
-        var name = Ui.Field("Nama tim (mis. Tim Ops)");
-        var content = Ui.Col(10, Ui.Secondary($"File tim dibuat di Google Drive-mu ({M.AccountEmail ?? "akun Google"}). Kamu jadi admin: yang bisa mengundang dan memilih host.", 13, wrap: true), name);
+        var name = Ui.Field(L.T("Nama tim (mis. Tim Ops)"));
+        var content = Ui.Col(10, Ui.Secondary(L.T("File tim dibuat di Google Drive-mu ({}). Kamu jadi admin: yang bisa mengundang dan memilih host.", M.AccountEmail ?? L.T("akun Google")), 13, wrap: true), name);
         content.Width = 420;
-        var d = Ui.Dialog("Buat tim", content, "Buat tim");
+        var d = Ui.Dialog(L.T("Buat tim"), content, L.T("Buat tim"));
         name.Loaded += (s, e) => name.Focus(FocusState.Programmatic);
         if (await d.ShowAsync() != ContentDialogResult.Primary || name.Text.Trim().Length == 0) return;
         await M.CreateTeam(name.Text.Trim());
@@ -264,36 +264,36 @@ internal sealed class TeamPage : PageBase
             invites.Children.Clear();
             foreach (var inv in M.TeamInvites)
             {
-                var b = Ui.Primary("Gabung", null, () => { });
+                var b = Ui.Primary(L.T("Gabung"), null, () => { });
                 b.Click += async (s, e) => { b.IsEnabled = false; if (await M.JoinTeam(inv.FileId)) d?.Hide(); b.IsEnabled = true; };
-                invites.Children.Add(Ui.Card(Ui.Columns("*,Auto", 8, Ui.Col(1, Ui.Text(inv.Name, 13, FontWeights.SemiBold), Ui.Text($"dari {inv.OwnerEmail}", 11, fg: Theme.Text2)), b), 10, 10));
+                invites.Children.Add(Ui.Card(Ui.Columns("*,Auto", 8, Ui.Col(1, Ui.Text(inv.Name, 13, FontWeights.SemiBold), Ui.Text(L.T("dari {}", inv.OwnerEmail), 11, fg: Theme.Text2)), b), 10, 10));
             }
         }
-        var open = Ui.Secondary("Buka halaman", G.Globe, () => Ui.Open(JoinPage));
-        var check = Ui.Secondary("Cek undangan", G.Refresh, () => { });
+        var open = Ui.Secondary(L.T("Buka halaman"), G.Globe, () => Ui.Open(JoinPage));
+        var check = Ui.Secondary(L.T("Cek undangan"), G.Refresh, () => { });
         check.Click += async (s, e) => { check.IsEnabled = false; await M.RefreshInvites(); RenderInvites(); check.IsEnabled = true; };
         var link = Ui.Field("https://drive.google.com/file/d/…");
-        var join = Ui.Primary("Gabung", null, () => { });
+        var join = Ui.Primary(L.T("Gabung"), null, () => { });
         var err = Ui.Text("", 12, fg: Theme.Brush(Theme.Red), wrap: true);
         join.Click += async (s, e) =>
         {
             if (link.Text.Trim().Length < 10) return;
             join.IsEnabled = false;
-            if (await M.JoinTeam(link.Text)) d?.Hide(); else err.Text = M.TeamError ?? "";
+            if (await M.JoinTeam(link.Text)) d?.Hide(); else err.Text = L.Msg(M.TeamError ?? "");
             join.IsEnabled = true;
         };
         var content = Ui.Col(14,
-            Ui.Columns("*,Auto", 10, Ui.Col(2, Ui.Text("1. Buka halaman Gabung tim", 13, FontWeights.SemiBold),
-                Ui.Secondary($"Masuk dengan akun Google yang diundang ({M.AccountEmail ?? "-"}), lalu pilih file tim.", 12, wrap: true)), open),
-            Ui.Columns("*,Auto", 10, Ui.Col(2, Ui.Text("2. Kembali ke sini", 13, FontWeights.SemiBold),
-                Ui.Secondary("Undangan yang sudah kamu pilih muncul di bawah.", 12, wrap: true)), check),
+            Ui.Columns("*,Auto", 10, Ui.Col(2, Ui.Text(L.T("1. Buka halaman Gabung tim"), 13, FontWeights.SemiBold),
+                Ui.Secondary(L.T("Masuk dengan akun Google yang diundang ({}), lalu pilih file tim.", M.AccountEmail ?? "-"), 12, wrap: true)), open),
+            Ui.Columns("*,Auto", 10, Ui.Col(2, Ui.Text(L.T("2. Kembali ke sini"), 13, FontWeights.SemiBold),
+                Ui.Secondary(L.T("Undangan yang sudah kamu pilih muncul di bawah."), 12, wrap: true)), check),
             invites,
             Ui.Divider(),
-            Ui.Secondary("Atau tempel link / ID file tim dari halaman Gabung tim:", 12),
+            Ui.Secondary(L.T("Atau tempel link / ID file tim dari halaman Gabung tim:"), 12),
             Ui.Columns("*,Auto", 8, link, join),
             err);
         content.Width = 480;
-        d = Ui.Dialog("Gabung tim", content, null, "Tutup");
+        d = Ui.Dialog(L.T("Gabung tim"), content, null, L.T("Tutup"));
         RenderInvites();
         _ = M.RefreshInvites().ContinueWith(_ => DispatcherQueue.TryEnqueue(RenderInvites));
         await d.ShowAsync();
@@ -320,14 +320,14 @@ internal sealed class TeamPage : PageBase
                 b.HorizontalAlignment = HorizontalAlignment.Stretch;
                 list.Children.Add(b);
             }
-            count.Text = $"{picked.Count} dipilih";
+            count.Text = L.T("{} dipilih", picked.Count);
         }
         RenderList();
         var content = Ui.Col(10,
-            Ui.Secondary("Anggota bisa connect ke host ini (termasuk password & SSH key-nya), tapi tidak bisa mengubahnya.", 13, wrap: true),
+            Ui.Secondary(L.T("Anggota bisa connect ke host ini (termasuk password & SSH key-nya), tapi tidak bisa mengubahnya."), 13, wrap: true),
             new ScrollViewer { Content = list, Height = 300 }, count);
         content.Width = 460;
-        var d = Ui.Dialog($"Host untuk {t.Name}", content, "Simpan");
+        var d = Ui.Dialog(L.T("Host untuk {}", t.Name), content, L.T("Simpan"));
         if (await d.ShowAsync() != ContentDialogResult.Primary) return;
         await M.ShareHosts(t, picked);
     }

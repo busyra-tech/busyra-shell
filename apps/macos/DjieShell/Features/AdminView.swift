@@ -11,10 +11,10 @@ final class AdminModel {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .processes: "Proses"
-            case .services: "Service"
+            case .processes: L("Proses")
+            case .services: L("Service")
             case .cron: "Cron"
-            case .logs: "Log"
+            case .logs: L("Log")
             }
         }
         var icon: String {
@@ -30,7 +30,7 @@ final class AdminModel {
     enum ProcSort: String, CaseIterable, Identifiable {
         case cpu, mem, pid
         var id: String { rawValue }
-        var title: String { switch self { case .cpu: "CPU"; case .mem: "Memori"; case .pid: "PID" } }
+        var title: String { switch self { case .cpu: "CPU"; case .mem: L("Memori"); case .pid: "PID" } }
     }
 
     enum SvcFilter: String, CaseIterable, Identifiable {
@@ -38,10 +38,10 @@ final class AdminModel {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .all: "Semua"
-            case .running: "Berjalan"
-            case .failed: "Gagal"
-            case .boot: "Saat boot"
+            case .all: L("Semua")
+            case .running: L("Berjalan")
+            case .failed: L("Gagal")
+            case .boot: L("Saat boot")
             }
         }
     }
@@ -95,7 +95,7 @@ final class AdminModel {
             selectedService = nil; serviceStatus = nil; logSource = ""; logUnit = ""; logCursor = ""
         }
         guard let id else { return }
-        guard let target = model.sshTarget(forId: id) else { error = "Host tidak ditemukan"; return }
+        guard let target = model.sshTarget(forId: id) else { error = L("Host tidak ditemukan"); return }
         connecting = true
         do {
             let a = try await ServerAdmin.connect(target: target)
@@ -177,7 +177,7 @@ final class AdminModel {
         defer { busy.remove("pid:\(p.pid)") }
         do {
             try await a.kill(pid: p.pid, force: force)
-            model.flash(force ? "Proses \(p.pid) dihentikan paksa" : "Sinyal berhenti dikirim ke proses \(p.pid)")
+            model.flash(force ? L("Proses {} dihentikan paksa", p.pid) : L("Sinyal berhenti dikirim ke proses {}", p.pid))
             try? await Task.sleep(for: .milliseconds(400))
             processes = (try? await a.processes()) ?? processes
         } catch {
@@ -216,9 +216,9 @@ final class AdminModel {
         defer { busy.remove("svc:\(name)") }
         do {
             try await a.serviceAction(name: name, action: action)
-            let done = ["start": "dinyalakan", "stop": "dihentikan", "restart": "dimulai ulang", "reload": "dimuat ulang",
-                        "enable": "aktif saat boot", "disable": "tidak aktif saat boot"][action] ?? action
-            model.flash("\(name) \(done)")
+            let done = ["start": "{} dinyalakan", "stop": "{} dihentikan", "restart": "{} dimulai ulang", "reload": "{} dimuat ulang",
+                        "enable": "{} aktif saat boot", "disable": "{} tidak aktif saat boot"][action]
+            model.flash(done.map { L($0, name) } ?? "\(name) \(action)")
         } catch {
             model.flash(error.djieMessage)
         }
@@ -258,13 +258,13 @@ final class AdminModel {
     func setJob(at index: Int?, _ job: CronJob, model: AppModel) async {
         var lines = cron
         if let index { lines[index].job = job } else { lines.append(CronLine(raw: "", job: job)) }
-        await saveCron(lines, model: model, message: index == nil ? "Jadwal ditambahkan" : "Jadwal disimpan")
+        await saveCron(lines, model: model, message: index == nil ? L("Jadwal ditambahkan") : L("Jadwal disimpan"))
     }
 
     func deleteJob(at index: Int, model: AppModel) async {
         var lines = cron
         lines.remove(at: index)
-        await saveCron(lines, model: model, message: "Jadwal dihapus")
+        await saveCron(lines, model: model, message: L("Jadwal dihapus"))
     }
 
     // MARK: Log
@@ -321,10 +321,10 @@ struct AdminView: View {
         @Bindable var admin = model.admin
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 16) {
-                PageHeader(title: "Kelola Server", subtitle: "Proses, service, cron, dan log server — tanpa hafal perintah") {
+                PageHeader(title: L("Kelola Server"), subtitle: L("Proses, service, cron, dan log server — tanpa hafal perintah")) {
                     if admin.connected {
                         Button { Task { await admin.load() } } label: { Image(systemName: "arrow.clockwise") }
-                            .buttonStyle(SecondaryButtonStyle()).help("Muat ulang")
+                            .buttonStyle(SecondaryButtonStyle()).help(L("Muat ulang"))
                     }
                 }
                 if !model.hosts.isEmpty {
@@ -340,21 +340,21 @@ struct AdminView: View {
             .padding(.horizontal, 28).padding(.top, 28).padding(.bottom, 16)
 
             if model.hosts.isEmpty {
-                EmptyState(icon: "wrench.and.screwdriver", title: "Belum ada server", text: "Tambahkan host di menu Hosts, lalu kelola proses, service, cron, dan log-nya dari sini.")
+                EmptyState(icon: "wrench.and.screwdriver", title: L("Belum ada server"), text: L("Tambahkan host di menu Hosts, lalu kelola proses, service, cron, dan log-nya dari sini."))
                 Spacer()
             } else if admin.targetId == nil {
-                EmptyState(icon: "server.rack", title: "Pilih server", text: "Pilih server di atas untuk melihat proses, service systemd, crontab, dan log-nya.")
+                EmptyState(icon: "server.rack", title: L("Pilih server"), text: L("Pilih server di atas untuk melihat proses, service systemd, crontab, dan log-nya."))
                 Spacer()
             } else if let e = admin.error, !admin.connected {
                 VStack(spacing: 12) {
                     Image(systemName: "bolt.horizontal.circle").font(.largeTitle).foregroundStyle(Color(hex: "#F0616D"))
                     Text(e).foregroundStyle(.secondary).multilineTextAlignment(.center).textSelection(.enabled).frame(maxWidth: 460)
-                    Button("Coba lagi") { Task { await admin.select(admin.targetId, model: model) } }.buttonStyle(SecondaryButtonStyle())
+                    Button(L("Coba lagi")) { Task { await admin.select(admin.targetId, model: model) } }.buttonStyle(SecondaryButtonStyle())
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if admin.connected {
                 if let s = admin.system, !s.isRoot, !s.sudo {
-                    Label("User \(s.user) tanpa sudo: bisa melihat, tapi aksi yang butuh root (service, proses user lain, log sistem) akan ditolak.", systemImage: "lock.trianglebadge.exclamationmark")
+                    Label(L("User {} tanpa sudo: bisa melihat, tapi aksi yang butuh root (service, proses user lain, log sistem) akan ditolak.", s.user), systemImage: "lock.trianglebadge.exclamationmark")
                         .font(.caption).foregroundStyle(Color(hex: "#F2A65A"))
                         .padding(.horizontal, 28).padding(.bottom, 10)
                 }
@@ -369,7 +369,7 @@ struct AdminView: View {
                 .padding(.horizontal, 28).padding(.bottom, 20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             } else {
-                ProgressView("Menghubungkan…").frame(maxWidth: .infinity, maxHeight: .infinity)
+                ProgressView(L("Menghubungkan…")).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
         .animation(.djie, value: admin.tab)
@@ -396,7 +396,7 @@ private struct HostPicker: View {
         } label: {
             HStack(spacing: 7) {
                 Circle().fill(Color(hex: current?.color ?? "#94A3B8")).frame(width: 8, height: 8)
-                Text(current?.title ?? "Pilih server").font(.system(size: 13, weight: .semibold))
+                Text(current?.title ?? L("Pilih server")).font(.system(size: 13, weight: .semibold))
             }
         }
         .menuStyle(.button)
@@ -414,7 +414,7 @@ private struct SystemBadge: View {
         HStack(spacing: 6) {
             Image(systemName: system.isRoot ? "crown.fill" : system.sudo ? "key.fill" : "person.fill")
                 .foregroundStyle(system.isRoot || system.sudo ? Color(hex: "#4ADE80") : Color(hex: "#F2A65A"))
-            Text(verbatim: "\(system.user) · \(system.isRoot ? "root" : system.sudo ? "sudo" : "tanpa sudo")")
+            Text(verbatim: "\(system.user) · \(system.isRoot ? "root" : system.sudo ? "sudo" : L("tanpa sudo"))")
             if !system.os.isEmpty { Text("· \(system.os)").foregroundStyle(.secondary) }
         }
         .font(.system(size: 11.5))
@@ -454,16 +454,16 @@ private struct ProcessesTab: View {
         let list = admin.filteredProcesses
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
-                SearchField(text: $admin.procQuery, prompt: "Cari PID, user, perintah…").frame(maxWidth: 300)
-                Picker("Urut", selection: $admin.procSort) {
+                SearchField(text: $admin.procQuery, prompt: L("Cari PID, user, perintah…")).frame(maxWidth: 300)
+                Picker(L("Urut"), selection: $admin.procSort) {
                     ForEach(AdminModel.ProcSort.allCases) { s in Text(s.title).tag(s) }
                 }
                 .pickerStyle(.segmented).fixedSize()
                 Spacer()
-                Text("\(list.count) proses · diperbarui tiap 4 detik").font(.caption).foregroundStyle(.secondary)
+                Text(L("{} proses · diperbarui tiap 4 detik", list.count)).font(.caption).foregroundStyle(.secondary)
             }
             VStack(spacing: 0) {
-                row(header: true, pid: "PID", user: "USER", cpu: "CPU", mem: "MEMORI", time: "WAKTU", cmd: "PERINTAH")
+                row(header: true, pid: "PID", user: "USER", cpu: "CPU", mem: L("MEMORI"), time: L("WAKTU"), cmd: L("PERINTAH"))
                 Divider()
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -474,14 +474,14 @@ private struct ProcessesTab: View {
             .background(Theme.card, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.cardStroke))
         }
-        .confirmationDialog(confirm.map { $0.1 ? "Hentikan paksa proses \($0.0.pid)?" : "Hentikan proses \($0.0.pid)?" } ?? "",
+        .confirmationDialog(confirm.map { $0.1 ? L("Hentikan paksa proses {}?", $0.0.pid) : L("Hentikan proses {}?", $0.0.pid) } ?? "",
                             isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } })) {
             if let (p, force) = confirm {
-                Button(force ? "Kill -9" : "Hentikan", role: .destructive) { Task { await admin.kill(p, force: force, model: model) } }
+                Button(force ? L("Kill -9") : L("Hentikan"), role: .destructive) { Task { await admin.kill(p, force: force, model: model) } }
             }
         } message: {
             if let (p, force) = confirm {
-                Text("\(p.command)\n\n" + (force ? "SIGKILL: proses langsung dimatikan tanpa sempat menyimpan data." : "SIGTERM: proses diminta berhenti dengan rapi."))
+                Text("\(p.command)\n\n" + (force ? L("SIGKILL: proses langsung dimatikan tanpa sempat menyimpan data.") : L("SIGTERM: proses diminta berhenti dengan rapi.")))
             }
         }
     }
@@ -521,8 +521,8 @@ private struct ProcessRow: View {
             HStack(spacing: 4) {
                 if busy { ProgressView().controlSize(.mini) }
                 else if hover {
-                    IconButton(symbol: "stop.circle", help: "Hentikan (SIGTERM)") { onKill(false) }
-                    IconButton(symbol: "xmark.octagon", help: "Hentikan paksa (kill -9)", tint: Color(hex: "#F0616D")) { onKill(true) }
+                    IconButton(symbol: "stop.circle", help: L("Hentikan (SIGTERM)")) { onKill(false) }
+                    IconButton(symbol: "xmark.octagon", help: L("Hentikan paksa (kill -9)"), tint: Color(hex: "#F0616D")) { onKill(true) }
                 }
             }
             .frame(width: 60, alignment: .trailing)
@@ -542,7 +542,7 @@ private struct ServicesTab: View {
     var body: some View {
         @Bindable var admin = model.admin
         if admin.system?.systemd != true {
-            EmptyState(icon: "gearshape.2", title: "Tanpa systemd", text: "Server ini tidak memakai systemd, jadi daftar service tidak tersedia.")
+            EmptyState(icon: "gearshape.2", title: L("Tanpa systemd"), text: L("Server ini tidak memakai systemd, jadi daftar service tidak tersedia."))
         } else {
             HStack(alignment: .top, spacing: 16) {
                 VStack(alignment: .leading, spacing: 10) {
@@ -551,7 +551,7 @@ private struct ServicesTab: View {
                             ForEach(AdminModel.SvcFilter.allCases) { f in Text(f.title).tag(f) }
                         }
                         .pickerStyle(.segmented).labelsHidden().fixedSize()
-                        SearchField(text: $admin.svcQuery, prompt: "Cari service")
+                        SearchField(text: $admin.svcQuery, prompt: L("Cari service"))
                     }
                     ScrollView {
                         LazyVStack(spacing: 4) {
@@ -623,35 +623,35 @@ private struct ServiceDetail: View {
                 Circle().fill(serviceColor(s)).frame(width: 10, height: 10)
                 Text(s.name).font(.system(size: 15, weight: .bold, design: .monospaced)).lineLimit(1)
                 Spacer()
-                IconButton(symbol: "xmark", help: "Tutup") { admin.chooseService(nil) }
+                IconButton(symbol: "xmark", help: L("Tutup")) { admin.chooseService(nil) }
             }
             if !s.description.isEmpty { Text(s.description).font(.callout).foregroundStyle(.secondary) }
             HStack(spacing: 6) {
                 Badge(text: s.active.uppercased(), color: serviceColor(s))
                 Badge(text: s.sub.uppercased(), color: .secondary)
-                if !s.enabled.isEmpty { Badge(text: s.enabled == "enabled" ? "AKTIF SAAT BOOT" : s.enabled.uppercased(), color: s.enabled == "enabled" ? Theme.accent2 : .secondary) }
+                if !s.enabled.isEmpty { Badge(text: s.enabled == "enabled" ? L("AKTIF SAAT BOOT") : s.enabled.uppercased(), color: s.enabled == "enabled" ? Theme.accent2 : .secondary) }
             }
             HStack(spacing: 8) {
                 if running {
-                    action("Stop", "stop.fill", "stop", danger: true)
-                    action("Restart", "arrow.clockwise", "restart")
-                    action("Reload", "arrow.triangle.2.circlepath", "reload")
+                    action(L("Stop"), "stop.fill", "stop", danger: true)
+                    action(L("Restart"), "arrow.clockwise", "restart")
+                    action(L("Reload"), "arrow.triangle.2.circlepath", "reload")
                 } else {
-                    action("Start", "play.fill", "start", primary: true)
+                    action(L("Start"), "play.fill", "start", primary: true)
                 }
                 if busy { ProgressView().controlSize(.small) }
             }
             .disabled(busy)
             HStack(spacing: 8) {
-                if s.enabled == "enabled" { action("Jangan jalan saat boot", "power", "disable") }
-                else if s.enabled == "disabled" { action("Jalankan saat boot", "power", "enable") }
-                Button { admin.showLogs(unit: s.name) } label: { Label("Lihat log", systemImage: "doc.text.magnifyingglass") }
+                if s.enabled == "enabled" { action(L("Jangan jalan saat boot"), "power", "disable") }
+                else if s.enabled == "disabled" { action(L("Jalankan saat boot"), "power", "enable") }
+                Button { admin.showLogs(unit: s.name) } label: { Label(L("Lihat log"), systemImage: "doc.text.magnifyingglass") }
                     .buttonStyle(SecondaryButtonStyle())
             }
             .disabled(busy)
             Text("STATUS").font(.system(size: 10.5, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
             ScrollView([.vertical, .horizontal]) {
-                Text(admin.serviceStatus ?? "Memuat…")
+                Text(admin.serviceStatus ?? L("Memuat…"))
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -662,10 +662,10 @@ private struct ServiceDetail: View {
         .padding(16)
         .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
         .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Theme.cardStroke))
-        .confirmationDialog("Hentikan \(confirmStop ?? "")?", isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
-            Button("Hentikan", role: .destructive) { run("stop") }
+        .confirmationDialog(L("Hentikan {}?", confirmStop ?? ""), isPresented: Binding(get: { confirmStop != nil }, set: { if !$0 { confirmStop = nil } })) {
+            Button(L("Hentikan"), role: .destructive) { run("stop") }
         } message: {
-            Text("Ini service SSH. Bila dihentikan, kamu bisa tidak bisa login lagi ke server ini sampai dinyalakan dari konsol.")
+            Text(L("Ini service SSH. Bila dihentikan, kamu bisa tidak bisa login lagi ke server ini sampai dinyalakan dari konsol."))
         }
     }
 
@@ -690,20 +690,20 @@ private struct CronTab: View {
     var body: some View {
         let admin = model.admin
         if admin.system?.crontab != true {
-            EmptyState(icon: "calendar.badge.clock", title: "crontab tidak tersedia", text: "Pasang paket cron di server ini (mis. apt install cron) untuk memakai jadwal.")
+            EmptyState(icon: "calendar.badge.clock", title: L("crontab tidak tersedia"), text: L("Pasang paket cron di server ini (mis. apt install cron) untuk memakai jadwal."))
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Jadwal milik user \(admin.system?.user ?? "")").font(.callout).foregroundStyle(.secondary)
+                    Text(L("Jadwal milik user {}", admin.system?.user ?? "")).font(.callout).foregroundStyle(.secondary)
                     if admin.busy.contains("cron") { ProgressView().controlSize(.small) }
                     Spacer()
                     Button { editing = CronEdit(index: nil, job: CronJob(schedule: "0 2 * * *", command: "", enabled: true)) } label: {
-                        Label("Tambah jadwal", systemImage: "plus")
+                        Label(L("Tambah jadwal"), systemImage: "plus")
                     }
                     .buttonStyle(PrimaryButtonStyle())
                 }
                 if admin.cronLoaded && admin.jobs.isEmpty {
-                    EmptyState(icon: "calendar.badge.clock", title: "Belum ada jadwal", text: "Tambahkan jadwal untuk menjalankan perintah otomatis, mis. backup tiap malam.")
+                    EmptyState(icon: "calendar.badge.clock", title: L("Belum ada jadwal"), text: L("Tambahkan jadwal untuk menjalankan perintah otomatis, mis. backup tiap malam."))
                 }
                 ScrollView {
                     LazyVStack(spacing: 8) {
@@ -739,10 +739,10 @@ private struct CronRow: View {
                 Task { await model.admin.setJob(at: index, j, model: model) }
             }))
             .toggleStyle(.switch).labelsHidden().controlSize(.small)
-            .help(job.enabled ? "Nonaktifkan (baris dijadikan komentar)" : "Aktifkan")
+            .help(job.enabled ? L("Nonaktifkan (baris dijadikan komentar)") : L("Aktifkan"))
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(cronDescribe(schedule: job.schedule)).font(.system(size: 13, weight: .semibold))
+                    Text(Lmsg(cronDescribe(schedule: job.schedule))).font(.system(size: 13, weight: .semibold))
                     Text(job.schedule).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
                 }
                 Text(job.command).font(.system(size: 12, design: .monospaced)).lineLimit(2).foregroundStyle(job.enabled ? .primary : .secondary)
@@ -750,8 +750,8 @@ private struct CronRow: View {
             }
             Spacer()
             if hover {
-                IconButton(symbol: "pencil", help: "Ubah") { onEdit() }
-                IconButton(symbol: "trash", help: "Hapus", tint: Color(hex: "#F0616D")) { confirmDelete = true }
+                IconButton(symbol: "pencil", help: L("Ubah")) { onEdit() }
+                IconButton(symbol: "trash", help: L("Hapus"), tint: Color(hex: "#F0616D")) { confirmDelete = true }
             }
         }
         .padding(12)
@@ -760,11 +760,11 @@ private struct CronRow: View {
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.cardStroke))
         .onHover { hover = $0 }
         .contextMenu {
-            Button("Ubah") { onEdit() }
-            Button("Hapus", role: .destructive) { confirmDelete = true }
+            Button(L("Ubah")) { onEdit() }
+            Button(L("Hapus"), role: .destructive) { confirmDelete = true }
         }
-        .confirmationDialog("Hapus jadwal ini?", isPresented: $confirmDelete) {
-            Button("Hapus", role: .destructive) { Task { await model.admin.deleteJob(at: index, model: model) } }
+        .confirmationDialog(L("Hapus jadwal ini?"), isPresented: $confirmDelete) {
+            Button(L("Hapus"), role: .destructive) { Task { await model.admin.deleteJob(at: index, model: model) } }
         } message: { Text(job.command) }
     }
 }
@@ -775,19 +775,19 @@ private struct CronEditor: View {
     @State var edit: CronEdit
 
     private static let presets: [(String, String)] = [
-        ("Tiap menit", "* * * * *"), ("Tiap 5 menit", "*/5 * * * *"), ("Tiap 15 menit", "*/15 * * * *"),
-        ("Tiap jam", "0 * * * *"), ("Tiap hari 02.00", "0 2 * * *"), ("Senin–Jumat 08.00", "0 8 * * 1-5"),
-        ("Tiap Minggu", "0 3 * * 0"), ("Tiap tanggal 1", "0 3 1 * *"), ("Saat server menyala", "@reboot"),
+        (L("Tiap menit"), "* * * * *"), (L("Tiap 5 menit"), "*/5 * * * *"), (L("Tiap 15 menit"), "*/15 * * * *"),
+        (L("Tiap jam"), "0 * * * *"), (L("Tiap hari 02.00"), "0 2 * * *"), (L("Senin–Jumat 08.00"), "0 8 * * 1-5"),
+        (L("Tiap Minggu"), "0 3 * * 0"), (L("Tiap tanggal 1"), "0 3 1 * *"), (L("Saat server menyala"), "@reboot"),
     ]
 
     var body: some View {
         let valid = cronValid(schedule: edit.job.schedule)
         let canSave = valid && !edit.job.command.trimmingCharacters(in: .whitespaces).isEmpty && !edit.job.command.contains("\n")
-        FormSheet(title: edit.index == nil ? "Tambah jadwal" : "Ubah jadwal", canSave: canSave, onSave: {
+        FormSheet(title: edit.index == nil ? L("Tambah jadwal") : L("Ubah jadwal"), canSave: canSave, onSave: {
             Task { await model.admin.setJob(at: edit.index, edit.job, model: model) }
         }) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("Kapan").font(.callout.weight(.semibold))
+                Text(L("Kapan")).font(.callout.weight(.semibold))
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 130), spacing: 6)], alignment: .leading, spacing: 6) {
                     ForEach(Self.presets, id: \.1) { p in
                         Button(p.0) { edit.job.schedule = p.1 }
@@ -798,14 +798,14 @@ private struct CronEditor: View {
                             .background(edit.job.schedule == p.1 ? Theme.accent.opacity(0.18) : Theme.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
                     }
                 }
-                TextField("menit jam tanggal bulan hari", text: $edit.job.schedule)
+                TextField(L("menit jam tanggal bulan hari"), text: $edit.job.schedule)
                     .textFieldStyle(.roundedBorder).font(.system(size: 13, design: .monospaced))
-                Label(valid ? cronDescribe(schedule: edit.job.schedule) : "Format: menit jam tanggal bulan hari — mis. 30 2 * * 1-5", systemImage: valid ? "clock" : "exclamationmark.triangle")
+                Label(valid ? Lmsg(cronDescribe(schedule: edit.job.schedule)) : L("Format: menit jam tanggal bulan hari — mis. 30 2 * * 1-5"), systemImage: valid ? "clock" : "exclamationmark.triangle")
                     .font(.caption).foregroundStyle(valid ? Theme.accent : Color(hex: "#F2A65A"))
-                Text("Perintah").font(.callout.weight(.semibold)).padding(.top, 6)
-                TextField("mis. /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1", text: $edit.job.command)
+                Text(L("Perintah")).font(.callout.weight(.semibold)).padding(.top, 6)
+                TextField(L("mis. /usr/local/bin/backup.sh >> /var/log/backup.log 2>&1"), text: $edit.job.command)
                     .textFieldStyle(.roundedBorder).font(.system(size: 12.5, design: .monospaced))
-                Toggle("Aktif", isOn: $edit.job.enabled)
+                Toggle(L("Aktif"), isOn: $edit.job.enabled)
             }
         }
         .frame(width: 540)
@@ -823,48 +823,48 @@ private struct LogsTab: View {
         let lines = q.isEmpty ? admin.logText : admin.logText.filter { $0.lowercased().contains(q) }
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
-                Picker("Sumber", selection: $admin.logSource) {
+                Picker(L("Sumber"), selection: $admin.logSource) {
                     ForEach(admin.sources, id: \.id) { s in
                         Text(s.isJournal ? s.title : "\(s.title)  ·  \(ByteCountFormatter.string(fromByteCount: Int64(s.sizeBytes), countStyle: .file))").tag(s.id)
                     }
                 }
                 .frame(maxWidth: 320)
                 if admin.logSource == "journal" {
-                    Picker("Service", selection: $admin.logUnit) {
-                        Text("Semua").tag("")
+                    Picker(L("Service"), selection: $admin.logUnit) {
+                        Text(L("Semua")).tag("")
                         ForEach(admin.services.filter { $0.active == "active" || $0.active == "failed" }, id: \.name) { s in Text(s.name).tag(s.name) }
                     }
                     .frame(maxWidth: 220)
-                    Picker("Level", selection: $admin.logPriority) {
-                        Text("Semua").tag("")
-                        Text("Warning ke atas").tag("warning")
-                        Text("Error ke atas").tag("err")
+                    Picker(L("Level"), selection: $admin.logPriority) {
+                        Text(L("Semua")).tag("")
+                        Text(L("Warning ke atas")).tag("warning")
+                        Text(L("Error ke atas")).tag("err")
                     }
                     .fixedSize()
                 }
-                Picker("Baris", selection: $admin.logLines) {
+                Picker(L("Baris"), selection: $admin.logLines) {
                     Text("200").tag(UInt32(200)); Text("500").tag(UInt32(500)); Text("2.000").tag(UInt32(2000)); Text("5.000").tag(UInt32(5000))
                 }
                 .fixedSize()
                 Spacer()
             }
             HStack(spacing: 10) {
-                SearchField(text: $admin.logQuery, prompt: "Saring baris…").frame(maxWidth: 300)
-                Toggle(isOn: $admin.follow) { Label("Ikuti", systemImage: "arrow.down.to.line") }
+                SearchField(text: $admin.logQuery, prompt: L("Saring baris…")).frame(maxWidth: 300)
+                Toggle(isOn: $admin.follow) { Label(L("Ikuti"), systemImage: "arrow.down.to.line") }
                     .toggleStyle(.button)
-                    .help("Ambil baris baru tiap 2 detik")
+                    .help(L("Ambil baris baru tiap 2 detik"))
                 if admin.logViaSudo { Badge(text: "SUDO", color: Color(hex: "#F2A65A")) }
                 Spacer()
-                Text(q.isEmpty ? "\(lines.count) baris" : "\(lines.count) dari \(admin.logText.count) baris").font(.caption).foregroundStyle(.secondary)
+                Text(q.isEmpty ? L("{} baris", lines.count) : L("{} dari {} baris", lines.count, admin.logText.count)).font(.caption).foregroundStyle(.secondary)
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(lines.joined(separator: "\n"), forType: .string)
-                    model.flash("\(lines.count) baris log disalin")
+                    model.flash(L("{} baris log disalin", lines.count))
                 } label: { Image(systemName: "doc.on.doc") }
-                .buttonStyle(SecondaryButtonStyle()).help("Salin")
+                .buttonStyle(SecondaryButtonStyle()).help(L("Salin"))
             }
             if admin.sources.isEmpty {
-                Text("Tidak ada journal atau file log umum yang bisa dibaca di server ini.").foregroundStyle(.secondary).padding(.top, 30)
+                Text(L("Tidak ada journal atau file log umum yang bisa dibaca di server ini.")).foregroundStyle(.secondary).padding(.top, 30)
                     .frame(maxWidth: .infinity)
             } else {
                 ScrollViewReader { proxy in

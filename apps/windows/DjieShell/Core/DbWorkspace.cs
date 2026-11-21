@@ -81,7 +81,7 @@ internal static class DbExt
         !string.IsNullOrEmpty(c.Label) ? c.Label : c.Engine == DbEngine.Sqlite ? Path.GetFileName(c.FilePath) : c.Host;
 
     public static string? SizeText(this DbTable t) => t.SizeBytes is { } s && s > 0 ? Ui.Bytes(s) : null;
-    public static string? RowsText(this DbTable t) => t.Rows?.ToString("N0", new System.Globalization.CultureInfo("id-ID"));
+    public static string? RowsText(this DbTable t) => t.Rows?.ToString("N0", new System.Globalization.CultureInfo(L10n.English ? "en-US" : "id-ID"));
 }
 
 /// <summary>Satu koneksi database yang sedang terbuka (tampilan ala phpMyAdmin) — padanan DbWorkspace di Swift.</summary>
@@ -90,7 +90,7 @@ internal sealed class DbWorkspace
     public enum Status { Connecting, Ready, Failed }
     public enum Tab { Overview, Browse, Structure, Search, Sql }
 
-    public static string TabTitle(Tab t) => t switch { Tab.Overview => "Ringkasan", Tab.Browse => "Telusuri", Tab.Structure => "Struktur", Tab.Search => "Cari", _ => "SQL" };
+    public static string TabTitle(Tab t) => t switch { Tab.Overview => L.T("Ringkasan"), Tab.Browse => L.T("Telusuri"), Tab.Structure => L.T("Struktur"), Tab.Search => L.T("Cari"), _ => "SQL" };
     public static string TabGlyph(Tab t) => t switch { Tab.Overview => G.Apps, Tab.Browse => G.Table, Tab.Structure => G.Structure, Tab.Search => G.Search, _ => G.Code };
 
     /// <summary>Satu baris form "Cari" (kueri dengan contoh, ala phpMyAdmin).</summary>
@@ -393,12 +393,12 @@ internal sealed class DbWorkspace
 
     /// <summary>Ringkasan syarat aktif, mis. <c>kota = Medan · nama berisi "di"</c>.</summary>
     public string FilterSummary => FilterAny
-        ? $"“{Filters.FirstOrDefault()?.Value}” di semua kolom"
+        ? L.T("“{}” di semua kolom", Filters.FirstOrDefault()?.Value)
         : string.Join(" · ", Filters.Select(f => f.Op switch
         {
             "IS NULL" or "IS NOT NULL" or "= ''" or "!= ''" => $"{f.Column} {f.Op}",
-            "LIKE %...%" => $"{f.Column} berisi “{f.Value}”",
-            "NOT LIKE %...%" => $"{f.Column} tidak berisi “{f.Value}”",
+            "LIKE %...%" => L.T("{} berisi “{}”", f.Column, f.Value),
+            "NOT LIKE %...%" => L.T("{} tidak berisi “{}”", f.Column, f.Value),
             _ => $"{f.Column} {f.Op} {f.Value}",
         }));
 

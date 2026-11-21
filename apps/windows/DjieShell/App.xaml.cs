@@ -17,7 +17,7 @@ public partial class App : Application
         {
             e.Handled = true;
             try { File.AppendAllText(Path.Combine(Config.LocalDir, "error.log"), $"{DateTime.Now:O} {e.Exception}\n\n"); } catch { }
-            try { Model?.Flash("Terjadi kesalahan: " + Errors.Text(e.Exception)); } catch { }
+            try { Model?.Flash(L.T("Terjadi kesalahan: {}", Errors.Text(e.Exception))); } catch { }
         };
     }
 

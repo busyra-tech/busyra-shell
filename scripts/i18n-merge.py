@@ -4,7 +4,8 @@ import json, pathlib, sys
 
 root = pathlib.Path(__file__).resolve().parent.parent / "i18n"
 merged, bad = {}, []
-for part in sorted((root / "parts").glob("*.json")):
+order = {"core": 0, "mac": 1, "windows": 2, "linux": 3}
+for part in sorted((root / "parts").glob("*.json"), key=lambda p: (order.get(p.stem, 9), p.stem)):
     for k, v in json.loads(part.read_text(encoding="utf-8")).items():
         if not isinstance(v, str) or not v.strip():
             bad.append(f"{part.name}: kosong: {k!r}")

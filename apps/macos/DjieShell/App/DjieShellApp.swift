@@ -22,41 +22,41 @@ struct DjieShellApp: App {
         .defaultSize(width: 1240, height: 800)
         .commands {
             CommandGroup(replacing: .appInfo) {
-                Button("Tentang Djie Shell") {
+                Button(L("Tentang Djie Shell")) {
                     model.section = .about
                     model.showHome()
                 }
                 .disabled(model.phase != .main)
-                Button("Periksa Pembaruan…") { Task { await model.checkForUpdates(manual: true) } }
+                Button(L("Periksa Pembaruan…")) { Task { await model.checkForUpdates(manual: true) } }
             }
             CommandGroup(replacing: .newItem) {
-                Button("Host Baru…") { NotificationCenter.default.post(name: .djieNewHost, object: nil) }
+                Button(L("Host Baru…")) { NotificationCenter.default.post(name: .djieNewHost, object: nil) }
                     .keyboardShortcut("n")
                     .disabled(model.phase != .main)
             }
             CommandGroup(after: .sidebar) {
-                Picker("Tampilan", selection: $appearance) {
+                Picker(L("Tampilan"), selection: $appearance) {
                     ForEach(AppearanceMode.allCases) { m in Text(m.title).tag(m) }
                 }
                 Divider()
             }
-            CommandMenu("Sesi") {
-                Button("Daftar Host") { model.showHome() }.keyboardShortcut("t")
-                Button("Terminal Lokal") { model.openLocalTerminal() }
+            CommandMenu(L("Sesi")) {
+                Button(L("Daftar Host")) { model.showHome() }.keyboardShortcut("t")
+                Button(L("Terminal Lokal")) { model.openLocalTerminal() }
                     .keyboardShortcut("t", modifiers: [.command, .shift])
                     .disabled(model.phase != .main)
-                Button("Tutup Tab") { model.closeActive() }
+                Button(L("Tutup Tab")) { model.closeActive() }
                 Divider()
-                Button("Split: Duplikat Tab") { model.splitDuplicate() }
+                Button(L("Split: Duplikat Tab")) { model.splitDuplicate() }
                     .keyboardShortcut("d")
                     .disabled(!model.canSplit)
-                Button(model.broadcast ? "Matikan Broadcast" : "Broadcast ke Semua Panel") { model.toggleBroadcast() }
+                Button(model.broadcast ? L("Matikan Broadcast") : L("Broadcast ke Semua Panel")) { model.toggleBroadcast() }
                     .keyboardShortcut("b", modifiers: [.command, .shift])
                     .disabled(!model.splitVisible)
-                Button("Keluar dari Split") { model.unsplit() }
+                Button(L("Keluar dari Split")) { model.unsplit() }
                     .disabled(!model.splitVisible)
                 Divider()
-                Button("Kunci Vault") { model.lock() }
+                Button(L("Kunci Vault")) { model.lock() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                     .disabled(model.phase != .main)
             }

@@ -15,8 +15,8 @@ using Microsoft.Win32;
 
 namespace DjieShell;
 
-internal sealed class AuthCancelledException() : Exception("Login dibatalkan");
-internal sealed class NotSignedInException() : Exception("Sesi Google berakhir. Masuk lagi untuk melanjutkan sync.");
+internal sealed class AuthCancelledException() : Exception(L.T("Login dibatalkan"));
+internal sealed class NotSignedInException() : Exception(L.T("Sesi Google berakhir. Masuk lagi untuk melanjutkan sync."));
 
 /// <summary>
 /// Login Google (OAuth 2.0 + PKCE). Memakai client ID yang sama dengan versi macOS;
@@ -94,9 +94,9 @@ internal static class GoogleAuth
         finally { if (_pending == cts) _pending = null; }
 
         var query = ParseQuery(callback);
-        if (query.GetValueOrDefault("state") != state) throw new Exception("Respons login tidak cocok, coba lagi");
-        if (query.TryGetValue("error", out var err)) throw err == "access_denied" ? new AuthCancelledException() : new Exception("Login gagal: " + err);
-        if (!query.TryGetValue("code", out var code)) throw new Exception("Kode otorisasi tidak diterima");
+        if (query.GetValueOrDefault("state") != state) throw new Exception(L.T("Respons login tidak cocok, coba lagi"));
+        if (query.TryGetValue("error", out var err)) throw err == "access_denied" ? new AuthCancelledException() : new Exception(L.T("Login gagal: {}", err));
+        if (!query.TryGetValue("code", out var code)) throw new Exception(L.T("Kode otorisasi tidak diterima"));
 
         var form = new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -109,7 +109,7 @@ internal static class GoogleAuth
         var idToken = root.TryGetProperty("id_token", out var it) ? it.GetString() : null;
         var claims = idToken == null ? null : Claims(idToken);
         if (claims == null || !claims.RootElement.TryGetProperty("email", out var email))
-            throw new Exception("Tidak bisa membaca email akun Google");
+            throw new Exception(L.T("Tidak bisa membaca email akun Google"));
         GoogleTokens.Store(
             root.TryGetProperty("refresh_token", out var rt) ? rt.GetString() : null,
             root.TryGetProperty("access_token", out var at) ? at.GetString() : null,
@@ -267,9 +267,9 @@ internal static class HelloUnlock
 
     public static async Task<byte[]> Retrieve()
     {
-        var r = await Windows.Security.Credentials.UI.UserConsentVerifier.RequestVerificationAsync("Membuka vault Djie Shell");
+        var r = await Windows.Security.Credentials.UI.UserConsentVerifier.RequestVerificationAsync(L.T("Membuka vault Djie Shell"));
         if (r != Windows.Security.Credentials.UI.UserConsentVerificationResult.Verified) throw new AuthCancelledException();
-        return CredentialStore.Read(Target) ?? throw new Exception("Kunci Windows Hello tidak ditemukan");
+        return CredentialStore.Read(Target) ?? throw new Exception(L.T("Kunci Windows Hello tidak ditemukan"));
     }
 }
 

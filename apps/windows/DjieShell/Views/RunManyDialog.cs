@@ -28,19 +28,19 @@ internal sealed class RunManyDialog
         _command = new TextBox
         {
             AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, Height = 80, FontFamily = Theme.MonoFont, FontSize = 12.5,
-            PlaceholderText = "mis. df -h /   ·   uptime   ·   apt list --upgradable 2>/dev/null | wc -l",
+            PlaceholderText = L.T("mis. df -h /   ·   uptime   ·   apt list --upgradable 2>/dev/null | wc -l"),
         };
         _command.Text = R.Command;
         _command.TextChanged += (_, _) => { R.Command = _command.Text; UpdateButtons(); };
 
         var timeout = new ComboBox { MinWidth = 120 };
-        foreach (var (label, secs) in new[] { ("30 detik", 30u), ("2 menit", 120u), ("10 menit", 600u), ("30 menit", 1800u) })
+        foreach (var (label, secs) in new[] { (L.T("{} detik", 30), 30u), (L.T("{} menit", 2), 120u), (L.T("{} menit", 10), 600u), (L.T("{} menit", 30), 1800u) })
         {
             timeout.Items.Add(new ComboBoxItem { Content = label, Tag = secs });
             if (secs == R.Timeout) timeout.SelectedIndex = timeout.Items.Count - 1;
         }
         timeout.SelectionChanged += (_, _) => { if (timeout.SelectedItem is ComboBoxItem { Tag: uint s }) R.Timeout = s; };
-        ToolTipService.SetToolTip(timeout, "Batas waktu per server");
+        ToolTipService.SetToolTip(timeout, L.T("Batas waktu per server"));
 
         UIElement? snippets = null;
         if (M.Snippets.Length > 0)
@@ -52,32 +52,32 @@ internal sealed class RunManyDialog
                 it.Click += (_, _) => _command.Text = s.Command;
                 menu.Items.Add(it);
             }
-            snippets = new DropDownButton { Content = Ui.Row(6, Ui.Icon(G.Code, 12), Ui.Text("Snippet", 12.5)), Flyout = menu };
+            snippets = new DropDownButton { Content = Ui.Row(6, Ui.Icon(G.Code, 12), Ui.Text(L.T("Snippet"), 12.5)), Flyout = menu };
         }
 
         var editor = Ui.Col(8,
-            Ui.Columns("*,Auto,Auto", 10, Ui.Caps("Perintah"), snippets, timeout),
+            Ui.Columns("*,Auto,Auto", 10, Ui.Caps(L.T("Perintah")), snippets, timeout),
             _command,
             Ui.Row(6, Ui.Icon(G.Info, 11, Theme.Text2),
-                Ui.Text("Berjalan tanpa terminal interaktif. Perintah yang menunggu input (mis. sudo dengan password) berhenti di batas waktu — pakai user root atau sudo -n.",
+                Ui.Text(L.T("Berjalan tanpa terminal interaktif. Perintah yang menunggu input (mis. sudo dengan password) berhenti di batas waktu — pakai user root atau sudo -n."),
                     11.5, fg: Theme.Text2, wrap: true)));
 
         Button Link(string text, Action a) => Ui.Plain(Ui.Text(text, 12.5, fg: Theme.Brush(Theme.Accent)), () => { a(); RenderTargets(); }, new Thickness(6, 3, 6, 3));
         var targetHead = Ui.Columns("*,Auto,Auto,Auto", 4, _targetsTitle,
-            Link("Semua", () => { R.Targets.Clear(); R.Targets.UnionWith(M.Hosts.Select(h => h.Id)); }),
-            Link("Hanya online", () => { R.Targets.Clear(); R.Targets.UnionWith(M.Dashboard.Tiles.Values.Where(t => t.State == ServerTile.Status.Online).Select(t => t.Id)); }),
-            Link("Kosongkan", () => R.Targets.Clear()));
+            Link(L.T("Semua"), () => { R.Targets.Clear(); R.Targets.UnionWith(M.Hosts.Select(h => h.Id)); }),
+            Link(L.T("Hanya online"), () => { R.Targets.Clear(); R.Targets.UnionWith(M.Dashboard.Tiles.Values.Where(t => t.State == ServerTile.Status.Online).Select(t => t.Id)); }),
+            Link(L.T("Kosongkan"), () => R.Targets.Clear()));
         _targetsScroll = new ScrollViewer { Content = _targets, MaxHeight = 170 };
 
-        var copy = Ui.Plain(Ui.Row(6, Ui.Icon(G.Copy, 12, Theme.Text2), Ui.Text("Salin semua", 12.5, fg: Theme.Text2)),
-            () => { Ui.CopyText(R.Report()); M.Flash("Output semua server disalin"); }, new Thickness(6, 3, 6, 3));
-        _resultsBox = Ui.Col(8, Ui.Columns("Auto,*,Auto", 14, Ui.Caps("Hasil"), _summary, copy),
+        var copy = Ui.Plain(Ui.Row(6, Ui.Icon(G.Copy, 12, Theme.Text2), Ui.Text(L.T("Salin semua"), 12.5, fg: Theme.Text2)),
+            () => { Ui.CopyText(R.Report()); M.Flash(L.T("Output semua server disalin")); }, new Thickness(6, 3, 6, 3));
+        _resultsBox = Ui.Col(8, Ui.Columns("Auto,*,Auto", 14, Ui.Caps(L.T("Hasil")), _summary, copy),
             new ScrollViewer { Content = _results, MaxHeight = 360 });
 
-        var body = Ui.Col(16, Ui.Secondary("Satu perintah di banyak server sekaligus — hasilnya per server", 13), editor, Ui.Col(8, targetHead, _targetsScroll), _resultsBox);
+        var body = Ui.Col(16, Ui.Secondary(L.T("Satu perintah di banyak server sekaligus — hasilnya per server"), 13), editor, Ui.Col(8, targetHead, _targetsScroll), _resultsBox);
         body.Width = 820;
 
-        _dialog = Ui.Dialog("Jalankan perintah", new ScrollViewer { Content = body }, "Jalankan", "Tutup");
+        _dialog = Ui.Dialog(L.T("Jalankan perintah"), new ScrollViewer { Content = body }, L.T("Jalankan"), L.T("Tutup"));
         _dialog.Resources["ContentDialogMaxWidth"] = 900.0;
         _dialog.PrimaryButtonClick += (_, e) => { e.Cancel = true; R.Run(); };
         _dialog.SecondaryButtonClick += (_, e) =>
@@ -96,14 +96,14 @@ internal sealed class RunManyDialog
 
     private void UpdateButtons()
     {
-        _dialog.PrimaryButtonText = R.Running ? "Menjalankan…" : $"Jalankan di {R.Targets.Count} server";
+        _dialog.PrimaryButtonText = R.Running ? L.T("Menjalankan…") : L.T("Jalankan di {} server", R.Targets.Count);
         _dialog.IsPrimaryButtonEnabled = !R.Running && R.Targets.Count > 0 && R.Command.Trim().Length > 0;
-        _dialog.SecondaryButtonText = R.Running ? "Batalkan" : R.FailCount > 0 ? "Ulangi yang gagal" : "";
+        _dialog.SecondaryButtonText = R.Running ? L.T("Batalkan") : R.FailCount > 0 ? L.T("Ulangi yang gagal") : "";
     }
 
     private void RenderTargets()
     {
-        _targetsTitle.Text = $"SERVER · {R.Targets.Count} DIPILIH";
+        _targetsTitle.Text = L.T("SERVER · {} DIPILIH", R.Targets.Count);
         _targets.Children.Clear();
         foreach (var h in M.Hosts)
         {
@@ -143,15 +143,15 @@ internal sealed class RunManyDialog
         _resultsBox.Visibility = R.Rows.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
         _targetsScroll.MaxHeight = R.Rows.Count == 0 ? 170 : 84;
         _summary.Children.Clear();
-        _summary.Children.Add(Count(G.Check, R.OkCount, "sukses", Theme.Green));
-        _summary.Children.Add(Count(G.Close, R.FailCount, "gagal", Theme.Red));
-        if (R.PendingCount > 0) _summary.Children.Add(Count(G.Clock, R.PendingCount, "berjalan", "#94A3B8"));
+        _summary.Children.Add(Count(G.Check, L.T("{} sukses", R.OkCount), Theme.Green));
+        _summary.Children.Add(Count(G.Close, L.T("{} gagal", R.FailCount), Theme.Red));
+        if (R.PendingCount > 0) _summary.Children.Add(Count(G.Clock, L.T("{} berjalan", R.PendingCount), "#94A3B8"));
         _results.Children.Clear();
         foreach (var row in R.Rows) _results.Children.Add(ResultRow(row));
     }
 
-    private static UIElement Count(string glyph, int n, string text, string hex) =>
-        Ui.Row(4, Ui.Icon(glyph, 11, Theme.Brush(hex)), Ui.Text($"{n} {text}", 12, FontWeights.Medium));
+    private static UIElement Count(string glyph, string text, string hex) =>
+        Ui.Row(4, Ui.Icon(glyph, 11, Theme.Brush(hex)), Ui.Text(text, 12, FontWeights.Medium));
 
     private UIElement ResultRow(RunManyModel.Row row)
     {
@@ -174,7 +174,7 @@ internal sealed class RunManyDialog
                 _ => G.Close,
             }, 12, Theme.Brush(tint));
         var last = row.Output.Split('\n', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? "";
-        var duration = row.Done && row.DurationMs > 0 ? (row.DurationMs < 1000 ? $"{row.DurationMs} ms" : $"{row.DurationMs / 1000.0:0.0} dtk") : "";
+        var duration = row.Done && row.DurationMs > 0 ? (row.DurationMs < 1000 ? $"{row.DurationMs} ms" : L.T("{} dtk", (row.DurationMs / 1000.0).ToString("0.0"))) : "";
         var head = Ui.Columns("Auto,Auto,Auto,Auto,*,Auto,Auto", 9, icon, Dot(host?.Color ?? "#94A3B8"),
             Ui.Text(host?.Title() ?? row.Id, 12.5, FontWeights.SemiBold),
             Ui.Text(RunManyModel.Label(row), 11.5, fg: Theme.Brush(tint)),
@@ -187,7 +187,7 @@ internal sealed class RunManyDialog
         var col = Ui.Col(8, toggle);
         if (open)
         {
-            var text = row.Output.Length == 0 ? (row.Done ? "(tidak ada output)" : "…") : row.Output + (row.Truncated ? "\n… (output dipotong di 256 KB)" : "");
+            var text = row.Output.Length == 0 ? (row.Done ? L.T("(tidak ada output)") : "…") : row.Output + (row.Truncated ? "\n" + L.T("… (output dipotong di 256 KB)") : "");
             col.Children.Add(new Border
             {
                 Background = Theme.Brush("#000000", 0.25), CornerRadius = new CornerRadius(8), Padding = new Thickness(10),

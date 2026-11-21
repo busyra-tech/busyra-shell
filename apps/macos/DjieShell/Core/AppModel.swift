@@ -18,20 +18,20 @@ enum Section: String, CaseIterable, Identifiable {
         switch self {
         case .hosts: "Hosts"
         case .dashboard: "Dashboard"
-        case .serverAdmin: "Kelola Server"
-        case .team: "Tim"
+        case .serverAdmin: L("Kelola Server")
+        case .team: L("Tim")
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
         case .sftp: "SFTP"
         case .database: "Database"
-        case .localServer: "Server Lokal"
+        case .localServer: L("Server Lokal")
         case .docker: "Docker"
         case .snippets: "Snippets"
         case .knownHosts: "Known Hosts"
-        case .logs: "Logs"
-        case .donate: "Donasi"
-        case .about: "Tentang"
-        case .account: "Akun"
+        case .logs: L("Logs")
+        case .donate: L("Donasi")
+        case .about: L("Tentang")
+        case .account: L("Akun")
         }
     }
     var icon: String {
@@ -514,9 +514,9 @@ final class AppModel {
         do {
             let u = try await UpdateChecker.check()
             withAnimation(.djie) { update = u; if u != nil { updateDismissed = false } }
-            if manual && u == nil { flash("Djie Shell \(AppVersion.current) sudah versi terbaru") }
+            if manual && u == nil { flash(L("Djie Shell {} sudah versi terbaru", AppVersion.current)) }
         } catch {
-            if manual { flash("Gagal memeriksa pembaruan") }
+            if manual { flash(L("Gagal memeriksa pembaruan")) }
         }
     }
 
@@ -539,13 +539,13 @@ final class AppModel {
 
     func setDashboardAlerts(_ on: Bool) async {
         if on, !(await Notifier.shared.requestPermission()) {
-            flash("Notifikasi diblokir — izinkan Djie Shell di System Settings → Notifications")
+            flash(L("Notifikasi diblokir — izinkan Djie Shell di System Settings → Notifications"))
             return
         }
         withAnimation(.djieSnappy) { dashboard.alerts = on }
         if on {
             dashboard.start(self)
-            flash("Notifikasi aktif — Dashboard memantau semua server di latar belakang")
+            flash(L("Notifikasi aktif — Dashboard memantau semua server di latar belakang"))
         } else if section != .dashboard || activeSessionID != nil {
             dashboard.stop()
         }
@@ -679,7 +679,7 @@ final class AppModel {
     @discardableResult
     func save(_ host: Host) -> Host? {
         guard let vault else { return nil }
-        guard !host.isTeam else { flash("Host tim hanya bisa diubah admin tim"); return nil }
+        guard !host.isTeam else { flash(L("Host tim hanya bisa diubah admin tim")); return nil }
         do {
             let saved = try vault.upsertHost(host: host)
             // Tab yang sedang terbuka untuk host ini langsung memakai tema baru
@@ -695,7 +695,7 @@ final class AppModel {
     }
 
     func delete(_ host: Host) {
-        guard !host.isTeam else { flash("Host tim hanya bisa diubah admin tim"); return }
+        guard !host.isTeam else { flash(L("Host tim hanya bisa diubah admin tim")); return }
         try? vault?.deleteHost(id: host.id)
         selection.remove(host.id)
         changed()
@@ -768,7 +768,7 @@ final class AppModel {
         } else if let h = host(id: forward.hostId) {
             tunnels.start(forward, host: h, key: key(id: h.keyId), jump: host(id: h.jumpHostId))
         } else {
-            flash("Host untuk aturan ini sudah tidak ada")
+            flash(L("Host untuk aturan ini sudah tidak ada"))
         }
     }
 
@@ -1050,19 +1050,19 @@ final class AppModel {
     func createTeam(name: String) async -> Bool {
         guard let email = teamEmail else { return false }
         let ok = await teamCall { v, t in try await v.teamCreate(token: t, name: name, myEmail: email) } != nil
-        if ok { flash("Tim \(name) dibuat") }
+        if ok { flash(L("Tim {} dibuat", name)) }
         return ok
     }
 
     func inviteToTeam(_ team: TeamInfo, email: String) async -> Bool {
         let ok = await teamCall { v, t in try await v.teamInvite(token: t, teamId: team.id, email: email) } != nil
-        if ok { flash("Undangan dikirim ke \(email)") }
+        if ok { flash(L("Undangan dikirim ke {}", email)) }
         return ok
     }
 
     func removeFromTeam(_ team: TeamInfo, email: String) async {
         if await teamCall({ v, t in try await v.teamRemoveMember(token: t, teamId: team.id, email: email) }) != nil {
-            flash("\(email) dikeluarkan · kunci tim diganti")
+            flash(L("{} dikeluarkan · kunci tim diganti", email))
         }
     }
 
@@ -1081,13 +1081,13 @@ final class AppModel {
         let id = Self.fileId(from: fileId)
         guard let info = await teamCall({ v, t in try await v.teamJoin(token: t, fileId: id, myEmail: email) }) else { return false }
         teamInvites.removeAll { $0.fileId == id }
-        flash(info.status == .active ? "Bergabung ke \(info.name)" : "Bergabung ke \(info.name) · menunggu admin")
+        flash(info.status == .active ? L("Bergabung ke {}", info.name) : L("Bergabung ke {} · menunggu admin", info.name))
         return true
     }
 
     func leaveTeam(_ team: TeamInfo) async {
         if await teamCall({ v, t in try await v.teamLeave(token: t, teamId: team.id) }) != nil {
-            flash(team.isOwner ? "Tim \(team.name) dihapus" : "Keluar dari \(team.name)")
+            flash(team.isOwner ? L("Tim {} dihapus", team.name) : L("Keluar dari {}", team.name))
         }
     }
 
@@ -1101,7 +1101,7 @@ final class AppModel {
     func grantTeamAccess() async {
         do {
             _ = try await signInGoogle()
-            teamError = GoogleTokens.hasDriveFileScope ? nil : "Izin Google Drive belum dicentang. Coba lagi dan centang izin Drive."
+            teamError = GoogleTokens.hasDriveFileScope ? nil : L("Izin Google Drive belum dicentang. Coba lagi dan centang izin Drive.")
         } catch GoogleAuth.AuthError.cancelled {
         } catch {
             teamError = error.djieMessage
@@ -1112,7 +1112,7 @@ final class AppModel {
         #if DEBUG
         if let e = ProcessInfo.processInfo.environment["DJIE_TEST_DRIVE_EMAIL"] { return e }
         #endif
-        guard let e = accountEmail else { teamError = "Masuk dengan Google dulu untuk memakai Tim"; return nil }
+        guard let e = accountEmail else { teamError = L("Masuk dengan Google dulu untuk memakai Tim"); return nil }
         return e
     }
 

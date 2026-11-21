@@ -13,12 +13,12 @@ struct TeamView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Tim", subtitle: "Bagikan host ke rekan kerja — terenkripsi end-to-end lewat Google Drive") {
+                PageHeader(title: L("Tim"), subtitle: L("Bagikan host ke rekan kerja — terenkripsi end-to-end lewat Google Drive")) {
                     if model.teamReady {
                         if model.teamBusy { ProgressView().controlSize(.small) }
-                        Button { joining = true } label: { Label("Gabung tim", systemImage: "person.badge.plus") }
+                        Button { joining = true } label: { Label(L("Gabung tim"), systemImage: "person.badge.plus") }
                             .buttonStyle(SecondaryButtonStyle())
-                        Button { creating = true } label: { Label("Buat tim", systemImage: "plus") }
+                        Button { creating = true } label: { Label(L("Buat tim"), systemImage: "plus") }
                             .buttonStyle(PrimaryButtonStyle())
                     }
                 }
@@ -38,7 +38,7 @@ struct TeamView: View {
                 } else {
                     if !model.teamInvites.isEmpty {
                         VStack(alignment: .leading, spacing: 8) {
-                            SectionTitle(text: "Undangan")
+                            SectionTitle(text: L("Undangan"))
                             ForEach(model.teamInvites, id: \.fileId) { inv in InviteRow(invite: inv) }
                         }
                     }
@@ -87,18 +87,18 @@ private struct TeamSetupCard: View {
                     .frame(width: 56, height: 56)
                     .background(Theme.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(model.accountEmail == nil ? "Masuk dengan Google untuk memakai Tim" : "Izinkan Djie Shell mengelola file Tim")
+                    Text(model.accountEmail == nil ? L("Masuk dengan Google untuk memakai Tim") : L("Izinkan Djie Shell mengelola file Tim"))
                         .font(.title3.bold())
                     Text(model.accountEmail == nil
-                         ? "Tim memakai Google Drive milik admin untuk menyimpan host yang dibagikan. Isinya terenkripsi — Google tidak bisa membacanya."
-                         : "Tim butuh izin Google Drive tambahan: hanya file yang dibuat atau kamu pilih di Djie Shell — bukan seluruh Drive-mu. Masuk ulang dengan Google lalu centang izin Drive.")
+                         ? L("Tim memakai Google Drive milik admin untuk menyimpan host yang dibagikan. Isinya terenkripsi — Google tidak bisa membacanya.")
+                         : L("Tim butuh izin Google Drive tambahan: hanya file yang dibuat atau kamu pilih di Djie Shell — bukan seluruh Drive-mu. Masuk ulang dengan Google lalu centang izin Drive."))
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                     Button {
                         working = true
                         Task { await model.grantTeamAccess(); working = false }
                     } label: {
-                        Label(model.accountEmail == nil ? "Masuk dengan Google" : "Izinkan akses Google Drive", systemImage: "g.circle.fill")
+                        Label(model.accountEmail == nil ? L("Masuk dengan Google") : L("Izinkan akses Google Drive"), systemImage: "g.circle.fill")
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(working)
@@ -113,12 +113,12 @@ private struct TeamSetupCard: View {
 private struct TeamIntro: View {
     var body: some View {
         VStack(spacing: 18) {
-            EmptyState(icon: "person.2.fill", title: "Belum ada tim",
-                       text: "Buat tim untuk membagikan host ke rekan kerja, atau gabung ke tim yang mengundangmu.")
+            EmptyState(icon: "person.2.fill", title: L("Belum ada tim"),
+                       text: L("Buat tim untuk membagikan host ke rekan kerja, atau gabung ke tim yang mengundangmu."))
             HStack(alignment: .top, spacing: 12) {
-                step(1, "Buat tim", "Pilih host yang dibagikan — password & SSH key ikut, terenkripsi.")
-                step(2, "Undang email", "Google mengirim email undangan ke rekanmu.")
-                step(3, "Rekan bergabung", "Mereka klik Gabung tim di Djie Shell; host muncul di daftar Hosts.")
+                step(1, L("Buat tim"), L("Pilih host yang dibagikan — password & SSH key ikut, terenkripsi."))
+                step(2, L("Undang email"), L("Google mengirim email undangan ke rekanmu."))
+                step(3, L("Rekan bergabung"), L("Mereka klik Gabung tim di Djie Shell; host muncul di daftar Hosts."))
             }
             .frame(maxWidth: 760)
         }
@@ -152,10 +152,10 @@ private struct InviteRow: View {
                     .background(Section.team.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(invite.name).font(.system(size: 13, weight: .semibold))
-                    Text("dari \(invite.ownerEmail)").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(L("dari {}", invite.ownerEmail)).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Button(working ? "Bergabung…" : "Gabung") {
+                Button(working ? L("Bergabung…") : L("Gabung")) {
                     working = true
                     Task { _ = await model.joinTeam(fileId: invite.fileId); working = false }
                 }
@@ -192,19 +192,19 @@ private struct TeamCard: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.card))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(Theme.cardStroke))
         .sheet(isPresented: $sharing) { ShareHostsSheet(team: team) }
-        .confirmationDialog(team.isOwner ? "Hapus tim \(team.name)?" : "Keluar dari \(team.name)?", isPresented: $confirmLeave) {
-            Button(team.isOwner ? "Hapus tim" : "Keluar", role: .destructive) { Task { await model.leaveTeam(team) } }
+        .confirmationDialog(team.isOwner ? L("Hapus tim {}?", team.name) : L("Keluar dari {}?", team.name), isPresented: $confirmLeave) {
+            Button(team.isOwner ? L("Hapus tim") : (L10n.shared.english ? "Leave" : "Keluar"), role: .destructive) { Task { await model.leaveTeam(team) } }
         } message: {
             Text(team.isOwner
-                 ? "File tim dipindah ke sampah Google Drive-mu dan semua anggota kehilangan akses ke host tim."
-                 : "Host tim hilang dari Djie Shell-mu. Admin bisa mengundangmu lagi nanti.")
+                 ? L("File tim dipindah ke sampah Google Drive-mu dan semua anggota kehilangan akses ke host tim.")
+                 : L("Host tim hilang dari Djie Shell-mu. Admin bisa mengundangmu lagi nanti."))
         }
-        .confirmationDialog("Keluarkan \(removing ?? "")?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
-            Button("Keluarkan", role: .destructive) {
+        .confirmationDialog(L("Keluarkan {}?", removing ?? ""), isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+            Button(L("Keluarkan"), role: .destructive) {
                 if let e = removing { Task { await model.removeFromTeam(team, email: e) } }
             }
         } message: {
-            Text("Akses Google Drive-nya dicabut dan kunci tim diganti, jadi perubahan host berikutnya tidak bisa dibaca lagi olehnya. Ganti juga password server yang sempat ia lihat.")
+            Text(L("Akses Google Drive-nya dicabut dan kunci tim diganti, jadi perubahan host berikutnya tidak bisa dibaca lagi olehnya. Ganti juga password server yang sempat ia lihat."))
         }
     }
 
@@ -219,16 +219,16 @@ private struct TeamCard: View {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     Text(team.name).font(.system(size: 17, weight: .bold))
-                    Badge(text: team.isOwner ? "ADMIN" : "ANGGOTA", color: team.isOwner ? Theme.accent : Theme.accent2)
+                    Badge(text: team.isOwner ? "ADMIN" : L("ANGGOTA"), color: team.isOwner ? Theme.accent : Theme.accent2)
                     if !team.isOwner { statusBadge }
                 }
                 Text(subtitle).font(.system(size: 11.5)).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
             Menu {
-                Button("Sinkronkan sekarang") { Task { await model.syncTeams() } }
+                Button(L("Sinkronkan sekarang")) { Task { await model.syncTeams() } }
                 Divider()
-                Button(team.isOwner ? "Hapus tim…" : "Keluar dari tim…", role: .destructive) { confirmLeave = true }
+                Button(team.isOwner ? L("Hapus tim…") : L("Keluar dari tim…"), role: .destructive) { confirmLeave = true }
             } label: {
                 Image(systemName: "ellipsis").frame(width: 28, height: 28)
             }
@@ -237,7 +237,7 @@ private struct TeamCard: View {
     }
 
     private var subtitle: String {
-        var parts = [team.isOwner ? "\(team.members.count) anggota" : "Admin: \(team.ownerEmail)"]
+        var parts = [team.isOwner ? L("{} anggota", team.members.count) : L("Admin: {}", team.ownerEmail)]
         if team.lastSync > 0 {
             parts.append("disinkron " + Date(ms: team.lastSync).formatted(.relative(presentation: .named)))
         }
@@ -247,9 +247,9 @@ private struct TeamCard: View {
 
     @ViewBuilder private var statusBadge: some View {
         switch team.status {
-        case .active: Badge(text: "AKTIF", color: Color(hex: "#4ADE80"))
-        case .waiting: Badge(text: "MENUNGGU ADMIN", color: .orange)
-        case .revoked: Badge(text: "AKSES DICABUT", color: .red)
+        case .active: Badge(text: L("AKTIF"), color: Color(hex: "#4ADE80"))
+        case .waiting: Badge(text: L("MENUNGGU ADMIN"), color: .orange)
+        case .revoked: Badge(text: L("AKSES DICABUT"), color: .red)
         }
     }
 
@@ -258,20 +258,20 @@ private struct TeamCard: View {
     private var ownerBody: some View {
         HStack(alignment: .top, spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
-                SectionTitle(text: "Anggota")
+                SectionTitle(text: L("Anggota"))
                 VStack(spacing: 0) {
                     ForEach(team.members, id: \.email) { m in
                         HStack(spacing: 10) {
                             MemberAvatar(email: m.email)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(m.email).font(.system(size: 12.5, weight: .medium)).lineLimit(1)
-                                Text(m.isAdmin ? "Admin" : m.status == .joined ? "Aktif" : "Belum bergabung di Djie Shell")
+                                Text(m.isAdmin ? L("Admin") : m.status == .joined ? L("Aktif") : L("Belum bergabung di Djie Shell"))
                                     .font(.system(size: 11))
                                     .foregroundStyle(m.isAdmin || m.status == .joined ? .secondary : Color.orange)
                             }
                             Spacer()
                             if !m.isAdmin {
-                                IconButton(symbol: "person.fill.xmark", help: "Keluarkan dari tim", tint: .red) { removing = m.email }
+                                IconButton(symbol: "person.fill.xmark", help: L("Keluarkan dari tim"), tint: .red) { removing = m.email }
                             }
                         }
                         .padding(.vertical, 7)
@@ -279,27 +279,27 @@ private struct TeamCard: View {
                     }
                 }
                 HStack(spacing: 8) {
-                    TextField("email@rekan.com", text: $inviteEmail)
+                    TextField(L("email@rekan.com"), text: $inviteEmail)
                         .djieField()
                         .onSubmit(invite)
-                    Button("Undang", action: invite)
+                    Button(L("Undang"), action: invite)
                         .buttonStyle(PrimaryButtonStyle())
                         .disabled(!inviteEmail.contains("@") || model.teamBusy)
                 }
-                Text("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang.")
+                Text(L("Google mengirim email undangan. Rekan lalu membuka Tim → Gabung tim di Djie Shell miliknya, masuk dengan email yang diundang."))
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    SectionTitle(text: "Host dibagikan")
+                    SectionTitle(text: L("Host dibagikan"))
                     Spacer()
-                    Button { sharing = true } label: { Label("Pilih host", systemImage: "checklist") }
+                    Button { sharing = true } label: { Label(L("Pilih host"), systemImage: "checklist") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 if sharedHosts.isEmpty {
-                    Text("Belum ada host yang dibagikan.")
+                    Text(L("Belum ada host yang dibagikan."))
                         .font(.callout).foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, minHeight: 80)
                         .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
@@ -308,7 +308,7 @@ private struct TeamCard: View {
                         ForEach(sharedHosts) { h in HostChip(host: h) }
                     }
                 }
-                Text("Password & SSH key host ikut dibagikan, terenkripsi. Perubahan host otomatis terkirim ke anggota.")
+                Text(L("Password & SSH key host ikut dibagikan, terenkripsi. Perubahan host otomatis terkirim ke anggota."))
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -328,9 +328,9 @@ private struct TeamCard: View {
         case .active:
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
-                    SectionTitle(text: "\(memberHosts.count) host dari tim")
+                    SectionTitle(text: L("{} host dari tim", memberHosts.count))
                     Spacer()
-                    Button { withAnimation(.djie) { model.section = .hosts } } label: { Label("Buka Hosts", systemImage: "server.rack") }
+                    Button { withAnimation(.djie) { model.section = .hosts } } label: { Label(L("Buka Hosts"), systemImage: "server.rack") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 8)], spacing: 8) {
@@ -338,11 +338,11 @@ private struct TeamCard: View {
                 }
             }
         case .waiting:
-            Label("Menunggu \(team.ownerEmail) membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.",
+            Label(L("Menunggu {} membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.", team.ownerEmail),
                   systemImage: "hourglass")
                 .font(.callout).foregroundStyle(.secondary)
         case .revoked:
-            Label("Akses ke tim ini sudah dicabut atau timnya dihapus.", systemImage: "lock.slash")
+            Label(L("Akses ke tim ini sudah dicabut atau timnya dihapus."), systemImage: "lock.slash")
                 .font(.callout).foregroundStyle(.secondary)
         }
     }
@@ -374,7 +374,7 @@ private struct HostChip: View {
             Image(systemName: host.auth == .key ? "key.fill" : host.auth == .agent ? "person.badge.key" : "ellipsis.rectangle")
                 .font(.system(size: 11)).foregroundStyle(.tertiary)
             if host.isTeam {
-                IconButton(symbol: "play.fill", help: "Connect") { model.connect([host.id]) }
+                IconButton(symbol: "play.fill", help: L("Connect")) { model.connect([host.id]) }
             }
         }
         .padding(.horizontal, 10).padding(.vertical, 7)
@@ -392,14 +392,14 @@ private struct CreateTeamSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Buat tim").font(.title3.bold())
-            Text("File tim dibuat di Google Drive-mu (\(model.accountEmail ?? "akun Google")). Kamu jadi admin: yang bisa mengundang dan memilih host.")
+            Text(L("Buat tim")).font(.title3.bold())
+            Text(L("File tim dibuat di Google Drive-mu ({}). Kamu jadi admin: yang bisa mengundang dan memilih host.", model.accountEmail ?? L("akun Google")))
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            TextField("Nama tim (mis. Tim Ops)", text: $name).djieField().onSubmit(create)
+            TextField(L("Nama tim (mis. Tim Ops)"), text: $name).djieField().onSubmit(create)
             HStack {
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
-                Button(working ? "Membuat…" : "Buat tim", action: create)
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(working ? L("Membuat…") : L("Buat tim"), action: create)
                     .buttonStyle(PrimaryButtonStyle()).keyboardShortcut(.defaultAction)
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || working)
             }
@@ -427,17 +427,17 @@ private struct JoinTeamSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Gabung tim").font(.title3.bold())
+            Text(L("Gabung tim")).font(.title3.bold())
             VStack(alignment: .leading, spacing: 12) {
-                row(1, "Buka halaman Gabung tim", "Masuk dengan akun Google yang diundang (\(model.accountEmail ?? "-")), lalu pilih file tim.") {
-                    Button { openURL(TeamLinks.joinPage) } label: { Label("Buka halaman", systemImage: "safari") }
+                row(1, L("Buka halaman Gabung tim"), L("Masuk dengan akun Google yang diundang ({}), lalu pilih file tim.", model.accountEmail ?? "-")) {
+                    Button { openURL(TeamLinks.joinPage) } label: { Label(L("Buka halaman"), systemImage: "safari") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
-                row(2, "Kembali ke sini", "Undangan yang sudah kamu pilih muncul di bawah.") {
+                row(2, L("Kembali ke sini"), L("Undangan yang sudah kamu pilih muncul di bawah.")) {
                     Button {
                         checking = true
                         Task { await model.refreshInvites(); checking = false }
-                    } label: { Label(checking ? "Mengecek…" : "Cek undangan", systemImage: "arrow.clockwise") }
+                    } label: { Label(checking ? L("Mengecek…") : L("Cek undangan"), systemImage: "arrow.clockwise") }
                         .buttonStyle(SecondaryButtonStyle()).disabled(checking)
                 }
             }
@@ -447,10 +447,10 @@ private struct JoinTeamSheet: View {
                 }
             }
             Divider()
-            Text("Atau tempel link / ID file tim dari halaman Gabung tim:").font(.callout).foregroundStyle(.secondary)
+            Text(L("Atau tempel link / ID file tim dari halaman Gabung tim:")).font(.callout).foregroundStyle(.secondary)
             HStack(spacing: 8) {
-                TextField("https://drive.google.com/file/d/…", text: $link).djieField()
-                Button(joining ? "Bergabung…" : "Gabung") {
+                TextField(L("https://drive.google.com/file/d/…"), text: $link).djieField()
+                Button(joining ? L("Bergabung…") : L("Gabung")) {
                     joining = true
                     Task {
                         if await model.joinTeam(fileId: link) { dismiss() }
@@ -465,7 +465,7 @@ private struct JoinTeamSheet: View {
             }
             HStack {
                 Spacer()
-                Button("Tutup") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(L("Tutup")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
             }
         }
         .padding(24).frame(width: 520)
@@ -495,8 +495,8 @@ private struct ShareHostsSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Host untuk \(team.name)").font(.title3.bold())
-            Text("Anggota bisa connect ke host ini (termasuk password & SSH key-nya), tapi tidak bisa mengubahnya.")
+            Text(L("Host untuk {}", team.name)).font(.title3.bold())
+            Text(L("Anggota bisa connect ke host ini (termasuk password & SSH key-nya), tapi tidak bisa mengubahnya."))
                 .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ScrollView {
                 VStack(spacing: 4) {
@@ -522,10 +522,10 @@ private struct ShareHostsSheet: View {
             .frame(height: 300)
             .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 12))
             HStack {
-                Text("\(picked.count) dipilih").font(.callout).foregroundStyle(.secondary)
+                Text(L("{} dipilih", picked.count)).font(.callout).foregroundStyle(.secondary)
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
-                Button(saving ? "Menyimpan…" : "Simpan") {
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(saving ? L("Menyimpan…") : L("Simpan")) {
                     saving = true
                     Task {
                         await model.shareHosts(team, ids: Array(picked))

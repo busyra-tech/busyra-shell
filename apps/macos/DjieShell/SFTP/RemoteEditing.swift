@@ -113,7 +113,7 @@ struct RemoteEditorView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     HStack(spacing: 6) {
                         Text(doc.name).font(.system(size: 14, weight: .semibold))
-                        if doc.dirty { Circle().fill(Color.orange).frame(width: 7, height: 7).help("Belum disimpan") }
+                        if doc.dirty { Circle().fill(Color.orange).frame(width: 7, height: 7).help(L("Belum disimpan")) }
                     }
                     Text(doc.path).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                 }
@@ -122,18 +122,18 @@ struct RemoteEditorView: View {
                     ForEach(RemoteFiles.apps(for: doc.name), id: \.self) { app in
                         Button(RemoteFiles.appName(app)) { openWith(app) }
                     }
-                } label: { Label("Buka dengan", systemImage: "arrow.up.forward.app") }
+                } label: { Label(L("Buka dengan"), systemImage: "arrow.up.forward.app") }
                 .menuStyle(.borderlessButton).fixedSize()
                 Button { Task { await model.sftp.saveEditor(doc) } } label: {
                     HStack(spacing: 6) {
                         if doc.saving { ProgressView().controlSize(.small) } else { Image(systemName: "arrow.up.doc") }
-                        Text("Simpan")
+                        Text(L("Simpan"))
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle())
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(!doc.dirty || doc.saving)
-                IconButton(symbol: "xmark", help: "Tutup (⌘W)") { close() }
+                IconButton(symbol: "xmark", help: L("Tutup (⌘W)")) { close() }
                     .keyboardShortcut("w", modifiers: .command)
             }
             .padding(.horizontal, 16).padding(.vertical, 12)
@@ -148,26 +148,26 @@ struct RemoteEditorView: View {
             CodeTextView(text: $doc.text)
             Divider()
             HStack(spacing: 14) {
-                Text("\(doc.lineCount) baris").monospacedDigit()
+                Text(L("{} baris", doc.lineCount)).monospacedDigit()
                 Text("UTF-8")
-                Text(model.sftp.host.map { "SFTP · \($0.title)" } ?? "SFTP")
+                Text(model.sftp.host.map { L("SFTP · {}", $0.title) } ?? "SFTP")
                 Spacer()
-                Text("⌘S simpan · ⌘F cari · ⌘W tutup")
+                Text(L("⌘S simpan · ⌘F cari · ⌘W tutup"))
             }
             .font(.system(size: 11)).foregroundStyle(.secondary)
             .padding(.horizontal, 16).padding(.vertical, 7)
         }
         .frame(minWidth: 860, idealWidth: 1040, minHeight: 560, idealHeight: 720)
         .background(Theme.bg)
-        .confirmationDialog("Simpan perubahan di \(doc.name)?", isPresented: $confirmClose) {
-            Button("Simpan & tutup") { Task { if await model.sftp.saveEditor(doc) { model.sftp.editor = nil } } }
-            Button("Buang perubahan", role: .destructive) { model.sftp.editor = nil }
-            Button("Batal", role: .cancel) {}
-        } message: { Text("Perubahan belum disimpan ke server.") }
-        .confirmationDialog("File di server sudah berubah", isPresented: $doc.conflict) {
-            Button("Timpa dengan versi saya", role: .destructive) { Task { await model.sftp.saveEditor(doc, force: true) } }
-            Button("Batal", role: .cancel) {}
-        } message: { Text("Seseorang (atau proses lain) mengubah \(doc.name) setelah kamu membukanya. Menyimpan akan menimpa perubahan itu.") }
+        .confirmationDialog(L("Simpan perubahan di {}?", doc.name), isPresented: $confirmClose) {
+            Button(L("Simpan & tutup")) { Task { if await model.sftp.saveEditor(doc) { model.sftp.editor = nil } } }
+            Button(L("Buang perubahan"), role: .destructive) { model.sftp.editor = nil }
+            Button(L("Batal"), role: .cancel) {}
+        } message: { Text(L("Perubahan belum disimpan ke server.")) }
+        .confirmationDialog(L("File di server sudah berubah"), isPresented: $doc.conflict) {
+            Button(L("Timpa dengan versi saya"), role: .destructive) { Task { await model.sftp.saveEditor(doc, force: true) } }
+            Button(L("Batal"), role: .cancel) {}
+        } message: { Text(L("Seseorang (atau proses lain) mengubah {} setelah kamu membukanya. Menyimpan akan menimpa perubahan itu.", doc.name)) }
     }
 
     private func close() {
@@ -285,7 +285,7 @@ struct WatchedFilesBar: View {
             Divider()
             HStack(spacing: 8) {
                 Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(Theme.accent)
-                Text("Dibuka di aplikasi lain — disimpan otomatis ke server").font(.system(size: 12, weight: .semibold))
+                Text(L("Dibuka di aplikasi lain — disimpan otomatis ke server")).font(.system(size: 12, weight: .semibold))
                 Spacer()
             }
             .padding(.horizontal, 14).padding(.top, 8)
@@ -294,15 +294,15 @@ struct WatchedFilesBar: View {
                     HStack(spacing: 8) {
                         Image(systemName: fileIcon(w.localURL.lastPathComponent)).foregroundStyle(.secondary).frame(width: 16)
                         Text(w.localURL.lastPathComponent).font(.system(size: 12, weight: .medium)).lineLimit(1)
-                        Text("di \(w.appName)").font(.system(size: 11.5)).foregroundStyle(.secondary)
+                        Text(L("di {}", w.appName)).font(.system(size: 11.5)).foregroundStyle(.secondary)
                         Spacer()
                         if w.uploading {
                             ProgressView().controlSize(.mini)
                         } else if let t = w.lastUpload {
-                            Label("Tersimpan \(t.formatted(date: .omitted, time: .shortened))", systemImage: "checkmark.circle.fill")
+                            Label(L("Tersimpan {}", t.formatted(date: .omitted, time: .shortened)), systemImage: "checkmark.circle.fill")
                                 .font(.system(size: 11)).foregroundStyle(Color(hex: "#4ADE80"))
                         }
-                        Button("Berhenti") { sftp.stopWatching(w) }.buttonStyle(.borderless).font(.caption)
+                        Button(L("Berhenti")) { sftp.stopWatching(w) }.buttonStyle(.borderless).font(.caption)
                     }
                     .padding(.horizontal, 10).padding(.vertical, 5)
                     .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 7, style: .continuous))

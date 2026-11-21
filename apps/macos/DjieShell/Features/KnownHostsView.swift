@@ -17,15 +17,15 @@ struct KnownHostsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Known Hosts", subtitle: "Fingerprint server yang sudah dipercaya — ~/.ssh/known_hosts") {
-                    SearchField(text: $query, prompt: "Cari host…")
+                PageHeader(title: "Known Hosts", subtitle: L("Fingerprint server yang sudah dipercaya — ~/.ssh/known_hosts")) {
+                    SearchField(text: $query, prompt: L("Cari host…"))
                     Button { reload() } label: { Image(systemName: "arrow.clockwise") }
                         .buttonStyle(SecondaryButtonStyle())
-                        .help("Muat ulang")
+                        .help(L("Muat ulang"))
                 }
                 if entries.isEmpty {
-                    EmptyState(icon: "touchid", title: "Belum ada known host",
-                               text: "Fingerprint server otomatis tercatat di sini saat pertama kali kamu connect.")
+                    EmptyState(icon: "touchid", title: L("Belum ada known host"),
+                               text: L("Fingerprint server otomatis tercatat di sini saat pertama kali kamu connect."))
                 } else {
                     VStack(spacing: 8) {
                         ForEach(Array(filtered.enumerated()), id: \.element.id) { i, e in
@@ -48,7 +48,7 @@ struct KnownHostsView: View {
                                             .textSelection(.enabled)
                                     }
                                     Spacer()
-                                    IconButton(symbol: "trash", help: "Hapus dari known hosts", tint: .red) { toDelete = e }
+                                    IconButton(symbol: "trash", help: L("Hapus dari known hosts"), tint: .red) { toDelete = e }
                                 }
                             }
                             .staggerIn(i, base: 0)
@@ -59,11 +59,11 @@ struct KnownHostsView: View {
             .padding(28)
         }
         .onAppear(perform: reload)
-        .confirmationDialog("Hapus fingerprint ini?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } }),
+        .confirmationDialog(L("Hapus fingerprint ini?"), isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } }),
                             presenting: toDelete) { e in
-            Button("Hapus", role: .destructive) { delete(e) }
+            Button(L("Hapus"), role: .destructive) { delete(e) }
         } message: { _ in
-            Text("Saat connect berikutnya, fingerprint server akan dicatat ulang. Hapus hanya jika kamu yakin server memang berganti kunci.")
+            Text(L("Saat connect berikutnya, fingerprint server akan dicatat ulang. Hapus hanya jika kamu yakin server memang berganti kunci."))
         }
     }
 
@@ -74,9 +74,9 @@ struct KnownHostsView: View {
     private func delete(_ e: KnownHost) {
         do {
             try KnownHostsFile.remove(lineAt: e.line)
-            model.flash("Fingerprint dihapus")
+            model.flash(L("Fingerprint dihapus"))
         } catch {
-            model.flash(error.localizedDescription)
+            model.flash(Lmsg(error.localizedDescription))
         }
         reload()
     }
@@ -95,7 +95,7 @@ struct KnownHost: Identifiable {
     }
 
     func displayHosts(hidden: Bool) -> String {
-        if isHashed { return "Host ter-hash" }
+        if isHashed { return L("Host ter-hash") }
         return hidden ? hosts.split(separator: ",").map { _ in "••••••" }.joined(separator: ", ") : hosts
     }
 }

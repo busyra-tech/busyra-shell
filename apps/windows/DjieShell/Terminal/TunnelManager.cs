@@ -87,7 +87,7 @@ internal sealed class TunnelManager
         x.cmd.Cleanup();
         string msg;
         lock (x.err) msg = x.err.LastOrDefault() ?? "";
-        _states[id] = new Status(State.Failed, msg.Length == 0 ? $"ssh keluar dengan kode {p.ExitCode}" : msg);
+        _states[id] = new Status(State.Failed, msg.Length == 0 ? L.T("ssh keluar dengan kode {}", p.ExitCode) : msg);
         Changed?.Invoke();
     }
 }

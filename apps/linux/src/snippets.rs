@@ -11,16 +11,16 @@ use crate::ctx::{self, Ctx};
 use crate::{page, terminal};
 
 pub fn build(ctx: &Ctx) -> gtk::Widget {
-    let search = gtk::SearchEntry::builder().placeholder_text("Cari snippet…").width_chars(18).build();
+    let search = gtk::SearchEntry::builder().placeholder_text(tr!("Cari snippet…")).width_chars(18).build();
     let add = gtk::Button::builder().build();
-    add.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label("Snippet Baru").build()));
+    add.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label(tr!("Snippet Baru")).build()));
     add.add_css_class("suggested-action");
     let c = ctx.clone();
     add.connect_clicked(move |_| editor(&c, None));
 
     let (root, body) = page::scaffold(
-        "Snippets",
-        "Perintah favorit — jalankan ke satu atau banyak host sekaligus",
+        &tr!("Snippets"),
+        &tr!("Perintah favorit — jalankan ke satu atau banyak host sekaligus"),
         &[search.clone().upcast(), add.upcast()],
     );
     let refresh = {
@@ -40,8 +40,8 @@ fn render(ctx: &Ctx, body: &gtk::Box, query: &str) {
         body.append(
             &adw::StatusPage::builder()
                 .icon_name("accessories-text-editor-symbolic")
-                .title("Belum ada snippet")
-                .description("Simpan perintah yang sering dipakai, misalnya cek disk atau restart service.")
+                .title(tr!("Belum ada snippet"))
+                .description(tr!("Simpan perintah yang sering dipakai, misalnya cek disk atau restart service."))
                 .vexpand(true)
                 .build(),
         );
@@ -60,7 +60,7 @@ fn render(ctx: &Ctx, body: &gtk::Box, query: &str) {
         row.add_css_class("property");
         row.add_prefix(&gtk::Image::from_icon_name("accessories-text-editor-symbolic"));
 
-        let run_tab = gtk::Button::builder().icon_name("utilities-terminal-symbolic").tooltip_text("Jalankan di tab aktif").valign(gtk::Align::Center).build();
+        let run_tab = gtk::Button::builder().icon_name("utilities-terminal-symbolic").tooltip_text(tr!("Jalankan di tab aktif")).valign(gtk::Align::Center).build();
         run_tab.add_css_class("flat");
         let (c, cmd) = (ctx.clone(), s.command.clone());
         run_tab.connect_clicked(move |_| match terminal::last_session(&c) {
@@ -69,27 +69,27 @@ fn render(ctx: &Ctx, body: &gtk::Box, query: &str) {
                 if let Some(p) = sess.page() {
                     c.tabs.set_selected_page(&p);
                 }
-                c.toast("Dikirim ke tab aktif");
+                c.toast(&tr!("Dikirim ke tab aktif"));
             }
-            None => c.toast("Belum ada tab terminal yang terbuka"),
+            None => c.toast(&tr!("Belum ada tab terminal yang terbuka")),
         });
         row.add_suffix(&run_tab);
 
-        let run = gtk::Button::builder().tooltip_text("Jalankan di beberapa host").valign(gtk::Align::Center).build();
-        run.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label("Jalankan").build()));
+        let run = gtk::Button::builder().tooltip_text(tr!("Jalankan di beberapa host")).valign(gtk::Align::Center).build();
+        run.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label(tr!("Jalankan")).build()));
         run.add_css_class("pill");
         run.add_css_class("small");
         let (c, sn) = (ctx.clone(), s.clone());
         run.connect_clicked(move |_| run_dialog(&c, &sn));
         row.add_suffix(&run);
 
-        let edit = gtk::Button::builder().icon_name("document-edit-symbolic").tooltip_text("Edit").valign(gtk::Align::Center).build();
+        let edit = gtk::Button::builder().icon_name("document-edit-symbolic").tooltip_text(tr!("Edit")).valign(gtk::Align::Center).build();
         edit.add_css_class("flat");
         let (c, sn) = (ctx.clone(), s.clone());
         edit.connect_clicked(move |_| editor(&c, Some(sn.clone())));
         row.add_suffix(&edit);
 
-        let del = gtk::Button::builder().icon_name("user-trash-symbolic").tooltip_text("Hapus").valign(gtk::Align::Center).build();
+        let del = gtk::Button::builder().icon_name("user-trash-symbolic").tooltip_text(tr!("Hapus")).valign(gtk::Align::Center).build();
         del.add_css_class("flat");
         let (c, id) = (ctx.clone(), s.id.clone());
         del.connect_clicked(move |_| {
@@ -109,20 +109,20 @@ fn render(ctx: &Ctx, body: &gtk::Box, query: &str) {
 fn editor(ctx: &Ctx, existing: Option<Snippet>) {
     let is_new = existing.is_none();
     let s = existing.unwrap_or(Snippet { id: String::new(), label: String::new(), command: String::new(), updated_at: 0, deleted: false });
-    let d = adw::AlertDialog::new(Some(if is_new { "Snippet Baru" } else { "Edit Snippet" }), None);
+    let d = adw::AlertDialog::new(Some(&if is_new { tr!("Snippet Baru") } else { tr!("Edit Snippet") }), None);
     let b = gtk::Box::new(gtk::Orientation::Vertical, 8);
-    let name = gtk::Entry::builder().placeholder_text("Nama (mis. Cek disk)").text(&s.label).build();
+    let name = gtk::Entry::builder().placeholder_text(tr!("Nama (mis. Cek disk)")).text(&s.label).build();
     let text = gtk::TextView::builder().monospace(true).wrap_mode(gtk::WrapMode::Char).top_margin(8).bottom_margin(8).left_margin(8).right_margin(8).build();
     text.buffer().set_text(&s.command);
     let frame = gtk::Frame::new(None);
     frame.set_child(Some(&gtk::ScrolledWindow::builder().child(&text).min_content_height(110).min_content_width(360).build()));
-    let hint = gtk::Label::builder().label("Contoh: df -h && free -m").xalign(0.0).build();
+    let hint = gtk::Label::builder().label(tr!("Contoh: df -h && free -m")).xalign(0.0).build();
     hint.add_css_class("djie-hint");
     b.append(&name);
     b.append(&frame);
     b.append(&hint);
     d.set_extra_child(Some(&b));
-    d.add_responses(&[("cancel", "Batal"), ("ok", "Simpan")]);
+    d.add_responses(&[("cancel", &tr!("Batal")), ("ok", &tr!("Simpan"))]);
     d.set_response_appearance("ok", adw::ResponseAppearance::Suggested);
     let name2 = name.clone();
     let c = ctx.clone();
@@ -156,9 +156,9 @@ fn editor(ctx: &Ctx, existing: Option<Snippet>) {
 fn run_dialog(ctx: &Ctx, s: &Snippet) {
     let hosts = ctx.hosts();
     if hosts.is_empty() {
-        return ctx.toast("Belum ada host");
+        return ctx.toast(&tr!("Belum ada host"));
     }
-    let d = adw::AlertDialog::new(Some(&format!("Jalankan “{}”", s.label)), Some("Satu tab terminal dibuka per host."));
+    let d = adw::AlertDialog::new(Some(&tr!("Jalankan “{}”", s.label)), Some(&tr!("Satu tab terminal dibuka per host.")));
     let list = gtk::ListBox::new();
     list.add_css_class("boxed-list");
     list.set_selection_mode(gtk::SelectionMode::None);
@@ -183,7 +183,7 @@ fn run_dialog(ctx: &Ctx, s: &Snippet) {
     }
     let scroll = gtk::ScrolledWindow::builder().child(&list).propagate_natural_height(true).max_content_height(360).min_content_width(340).build();
     d.set_extra_child(Some(&scroll));
-    d.add_responses(&[("cancel", "Batal"), ("run", "Jalankan")]);
+    d.add_responses(&[("cancel", &tr!("Batal")), ("run", &tr!("Jalankan"))]);
     d.set_response_appearance("run", adw::ResponseAppearance::Suggested);
     let (c, cmd) = (ctx.clone(), s.command.clone());
     d.connect_response(None, move |_, r| {

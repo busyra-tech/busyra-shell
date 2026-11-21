@@ -7,17 +7,17 @@ struct ForwardingView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Port Forwarding", subtitle: "Teruskan port lewat SSH: local, remote, atau proxy SOCKS") {
+                PageHeader(title: "Port Forwarding", subtitle: L("Teruskan port lewat SSH: local, remote, atau proxy SOCKS")) {
                     Button { editing = .blank(hostId: model.hosts.first?.id ?? "") } label: {
-                        Label("Aturan Baru", systemImage: "plus")
+                        Label(L("Aturan Baru"), systemImage: "plus")
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .disabled(model.hosts.isEmpty)
                 }
                 if model.forwards.isEmpty {
-                    EmptyState(icon: "arrow.right.arrow.left", title: "Belum ada aturan",
-                               text: model.hosts.isEmpty ? "Tambahkan host dulu, lalu buat aturan port forwarding."
-                                   : "Contoh: buka database server di localhost:5433 lewat tunnel SSH.")
+                    EmptyState(icon: "arrow.right.arrow.left", title: L("Belum ada aturan"),
+                               text: model.hosts.isEmpty ? L("Tambahkan host dulu, lalu buat aturan port forwarding.")
+                                   : L("Contoh: buka database server di localhost:5433 lewat tunnel SSH."))
                 } else {
                     VStack(spacing: 10) {
                         ForEach(Array(model.forwards.enumerated()), id: \.element.id) { i, f in
@@ -56,10 +56,10 @@ struct ForwardRow: View {
 
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 8) {
-                        Text(forward.label.isEmpty ? "Tanpa nama" : forward.label).font(.system(size: 14, weight: .semibold))
+                        Text(forward.label.isEmpty ? L("Tanpa nama") : forward.label).font(.system(size: 14, weight: .semibold))
                         Badge(text: forward.kind.short)
                     }
-                    Text(forward.summary(via: model.host(id: forward.hostId)?.title ?? "host terhapus", hideRemote: hideAddresses))
+                    Text(forward.summary(via: model.host(id: forward.hostId)?.title ?? L("host terhapus"), hideRemote: hideAddresses))
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -69,8 +69,8 @@ struct ForwardRow: View {
                 }
                 Spacer()
                 StatusPill(state: state)
-                IconButton(symbol: "pencil", help: "Edit", action: onEdit)
-                IconButton(symbol: "trash", help: "Hapus", tint: .red) { model.delete(forward) }
+                IconButton(symbol: "pencil", help: L("Edit"), action: onEdit)
+                IconButton(symbol: "trash", help: L("Hapus"), tint: .red) { model.delete(forward) }
                 Toggle("", isOn: Binding(get: { running }, set: { _ in model.toggleTunnel(forward) }))
                     .toggleStyle(.switch)
                     .labelsHidden()
@@ -87,10 +87,10 @@ struct StatusPill: View {
 
     var body: some View {
         let (text, color): (String, Color) = switch state {
-        case .none: ("Mati", .gray)
-        case .starting: ("Menghubungkan", .yellow)
-        case .running: ("Aktif", Color(hex: "#4ADE80"))
-        case .failed: ("Gagal", .orange)
+        case .none: (L("Mati"), .gray)
+        case .starting: (L("Menghubungkan"), .yellow)
+        case .running: (L("Aktif"), Color(hex: "#4ADE80"))
+        case .failed: (L("Gagal"), .orange)
         }
         HStack(spacing: 6) {
             Circle().fill(color).frame(width: 7, height: 7)
@@ -119,28 +119,28 @@ struct ForwardEditor: View {
     }
 
     var body: some View {
-        FormSheet(title: original.id.isEmpty ? "Aturan Baru" : "Edit Aturan", canSave: valid, onSave: { model.save(f) }) {
-            TextField("Nama (mis. Postgres produksi)", text: $f.label).djieField()
-            Picker("Lewat host", selection: $f.hostId) {
+        FormSheet(title: original.id.isEmpty ? L("Aturan Baru") : L("Edit Aturan"), canSave: valid, onSave: { model.save(f) }) {
+            TextField(L("Nama (mis. Postgres produksi)"), text: $f.label).djieField()
+            Picker(L("Lewat host"), selection: $f.hostId) {
                 ForEach(model.hosts) { h in Text(h.title).tag(h.id) }
             }
             Picker("", selection: $f.kind.animation(.djie)) {
-                Text("Local (-L)").tag(ForwardKind.local)
-                Text("Remote (-R)").tag(ForwardKind.remote)
-                Text("SOCKS (-D)").tag(ForwardKind.dynamic)
+                Text(L("Local (-L)")).tag(ForwardKind.local)
+                Text(L("Remote (-R)")).tag(ForwardKind.remote)
+                Text(L("SOCKS (-D)")).tag(ForwardKind.dynamic)
             }
             .pickerStyle(.segmented).labelsHidden()
             Text(f.kind.explanation).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
 
             HStack(spacing: 8) {
-                TextField(f.kind == .remote ? "Alamat di server" : "Alamat lokal", text: $f.bindAddress).djieField()
-                TextField("Port", value: $f.bindPort, format: .number.grouping(.never)).djieField().frame(width: 90)
+                TextField(f.kind == .remote ? L("Alamat di server") : L("Alamat lokal"), text: $f.bindAddress).djieField()
+                TextField(L("Port"), value: $f.bindPort, format: .number.grouping(.never)).djieField().frame(width: 90)
             }
             if f.kind != .dynamic {
                 Image(systemName: "arrow.down").foregroundStyle(.secondary).frame(maxWidth: .infinity)
                 HStack(spacing: 8) {
-                    TextField("Host tujuan", text: $f.destHost).djieField()
-                    TextField("Port", value: $f.destPort, format: .number.grouping(.never)).djieField().frame(width: 90)
+                    TextField(L("Host tujuan"), text: $f.destHost).djieField()
+                    TextField(L("Port"), value: $f.destPort, format: .number.grouping(.never)).djieField().frame(width: 90)
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
@@ -157,9 +157,9 @@ extension PortForward {
     func summary(via host: String, hideRemote: Bool) -> String {
         let dest = hideRemote && kind == .local && destHost != "localhost" && destHost != "127.0.0.1" ? "••••" : destHost
         switch kind {
-        case .local: return "\(bindAddress):\(bindPort) → \(dest):\(destPort)  via \(host)"
+        case .local: return L("{}:{} → {}:{}  via {}", bindAddress, bindPort, dest, destPort, host)
         case .remote: return "\(host) \(bindAddress):\(bindPort) → \(dest):\(destPort)"
-        case .dynamic: return "SOCKS \(bindAddress):\(bindPort)  via \(host)"
+        case .dynamic: return L("SOCKS {}:{}  via {}", bindAddress, bindPort, host)
         }
     }
 }
@@ -169,9 +169,9 @@ extension ForwardKind {
     var icon: String { switch self { case .local: "arrow.right.circle"; case .remote: "arrow.left.circle"; case .dynamic: "globe" } }
     var explanation: String {
         switch self {
-        case .local: "Port di Mac ini diteruskan ke tujuan yang bisa dijangkau server. Contoh: 127.0.0.1:5433 → localhost:5432 (database di server)."
-        case .remote: "Port di server diteruskan ke tujuan di sisi Mac ini. Contoh: membuka web lokal ke server."
-        case .dynamic: "Proxy SOCKS di Mac ini; semua lalu lintas keluar lewat server. Atur browser ke proxy SOCKS tersebut."
+        case .local: L("Port di Mac ini diteruskan ke tujuan yang bisa dijangkau server. Contoh: 127.0.0.1:5433 → localhost:5432 (database di server).")
+        case .remote: L("Port di server diteruskan ke tujuan di sisi Mac ini. Contoh: membuka web lokal ke server.")
+        case .dynamic: L("Proxy SOCKS di Mac ini; semua lalu lintas keluar lewat server. Atur browser ke proxy SOCKS tersebut.")
         }
     }
 }

@@ -13,30 +13,30 @@ struct DbPreset: Identifiable, Hashable {
     let hint: String
 
     static let all: [DbPreset] = [
-        DbPreset(id: "postgres", name: "PostgreSQL", engine: .postgres, port: 5432, tls: false, color: "#336791", abbr: "PG", hint: "Database relasional open source"),
-        DbPreset(id: "mysql", name: "MySQL", engine: .mysql, port: 3306, tls: false, color: "#00758F", abbr: "My", hint: "Database relasional populer"),
-        DbPreset(id: "mariadb", name: "MariaDB", engine: .mariadb, port: 3306, tls: false, color: "#C0765A", abbr: "Ma", hint: "Turunan MySQL"),
+        DbPreset(id: "postgres", name: "PostgreSQL", engine: .postgres, port: 5432, tls: false, color: "#336791", abbr: "PG", hint: L("Database relasional open source")),
+        DbPreset(id: "mysql", name: "MySQL", engine: .mysql, port: 3306, tls: false, color: "#00758F", abbr: "My", hint: L("Database relasional populer")),
+        DbPreset(id: "mariadb", name: "MariaDB", engine: .mariadb, port: 3306, tls: false, color: "#C0765A", abbr: "Ma", hint: L("Turunan MySQL")),
         DbPreset(id: "sqlserver", name: "SQL Server", engine: .sqlserver, port: 1433, tls: false, color: "#CC2927", abbr: "MS", hint: "Microsoft SQL Server / MSSQL"),
-        DbPreset(id: "sqlite", name: "SQLite", engine: .sqlite, port: 0, tls: false, color: "#0F80CC", abbr: "SL", hint: "File database lokal"),
+        DbPreset(id: "sqlite", name: "SQLite", engine: .sqlite, port: 0, tls: false, color: "#0F80CC", abbr: "SL", hint: L("File database lokal")),
         DbPreset(id: "redis", name: "Redis", engine: .redis, port: 6379, tls: false, color: "#DC382D", abbr: "Rd", hint: "Key-value in-memory"),
-        DbPreset(id: "mongodb", name: "MongoDB", engine: .mongodb, port: 27017, tls: false, color: "#47A248", abbr: "Mg", hint: "Database dokumen"),
-        DbPreset(id: "clickhouse", name: "ClickHouse", engine: .clickhouse, port: 8123, tls: false, color: "#E8B500", abbr: "CH", hint: "Analitik kolumnar (HTTP)"),
+        DbPreset(id: "mongodb", name: "MongoDB", engine: .mongodb, port: 27017, tls: false, color: "#47A248", abbr: "Mg", hint: L("Database dokumen")),
+        DbPreset(id: "clickhouse", name: "ClickHouse", engine: .clickhouse, port: 8123, tls: false, color: "#E8B500", abbr: "CH", hint: L("Analitik kolumnar (HTTP)")),
         // Kompatibel protokol
-        DbPreset(id: "cockroach", name: "CockroachDB", engine: .postgres, port: 26257, tls: true, color: "#6933FF", abbr: "Cr", hint: "Protokol PostgreSQL"),
-        DbPreset(id: "timescale", name: "TimescaleDB", engine: .postgres, port: 5432, tls: false, color: "#FDB515", abbr: "Ts", hint: "Time-series di atas PostgreSQL"),
-        DbPreset(id: "yugabyte", name: "YugabyteDB", engine: .postgres, port: 5433, tls: false, color: "#FF6E42", abbr: "Yb", hint: "Protokol PostgreSQL"),
-        DbPreset(id: "supabase", name: "Supabase", engine: .postgres, port: 5432, tls: true, color: "#3ECF8E", abbr: "Sb", hint: "Postgres terkelola"),
+        DbPreset(id: "cockroach", name: "CockroachDB", engine: .postgres, port: 26257, tls: true, color: "#6933FF", abbr: "Cr", hint: L("Protokol PostgreSQL")),
+        DbPreset(id: "timescale", name: "TimescaleDB", engine: .postgres, port: 5432, tls: false, color: "#FDB515", abbr: "Ts", hint: L("Time-series di atas PostgreSQL")),
+        DbPreset(id: "yugabyte", name: "YugabyteDB", engine: .postgres, port: 5433, tls: false, color: "#FF6E42", abbr: "Yb", hint: L("Protokol PostgreSQL")),
+        DbPreset(id: "supabase", name: "Supabase", engine: .postgres, port: 5432, tls: true, color: "#3ECF8E", abbr: "Sb", hint: L("Postgres terkelola")),
         DbPreset(id: "neon", name: "Neon", engine: .postgres, port: 5432, tls: true, color: "#00E599", abbr: "Ne", hint: "Postgres serverless"),
         DbPreset(id: "rds-pg", name: "Amazon RDS PostgreSQL", engine: .postgres, port: 5432, tls: true, color: "#FF9900", abbr: "RP", hint: "AWS RDS / Aurora PostgreSQL"),
         DbPreset(id: "rds-my", name: "Amazon Aurora MySQL", engine: .mysql, port: 3306, tls: true, color: "#FF9900", abbr: "RM", hint: "AWS RDS / Aurora MySQL"),
-        DbPreset(id: "tidb", name: "TiDB", engine: .mysql, port: 4000, tls: false, color: "#E30C34", abbr: "Ti", hint: "Protokol MySQL"),
+        DbPreset(id: "tidb", name: "TiDB", engine: .mysql, port: 4000, tls: false, color: "#E30C34", abbr: "Ti", hint: L("Protokol MySQL")),
         DbPreset(id: "planetscale", name: "PlanetScale", engine: .mysql, port: 3306, tls: true, color: "#111111", abbr: "PS", hint: "MySQL serverless"),
-        DbPreset(id: "percona", name: "Percona Server", engine: .mysql, port: 3306, tls: false, color: "#E4512B", abbr: "Pc", hint: "Turunan MySQL"),
-        DbPreset(id: "azure-sql", name: "Azure SQL", engine: .sqlserver, port: 1433, tls: true, color: "#0078D4", abbr: "Az", hint: "SQL Server di Azure"),
-        DbPreset(id: "valkey", name: "Valkey", engine: .redis, port: 6379, tls: false, color: "#6983FF", abbr: "Vk", hint: "Protokol Redis"),
-        DbPreset(id: "dragonfly", name: "Dragonfly", engine: .redis, port: 6379, tls: false, color: "#8B5CF6", abbr: "Df", hint: "Protokol Redis"),
+        DbPreset(id: "percona", name: "Percona Server", engine: .mysql, port: 3306, tls: false, color: "#E4512B", abbr: "Pc", hint: L("Turunan MySQL")),
+        DbPreset(id: "azure-sql", name: "Azure SQL", engine: .sqlserver, port: 1433, tls: true, color: "#0078D4", abbr: "Az", hint: L("SQL Server di Azure")),
+        DbPreset(id: "valkey", name: "Valkey", engine: .redis, port: 6379, tls: false, color: "#6983FF", abbr: "Vk", hint: L("Protokol Redis")),
+        DbPreset(id: "dragonfly", name: "Dragonfly", engine: .redis, port: 6379, tls: false, color: "#8B5CF6", abbr: "Df", hint: L("Protokol Redis")),
         DbPreset(id: "upstash", name: "Upstash Redis", engine: .redis, port: 6379, tls: true, color: "#00E9A3", abbr: "Up", hint: "Redis serverless"),
-        DbPreset(id: "atlas", name: "MongoDB Atlas", engine: .mongodb, port: 27017, tls: true, color: "#00684A", abbr: "At", hint: "Tempel URI mongodb+srv:// di kolom host"),
+        DbPreset(id: "atlas", name: "MongoDB Atlas", engine: .mongodb, port: 27017, tls: true, color: "#00684A", abbr: "At", hint: L("Tempel URI mongodb+srv:// di kolom host")),
     ]
 
     static func forEngine(_ e: DbEngine) -> DbPreset { all.first { $0.engine == e }! }
@@ -113,10 +113,10 @@ final class DbWorkspace: Identifiable {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .overview: "Ringkasan"
-            case .browse: "Telusuri"
-            case .structure: "Struktur"
-            case .search: "Cari"
+            case .overview: L("Ringkasan")
+            case .browse: L("Telusuri")
+            case .structure: L("Struktur")
+            case .search: L("Cari")
             case .sql: "SQL"
             }
         }
@@ -408,12 +408,12 @@ final class DbWorkspace: Identifiable {
 
     /// Ringkasan syarat aktif, mis. `kota = Medan · nama LIKE %di%`.
     var filterSummary: String {
-        if filterAny { return "“\(filters.first?.value ?? "")” di semua kolom" }
+        if filterAny { return L("“{}” di semua kolom", filters.first?.value ?? "") }
         return filters.map { f in
             switch f.op {
             case "IS NULL", "IS NOT NULL", "= ''", "!= ''": "\(f.column) \(f.op)"
-            case "LIKE %...%": "\(f.column) berisi “\(f.value)”"
-            case "NOT LIKE %...%": "\(f.column) tidak berisi “\(f.value)”"
+            case "LIKE %...%": L("{} berisi “{}”", f.column, f.value)
+            case "NOT LIKE %...%": L("{} tidak berisi “{}”", f.column, f.value)
             default: "\(f.column) \(f.op) \(f.value)"
             }
         }.joined(separator: " · ")

@@ -33,10 +33,10 @@ struct TerminalPane: View {
             if case .disconnected(let code) = session.status {
                 HStack(spacing: 12) {
                     Image(systemName: "bolt.horizontal.circle").foregroundStyle(.orange)
-                    Text(code == 0 || session.isLocal ? "Sesi selesai" : "Koneksi terputus\(code.map { " (kode \($0))" } ?? "")")
+                    Text(code == 0 || session.isLocal ? L("Sesi selesai") : L("Koneksi terputus") + (code.map { L(" (kode {})", $0) } ?? ""))
                         .font(.callout.weight(.medium))
-                    Button(session.isLocal ? "Buka lagi" : "Reconnect") { session.reconnect() }.buttonStyle(PrimaryButtonStyle())
-                    Button("Tutup") { model.close(session) }.buttonStyle(SecondaryButtonStyle())
+                    Button(session.isLocal ? L("Buka lagi") : L("Reconnect")) { session.reconnect() }.buttonStyle(PrimaryButtonStyle())
+                    Button(L("Tutup")) { model.close(session) }.buttonStyle(SecondaryButtonStyle())
                 }
                 .padding(10)
                 .background(.ultraThickMaterial, in: Capsule())
@@ -79,7 +79,7 @@ struct ConnectingOverlay: View {
             .frame(height: 160)
 
             VStack(spacing: 6) {
-                Text("Menghubungkan ke \(host.title)").font(.system(size: 16, weight: .semibold))
+                Text(L("Menghubungkan ke {}", host.title)).font(.system(size: 16, weight: .semibold))
                 Text(host.displayAddress(hidden: hideAddresses)).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary)
             }
 

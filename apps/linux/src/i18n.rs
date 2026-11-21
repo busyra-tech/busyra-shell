@@ -118,16 +118,32 @@ pub fn msg(s: &str) -> String {
     if !d.english {
         return s.to_string();
     }
+    if let Some(t) = matched(d, s) {
+        return t;
+    }
+    // Huruf pertama pesan core kadang dinaikkan ("server tidak…" → "Server tidak…")
+    let mut c = s.chars();
+    if let Some(f) = c.next().filter(|f| f.is_uppercase()) {
+        let lower: String = f.to_lowercase().chain(c).collect();
+        if let Some(t) = matched(d, &lower) {
+            let mut tc = t.chars();
+            return tc.next().map(|f| f.to_uppercase().chain(tc).collect()).unwrap_or(t);
+        }
+    }
+    s.to_string()
+}
+
+fn matched(d: &Dict, s: &str) -> Option<String> {
     if let Some(t) = d.table.get(s) {
-        return t.clone();
+        return Some(t.clone());
     }
     for (parts, out) in &d.patterns {
         if let Some(caps) = capture(parts, s) {
             let caps: Vec<String> = caps.iter().map(|c| msg(c)).collect();
-            return fill(out, &caps);
+            return Some(fill(out, &caps));
         }
     }
-    s.to_string()
+    None
 }
 
 /// `tr!("Backup {} selesai", name)` — teks UI dalam bahasa aktif, `{}` diisi berurutan.
@@ -148,5 +164,25 @@ mod tests {
         let p: Vec<String> = "server tidak menjawab ({} detik)".split("{}").map(str::to_string).collect();
         assert_eq!(capture(&p, "server tidak menjawab (20 detik)").unwrap(), vec!["20"]);
         assert_eq!(fill("Backup {} finished · {}", &["A".into(), "9 MB".into()]), "Backup A finished · 9 MB");
+    }
+}
+
+#[cfg(test)]
+mod english_tests {
+    #[test]
+    fn core_messages_in_english() {
+        // SAFETY: tes tunggal ini yang pertama memakai kamus di proses ini.
+        unsafe { std::env::set_var("DJIE_LANG", "en") };
+        let m = super::msg;
+        assert_eq!(m("Tiap 5 menit"), "Every 5 minutes");
+        assert_eq!(m("Tiap hari pukul 02.30"), "Every day at 02:30");
+        assert_eq!(m("Tiap Senin–Jumat pukul 08.00"), "Every Monday–Friday at 08:00");
+        assert_eq!(m("Tiap 6 jam, menit ke-15"), "Every 6 hours at minute 15");
+        assert_eq!(m("Tiap tanggal 1 pukul 03.00"), "On day 1 of every month at 03:00");
+        assert_eq!(m("Koneksi SSH gagal: server tidak menjawab (20 detik)"), "SSH connection failed: server not responding (20 seconds)");
+        assert_eq!(m("Server tidak menjawab (20 detik)"), "Server not responding (20 seconds)");
+        assert_eq!(m("mysqldump tidak ditemukan di server — pasang mysql-client / mariadb-client"), "mysqldump not found on the server — install mysql-client / mariadb-client");
+        assert_eq!(m("Master password salah"), "Wrong master password");
+        assert_eq!(m("sesuatu yang tidak ada di kamus"), "sesuatu yang tidak ada di kamus");
     }
 }

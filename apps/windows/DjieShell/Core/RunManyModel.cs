@@ -74,7 +74,7 @@ internal sealed class RunManyModel
                     RemoteRun? r = null; string? err = null;
                     try
                     {
-                        if (j.target == null) err = "Host tidak ditemukan";
+                        if (j.target == null) err = L.T("Host tidak ditemukan");
                         else r = await DjieCoreMethods.RunRemote(j.target, cmd, timeout);
                     }
                     catch (Exception e) { err = Errors.Text(e); }
@@ -85,7 +85,7 @@ internal sealed class RunManyModel
             await Task.WhenAll(tasks);
             Post(() =>
             {
-                foreach (var row in Rows.Where(r => !r.Done)) { row.State = Status.Error; row.Error = "Dibatalkan"; }
+                foreach (var row in Rows.Where(r => !r.Done)) { row.State = Status.Error; row.Error = L.T("Dibatalkan"); }
                 Running = false;
             });
         });
@@ -105,18 +105,18 @@ internal sealed class RunManyModel
             row.Output = r.Output; row.DurationMs = r.DurationMs; row.Truncated = r.Truncated; row.ExitCode = r.ExitCode;
             row.State = r.TimedOut ? Status.Timeout : r.ExitCode == 0 ? Status.Ok : Status.Failed;
         }
-        else { row.State = Status.Error; row.Error = err ?? "Gagal"; }
+        else { row.State = Status.Error; row.Error = err ?? L.T("Gagal"); }
         if (!row.Success) Expanded.Add(id);
     }
 
     public static string Label(Row r) => r.State switch
     {
-        Status.Waiting => "Menunggu",
-        Status.Running => "Berjalan…",
-        Status.Ok => "Sukses",
-        Status.Failed => r.ExitCode is { } c ? $"Gagal · exit {c}" : "Gagal",
-        Status.Timeout => "Timeout",
-        _ => r.Error ?? "Gagal",
+        Status.Waiting => L.T("Menunggu"),
+        Status.Running => L.T("Berjalan…"),
+        Status.Ok => L.T("Sukses"),
+        Status.Failed => r.ExitCode is { } c ? L.T("Gagal · exit {}", c) : L.T("Gagal"),
+        Status.Timeout => L.T("Timeout"),
+        _ => r.Error ?? L.T("Gagal"),
     };
 
     /// <summary>Semua output, dipisah per server — untuk disalin.</summary>

@@ -61,7 +61,7 @@ internal sealed class DockerPage : PageBase
     {
         var current = D.TargetId == null ? null : M.HostById(D.TargetId);
         var menu = new MenuFlyout();
-        var local = new MenuFlyoutItem { Text = "PC ini" };
+        var local = new MenuFlyoutItem { Text = L.T("PC ini") };
         local.Click += (s, e) => _ = D.Select(null);
         menu.Items.Add(local);
         if (M.Hosts.Length > 0) menu.Items.Add(new MenuFlyoutSeparator());
@@ -73,7 +73,7 @@ internal sealed class DockerPage : PageBase
         }
         var target = new DropDownButton
         {
-            Content = Ui.Row(8, Ui.Icon(current == null ? G.Terminal : G.Server, 12), Ui.Text(current?.Title() ?? "PC ini", 12.5, FontWeights.SemiBold)),
+            Content = Ui.Row(8, Ui.Icon(current == null ? G.Terminal : G.Server, 12), Ui.Text(current?.Title() ?? L.T("PC ini"), 12.5, FontWeights.SemiBold)),
             HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, Flyout = menu,
         };
         var nav = Ui.Col(2);
@@ -81,7 +81,7 @@ internal sealed class DockerPage : PageBase
         {
             var on = D.Current == t;
             var row = Ui.Columns("Auto,*,Auto", 9, Ui.Icon(glyph, 13, on ? Theme.Brush(Blue) : Theme.Text2),
-                Ui.Text(title, 13, on ? FontWeights.SemiBold : FontWeights.Normal),
+                Ui.Text(L.T(title), 13, on ? FontWeights.SemiBold : FontWeights.Normal),
                 D.Info != null ? Ui.Text(D.Count(t).ToString(), 11, fg: Theme.Text2) : null);
             var b = Ui.Plain(row, () => { D.Current = t; Render(); }, new Thickness(10, 7, 10, 7));
             b.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -98,24 +98,24 @@ internal sealed class DockerPage : PageBase
                     Ui.Row(6, new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(Theme.Green) }, Ui.Text($"Docker {i2.Version}", 11.5, FontWeights.SemiBold)),
                     Ui.Text(i2.Os + (i2.UsesSudo ? " · sudo" : ""), 11, fg: Theme.Text2),
                     Ui.Text($"{i2.Cpus} CPU · {Ui.Bytes(i2.Memory)}", 11, fg: Theme.Text2),
-                    Ui.Text($"{i2.Running} dari {i2.Containers} container berjalan", 11, fg: Theme.Text2, wrap: true)),
+                    Ui.Text(L.T("{} dari {} container berjalan", i2.Running, i2.Containers), 11, fg: Theme.Text2, wrap: true)),
             };
-        _sidebar.Child = Ui.Rows("Auto,Auto,*,Auto", 14, Ui.Col(6, Ui.Caps("Docker di"), target), nav, null, info);
+        _sidebar.Child = Ui.Rows("Auto,Auto,*,Auto", 14, Ui.Col(6, Ui.Caps(L.T("Docker di")), target), nav, null, info);
     }
 
     private void RenderHeader()
     {
         _header.Children.Clear();
         var title = D.Current switch { DockerModel.Tab.Containers => "Container", DockerModel.Tab.Volumes => "Volume", DockerModel.Tab.Images => "Image", _ => "Network" };
-        UIElement? search = D.Current == DockerModel.Tab.Containers ? Ui.Search("Cari", D.Query, q => { D.Query = q; RenderList(); }, 200) : null;
-        var refresh = Ui.IconBtn(G.Refresh, "Muat ulang", () => _ = D.Refresh());
+        UIElement? search = D.Current == DockerModel.Tab.Containers ? Ui.Search(L.T("Cari"), D.Query, q => { D.Query = q; RenderList(); }, 200) : null;
+        var refresh = Ui.IconBtn(G.Refresh, L.T("Muat ulang"), () => _ = D.Refresh());
         refresh.IsEnabled = D.Connected && !D.Loading;
-        _header.Children.Add(Ui.Columns("Auto,Auto,*,Auto,Auto", 10, Ui.Text(title, 20, FontWeights.Bold),
+        _header.Children.Add(Ui.Columns("Auto,Auto,*,Auto,Auto", 10, Ui.Text(L.T(title), 20, FontWeights.Bold),
             D.Loading && D.Info != null ? new ProgressRing { IsActive = true, Width = 16, Height = 16 } : null, null, search, refresh));
 
         if (D.Error is { } err)
         {
-            var retry = Ui.Secondary("Coba lagi", null, () => _ = D.Select(D.TargetId));
+            var retry = Ui.Secondary(L.T("Coba lagi"), null, () => _ = D.Select(D.TargetId));
             _error.Child = new Border
             {
                 Background = Theme.Brush(Theme.Orange, 0.12), CornerRadius = new CornerRadius(10), Padding = new Thickness(12),
@@ -134,13 +134,13 @@ internal sealed class DockerPage : PageBase
         if (D.Info == null)
         {
             if (D.Loading)
-                _list.Children.Add(Ui.Row(10, new ProgressRing { IsActive = true, Width = 18, Height = 18 }, Ui.Secondary("Menghubungkan ke Docker…")).With(r => { r.HorizontalAlignment = HorizontalAlignment.Center; r.Margin = new Thickness(0, 60, 0, 0); }));
+                _list.Children.Add(Ui.Row(10, new ProgressRing { IsActive = true, Width = 18, Height = 18 }, Ui.Secondary(L.T("Menghubungkan ke Docker…"))).With(r => { r.HorizontalAlignment = HorizontalAlignment.Center; r.Margin = new Thickness(0, 60, 0, 0); }));
             return;
         }
         switch (D.Current)
         {
             case DockerModel.Tab.Containers:
-                if (D.Containers.Length == 0) { _list.Children.Add(Ui.EmptyState(G.Apps, "Belum ada container", "Container dari docker run atau docker compose akan muncul di sini.")); break; }
+                if (D.Containers.Length == 0) { _list.Children.Add(Ui.EmptyState(G.Apps, L.T("Belum ada container"), L.T("Container dari docker run atau docker compose akan muncul di sini."))); break; }
                 foreach (var g in D.Groups)
                 {
                     var items = g.ToList();
@@ -154,10 +154,10 @@ internal sealed class DockerPage : PageBase
                 foreach (var v in D.Volumes)
                     _list.Children.Add(Row(IconTile(G.Database, !v.Anonymous),
                         Ui.Col(1, Ui.Text(v.Anonymous ? v.Name[..Math.Min(12, v.Name.Length)] + "…" : v.Name, 13, FontWeights.Medium),
-                            Ui.Text(v.Project.Length > 0 ? $"{v.Project} · {v.Driver}" : v.Anonymous ? $"anonim · {v.Driver}" : v.Driver, 11, fg: Theme.Text2)),
-                        Actions(Danger("Hapus volume", async () =>
+                            Ui.Text(v.Project.Length > 0 ? $"{v.Project} · {v.Driver}" : v.Anonymous ? L.T("anonim · {}", v.Driver) : v.Driver, 11, fg: Theme.Text2)),
+                        Actions(Danger(L.T("Hapus volume"), async () =>
                         {
-                            if (await Ui.Confirm($"Hapus volume {v.Name[..Math.Min(24, v.Name.Length)]}?", "Data di volume ini hilang permanen. Volume yang masih dipakai container tidak bisa dihapus."))
+                            if (await Ui.Confirm(L.T("Hapus volume {}?", v.Name[..Math.Min(24, v.Name.Length)]), L.T("Data di volume ini hilang permanen. Volume yang masih dipakai container tidak bisa dihapus.")))
                                 await D.RemoveVolume(v);
                         })), false, null));
                 break;
@@ -165,9 +165,9 @@ internal sealed class DockerPage : PageBase
                 foreach (var i in D.Images)
                     _list.Children.Add(Row(IconTile(G.Structure, true),
                         Ui.Col(1, Ui.Row(6, Ui.Text(i.Repository, 13, FontWeights.Medium), Ui.Badge(i.Tag, Theme.Accent2)), Ui.Text($"{i.Size} · {i.Created}", 11, fg: Theme.Text2)),
-                        Actions(Danger("Hapus image", async () =>
+                        Actions(Danger(L.T("Hapus image"), async () =>
                         {
-                            if (await Ui.Confirm($"Hapus image {i.Repository}:{i.Tag}?", "Image yang masih dipakai container tidak bisa dihapus."))
+                            if (await Ui.Confirm(L.T("Hapus image {}?", $"{i.Repository}:{i.Tag}"), L.T("Image yang masih dipakai container tidak bisa dihapus.")))
                                 await D.RemoveImage(i);
                         })), false, null));
                 break;
@@ -175,7 +175,7 @@ internal sealed class DockerPage : PageBase
                 foreach (var n in D.Networks)
                     _list.Children.Add(Row(IconTile(G.Globe, !n.Builtin),
                         Ui.Col(1, Ui.Text(n.Name, 13, FontWeights.Medium),
-                            Ui.Text(string.Join(" · ", new[] { n.Driver, n.Project.Length > 0 ? n.Project : n.Builtin ? "bawaan" : "" }.Where(x => x.Length > 0)), 11, fg: Theme.Text2)),
+                            Ui.Text(string.Join(" · ", new[] { n.Driver, n.Project.Length > 0 ? n.Project : n.Builtin ? L.T("bawaan") : "" }.Where(x => x.Length > 0)), 11, fg: Theme.Text2)),
                         null, false, null));
                 break;
         }
@@ -230,14 +230,14 @@ internal sealed class DockerPage : PageBase
         var busy = D.Busy.Contains("compose:" + name);
         var chevron = Ui.Icon(open ? G.ChevronDown : G.ChevronRight, 10, Theme.Text2);
         var text = Ui.Col(1, Ui.Text(name, 13, FontWeights.SemiBold),
-            Ui.Text(running > 0 ? $"{running} dari {items.Count} berjalan" : $"{items.Count} container · berhenti", 11, fg: running > 0 ? Theme.Brush(Theme.Green) : Theme.Text2));
+            Ui.Text(running > 0 ? L.T("{} dari {} berjalan", running, items.Count) : L.T("{} container · berhenti", items.Count), 11, fg: running > 0 ? Theme.Brush(Theme.Green) : Theme.Text2));
         var acts = Actions(
             busy ? new ProgressRing { IsActive = true, Width = 14, Height = 14 } : null,
-            running > 0 ? Ui.IconBtn(G.Stop, "Stop proyek", () => _ = D.Compose(name, "stop")) : Ui.IconBtn(G.Play, "Jalankan proyek (up)", () => _ = D.Compose(name, "up"), Theme.Brush(Theme.Green)),
-            Ui.IconBtn(G.Refresh, "Restart proyek", () => _ = D.Compose(name, "restart")),
-            Danger("Down (hapus container proyek)", async () =>
+            running > 0 ? Ui.IconBtn(G.Stop, L.T("Stop proyek"), () => _ = D.Compose(name, "stop")) : Ui.IconBtn(G.Play, L.T("Jalankan proyek (up)"), () => _ = D.Compose(name, "up"), Theme.Brush(Theme.Green)),
+            Ui.IconBtn(G.Refresh, L.T("Restart proyek"), () => _ = D.Compose(name, "restart")),
+            Danger(L.T("Down (hapus container proyek)"), async () =>
             {
-                if (await Ui.Confirm($"Down proyek {name}?", "Semua container proyek ini dihentikan dan dihapus (docker compose down). Volume tetap aman.", "Down"))
+                if (await Ui.Confirm(L.T("Down proyek {}?", name), L.T("Semua container proyek ini dihentikan dan dihapus (docker compose down). Volume tetap aman."), "Down"))
                     await D.Compose(name, "down");
             }));
         return Row(Ui.Row(8, chevron, IconTile(G.Structure, running > 0)), text, acts, false, () =>
@@ -258,7 +258,7 @@ internal sealed class DockerPage : PageBase
             var link = Ui.Plain(Ui.Text($":{p} ↗", 11, FontWeights.Medium, Theme.Brush(Blue), mono: true), () => Ui.Open(D.Url(p)), new Thickness(7, 2, 7, 3));
             link.Background = Theme.Brush(Blue, 0.12);
             link.CornerRadius = new CornerRadius(10);
-            ToolTipService.SetToolTip(link, "Buka di browser");
+            ToolTipService.SetToolTip(link, L.T("Buka di browser"));
             trailing.Children.Add(link);
         }
         if (running && D.Stats.TryGetValue(c.Id, out var st))
@@ -267,9 +267,9 @@ internal sealed class DockerPage : PageBase
             busy ? new ProgressRing { IsActive = true, Width = 14, Height = 14 }
                  : running ? Ui.IconBtn(G.Stop, "Stop", () => _ = D.Action(c, "stop")) : Ui.IconBtn(G.Play, "Start", () => _ = D.Action(c, "start"), Theme.Brush(Theme.Green)),
             Ui.IconBtn(G.Refresh, "Restart", () => _ = D.Action(c, "restart")),
-            Danger("Hapus container", async () =>
+            Danger(L.T("Hapus container"), async () =>
             {
-                if (await Ui.Confirm($"Hapus container {c.Name}?", "Container dihentikan dan dihapus. Volume dan image tidak ikut terhapus."))
+                if (await Ui.Confirm(L.T("Hapus container {}?", c.Name), L.T("Container dihentikan dan dihapus. Volume dan image tidak ikut terhapus.")))
                     await D.Action(c, "rm");
             }));
         return Row(StatusIcon(c.State), text, acts, D.SelectedId == c.Id, () => D.Choose(c), trailing, indent ? 22 : 0);
@@ -304,22 +304,22 @@ internal sealed class DockerPage : PageBase
         var head = Ui.Columns("Auto,*,Auto", 12, StatusIcon(c.State, 44),
             Ui.Col(2, Ui.Text(c.Name, 16, FontWeights.Bold).With(t => { t.TextTrimming = TextTrimming.CharacterEllipsis; t.IsTextSelectionEnabled = true; }),
                 Ui.Text(c.Status, 11.5, fg: running ? Theme.Brush(Theme.Green) : Theme.Text2)),
-            Ui.IconBtn(G.Close, "Tutup", () => D.Choose(null)));
+            Ui.IconBtn(G.Close, L.T("Tutup"), () => D.Choose(null)));
         var shell = Ui.Secondary("Terminal", G.Terminal, () => D.OpenShell(c));
         shell.IsEnabled = running;
         var buttons = Ui.Row(8,
             running ? Ui.Secondary("Stop", G.Stop, () => _ = D.Action(c, "stop")) : Ui.Secondary("Start", G.Play, () => _ = D.Action(c, "start")),
             Ui.Secondary("Restart", G.Refresh, () => _ = D.Action(c, "restart")), shell);
-        var tabs = Ui.Segmented(["Info", "Log"], _detailTab, i => { _detailTab = i; RenderDetail(); });
+        var tabs = Ui.Segmented(["Info", L.T("Log")], _detailTab, i => { _detailTab = i; RenderDetail(); });
         var top = new Border { Padding = new Thickness(16), Child = Ui.Col(12, head, buttons, tabs) };
 
         UIElement body;
         if (_detailTab == 0) body = new ScrollViewer { Content = new Border { Padding = new Thickness(16), Child = InfoPanel(c) } };
         else
         {
-            _logText ??= new TextBlock { Text = "Memuat log…", FontFamily = Theme.MonoFont, FontSize = 10.5, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
+            _logText ??= new TextBlock { Text = L.T("Memuat log…"), FontFamily = Theme.MonoFont, FontSize = 10.5, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
             _logScroll = new ScrollViewer { Content = new Border { Padding = new Thickness(8), Child = _logText } };
-            var follow = new ToggleSwitch { IsOn = _logFollow, OnContent = "Ikuti log baru", OffContent = "Ikuti log baru" };
+            var follow = new ToggleSwitch { IsOn = _logFollow, OnContent = L.T("Ikuti log baru"), OffContent = L.T("Ikuti log baru") };
             follow.Toggled += (s, e) => _logFollow = follow.IsOn;
             var box = new Border { Background = Theme.Field, CornerRadius = new CornerRadius(8), Child = _logScroll };
             body = new Border { Padding = new Thickness(12), Child = Ui.Rows("Auto,*", 8, follow, box) };
@@ -331,9 +331,9 @@ internal sealed class DockerPage : PageBase
     {
         var col = Ui.Col(18);
         UIElement Group(string title, UIElement content, UIElement? trailing = null) => Ui.Col(8,
-            Ui.Columns("*,Auto", 8, Ui.Caps(title), trailing),
+            Ui.Columns("*,Auto", 8, Ui.Caps(L.T(title)), trailing),
             new Border { Background = Theme.Ink(0.04), CornerRadius = new CornerRadius(10), Padding = new Thickness(12), Child = content });
-        UIElement Kv(string k, string v) => Ui.Columns("74,*", 8, Ui.Text(k, 12, fg: Theme.Text2), Ui.Text(v, 12, wrap: true).With(t => t.IsTextSelectionEnabled = true));
+        UIElement Kv(string k, string v) => Ui.Columns("74,*", 8, Ui.Text(L.T(k), 12, fg: Theme.Text2), Ui.Text(v, 12, wrap: true).With(t => t.IsTextSelectionEnabled = true));
 
         if (c.State == "running" && D.Stats.TryGetValue(c.Id, out var s))
             col.Children.Add(Group("Pemakaian", Ui.Col(8, Usage("CPU", s.CpuPercent, $"{s.CpuPercent:0.0}%"), Usage("RAM", s.MemPercent, s.MemUsage))));
@@ -356,7 +356,7 @@ internal sealed class DockerPage : PageBase
         {
             general.Children.Add(Kv("Perintah", d.Command));
             general.Children.Add(Kv("Dibuat", d.Created));
-            if (!d.StartedAt.StartsWith("0001")) general.Children.Add(Kv("Mulai", d.StartedAt));
+            if (!d.StartedAt.StartsWith("0001")) general.Children.Add(Kv(L10n.English ? "Started" : "Mulai", d.StartedAt));
             general.Children.Add(Kv("Restart", d.RestartPolicy));
             if (d.Health.Length > 0) general.Children.Add(Kv("Health", d.Health));
         }
@@ -387,7 +387,7 @@ internal sealed class DockerPage : PageBase
                 env.Children.Add(Ui.Columns("Auto,*", 6, Ui.Text(k, 11, FontWeights.SemiBold, mono: true),
                     Ui.Text(_showEnv ? v : "••••••", 11, fg: Theme.Text2, mono: true, wrap: true).With(t => t.IsTextSelectionEnabled = true)));
             }
-            var toggle = Ui.Plain(Ui.Text(_showEnv ? "Sembunyikan" : "Tampilkan", 11, FontWeights.SemiBold, Theme.Brush(Blue)), () => { _showEnv = !_showEnv; RenderDetail(); }, new Thickness(0));
+            var toggle = Ui.Plain(Ui.Text(_showEnv ? L.T("Sembunyikan") : L.T("Tampilkan"), 11, FontWeights.SemiBold, Theme.Brush(Blue)), () => { _showEnv = !_showEnv; RenderDetail(); }, new Thickness(0));
             col.Children.Add(Group("Environment", env, toggle));
         }
         return col;
@@ -412,7 +412,7 @@ internal sealed class DockerPage : PageBase
                 var t = await D.Logs(id, 500);
                 if (_detailFor == id && _logText != null)
                 {
-                    _logText.Text = t.Length > 0 ? t : "Belum ada log.";
+                    _logText.Text = t.Length > 0 ? t : L.T("Belum ada log.");
                     _logScroll?.ChangeView(null, double.MaxValue, null, true);
                 }
             }

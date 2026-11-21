@@ -24,6 +24,7 @@ pub fn build(app: &adw::Application) {
         .build();
     let ctx = App::new(window.clone());
 
+    install_language_action(app, &ctx);
     let main = build_main(&ctx);
     ctx.root.add_named(&main, Some("main"));
     onboarding::show_start(&ctx);
@@ -44,7 +45,7 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     let names = gtk::Box::new(gtk::Orientation::Vertical, 0);
     let n1 = gtk::Label::builder().label("Djie Shell").xalign(0.0).build();
     n1.add_css_class("djie-brand");
-    let n2 = gtk::Label::builder().label("SSH Client").xalign(0.0).build();
+    let n2 = gtk::Label::builder().label(tr!("SSH Client")).xalign(0.0).build();
     n2.add_css_class("djie-hint");
     names.append(&n1);
     names.append(&n2);
@@ -56,7 +57,7 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     for (_, title, icon) in SECTIONS {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         row.append(&gtk::Image::from_icon_name(icon));
-        row.append(&gtk::Label::new(Some(title)));
+        row.append(&gtk::Label::new(Some(&tr!(title))));
         list.append(&row);
     }
     let c = ctx.clone();
@@ -68,7 +69,7 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     list.connect_row_selected(|_, _| {});
     let list_scroll = gtk::ScrolledWindow::builder().vexpand(true).hscrollbar_policy(gtk::PolicyType::Never).child(&list).build();
 
-    let soon = gtk::Label::new(Some("SFTP, Database, Docker, Dashboard, Tim, dan sync Google menyusul di versi Linux."));
+    let soon = gtk::Label::new(Some(&tr!("SFTP, Database, Docker, Dashboard, Tim, dan sync Google menyusul di versi Linux.")));
     soon.add_css_class("djie-hint");
     soon.set_wrap(true);
     soon.set_xalign(0.0);
@@ -76,7 +77,7 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     soon.set_margin_end(14);
     soon.set_margin_bottom(8);
 
-    let lock = gtk::Button::builder().icon_name("system-lock-screen-symbolic").tooltip_text("Kunci vault (Ctrl+Shift+L)").build();
+    let lock = gtk::Button::builder().icon_name("system-lock-screen-symbolic").tooltip_text(tr!("Kunci vault (Ctrl+Shift+L)")).build();
     lock.add_css_class("flat");
     let c = ctx.clone();
     lock.connect_clicked(move |_| onboarding::lock(&c));
@@ -84,9 +85,10 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     footer.set_margin_start(10);
     footer.set_margin_end(10);
     footer.set_margin_bottom(10);
-    let local_label = gtk::Label::builder().label("Vault lokal").xalign(0.0).hexpand(true).build();
+    let local_label = gtk::Label::builder().label(tr!("Vault lokal")).xalign(0.0).hexpand(true).build();
     local_label.add_css_class("djie-hint");
     footer.append(&local_label);
+    footer.append(&language_button(ctx, false));
     footer.append(&lock);
 
     sidebar_box.append(&brand);
@@ -115,9 +117,9 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     list.select_row(list.row_at_index(0).as_ref());
 
     let home = ctx.tabs.append_pinned(&ctx.pages);
-    home.set_title("Beranda");
+    home.set_title(&tr!("Beranda"));
     home.set_icon(Some(&gio::ThemedIcon::new("view-grid-symbolic")));
-    home.set_tooltip("Daftar host (Ctrl+0)");
+    home.set_tooltip(&tr!("Daftar host (Ctrl+0)"));
     *ctx.home.borrow_mut() = Some(home);
 
     let c = ctx.clone();
@@ -136,12 +138,12 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
     let tab_bar = adw::TabBar::builder().view(&ctx.tabs).autohide(false).expand_tabs(false).build();
     header.set_title_widget(Some(&tab_bar));
 
-    let local_btn = gtk::Button::builder().icon_name("utilities-terminal-symbolic").tooltip_text("Terminal lokal (Ctrl+Shift+T)").build();
+    let local_btn = gtk::Button::builder().icon_name("utilities-terminal-symbolic").tooltip_text(tr!("Terminal lokal (Ctrl+Shift+T)")).build();
     let c = ctx.clone();
     local_btn.connect_clicked(move |_| terminal::open_local(&c));
     header.pack_start(&local_btn);
 
-    let snippet_btn = gtk::MenuButton::builder().icon_name("accessories-text-editor-symbolic").tooltip_text("Jalankan snippet di tab ini").build();
+    let snippet_btn = gtk::MenuButton::builder().icon_name("accessories-text-editor-symbolic").tooltip_text(tr!("Jalankan snippet di tab ini")).build();
     let popover = gtk::Popover::new();
     snippet_btn.set_popover(Some(&popover));
     {
@@ -173,7 +175,7 @@ fn build_main(ctx: &Ctx) -> gtk::Widget {
         .build();
 
     // Sidebar jadi overlay di jendela sempit
-    let toggle = gtk::ToggleButton::builder().icon_name("sidebar-show-symbolic").tooltip_text("Sidebar").visible(false).build();
+    let toggle = gtk::ToggleButton::builder().icon_name("sidebar-show-symbolic").tooltip_text(tr!("Sidebar")).visible(false).build();
     split.bind_property("show-sidebar", &toggle, "active").bidirectional().sync_create().build();
     split.bind_property("collapsed", &toggle, "visible").sync_create().build();
     header.pack_start(&toggle);
@@ -190,7 +192,7 @@ fn fill_snippet_popover(ctx: &Ctx, popover: &gtk::Popover) {
     list.set_selection_mode(gtk::SelectionMode::None);
     let snippets = ctx.snippets();
     if snippets.is_empty() {
-        let l = gtk::Label::new(Some("Belum ada snippet"));
+        let l = gtk::Label::new(Some(&tr!("Belum ada snippet")));
         l.add_css_class("djie-muted");
         l.set_margin_top(12);
         l.set_margin_bottom(12);
@@ -253,5 +255,77 @@ fn install_shortcuts(app: &adw::Application, ctx: &Ctx) {
                 c.tabs.set_selected_page(&c.tabs.nth_page(i as i32));
             }
         }));
+    }
+}
+
+// ---- Bahasa ----
+
+/// Tombol menu "Bahasa / Language" (Ikuti sistem / Bahasa Indonesia / English).
+/// `labeled`: tampilkan nama bahasa aktif di samping ikon (layar welcome & kunci).
+pub fn language_button(_ctx: &Ctx, labeled: bool) -> gtk::MenuButton {
+    let section = gio::Menu::new();
+    for c in crate::i18n::CHOICES {
+        let item = gio::MenuItem::new(Some(&crate::i18n::choice_title(c)), None);
+        item.set_action_and_target_value(Some("app.language"), Some(&c.to_variant()));
+        section.append_item(&item);
+    }
+    let menu = gio::Menu::new();
+    menu.append_section(Some("Bahasa / Language"), &section);
+    let b = gtk::MenuButton::builder().menu_model(&menu).tooltip_text("Bahasa / Language").build();
+    if labeled {
+        let current = if crate::i18n::english() { "English" } else { "Bahasa Indonesia" };
+        b.set_child(Some(&adw::ButtonContent::builder().icon_name("preferences-desktop-locale-symbolic").label(current).build()));
+    } else {
+        b.set_icon_name("preferences-desktop-locale-symbolic");
+    }
+    b.add_css_class("flat");
+    b
+}
+
+fn install_language_action(app: &adw::Application, ctx: &Ctx) {
+    let a = gio::SimpleAction::new_stateful("language", Some(glib::VariantTy::STRING), &crate::i18n::choice().to_variant());
+    let c = ctx.clone();
+    a.connect_activate(move |a, param| {
+        let Some(choice) = param.and_then(|p| p.get::<String>()) else { return };
+        if a.state().and_then(|s| s.get::<String>()).as_deref() == Some(choice.as_str()) {
+            return;
+        }
+        a.set_state(&choice.to_variant());
+        crate::i18n::set_choice(&choice);
+        let d = adw::AlertDialog::new(
+            Some(&tr!("Bahasa diterapkan setelah Djie Shell dibuka ulang")),
+            Some(&tr!("Membuka ulang sekarang akan menutup semua tab terminal dan mengunci vault.")),
+        );
+        d.add_responses(&[("later", &tr!("Nanti")), ("restart", &tr!("Buka ulang sekarang"))]);
+        d.set_response_appearance("restart", adw::ResponseAppearance::Suggested);
+        d.set_default_response(Some("restart"));
+        let c2 = c.clone();
+        d.connect_response(None, move |_, r| {
+            if r == "restart" {
+                relaunch(&c2);
+            }
+        });
+        d.present(Some(&c.window));
+    });
+    app.add_action(&a);
+}
+
+/// Jalankan app lagi setelah proses ini keluar (GApplication hanya mengizinkan satu instance).
+fn relaunch(ctx: &Ctx) {
+    let exe = std::env::var_os("APPIMAGE").map(std::path::PathBuf::from).or_else(|| std::env::current_exe().ok());
+    let Some(exe) = exe else { return };
+    let spawned = std::process::Command::new("sh")
+        .arg("-c")
+        .arg("while kill -0 \"$1\" 2>/dev/null; do sleep 0.2; done; exec \"$0\"")
+        .arg(&exe)
+        .arg(std::process::id().to_string())
+        .spawn();
+    match spawned {
+        Ok(_) => {
+            if let Some(app) = ctx.window.application() {
+                app.quit();
+            }
+        }
+        Err(e) => ctx.error(e),
     }
 }

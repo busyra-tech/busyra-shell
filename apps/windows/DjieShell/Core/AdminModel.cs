@@ -70,7 +70,7 @@ internal sealed class AdminModel
         Processes = []; Services = []; Cron = []; CronLoaded = false; Sources = []; LogText.Clear();
         SelectedService = null; ServiceStatus = null; LogSource = ""; LogUnit = ""; _logCursor = "";
         if (id == null) { Raise(); return; }
-        if (_app.SshTarget(id) is not { } target) { Error = "Host tidak ditemukan"; Raise(); return; }
+        if (_app.SshTarget(id) is not { } target) { Error = L.T("Host tidak ditemukan"); Raise(); return; }
         Connecting = true;
         Raise();
         try
@@ -184,7 +184,7 @@ internal sealed class AdminModel
         try
         {
             await a.Kill(p.Pid, force);
-            _app.Flash(force ? $"Proses {p.Pid} dihentikan paksa" : $"Sinyal berhenti dikirim ke proses {p.Pid}");
+            _app.Flash(force ? L.T("Proses {} dihentikan paksa", p.Pid) : L.T("Sinyal berhenti dikirim ke proses {}", p.Pid));
             await Task.Delay(400);
             try { Processes = await a.Processes(); } catch { }
         }
@@ -233,12 +233,12 @@ internal sealed class AdminModel
         try
         {
             await a.ServiceAction(name, action);
-            var done = action switch
+            _app.Flash(action switch
             {
-                "start" => "dinyalakan", "stop" => "dihentikan", "restart" => "dimulai ulang", "reload" => "dimuat ulang",
-                "enable" => "aktif saat boot", "disable" => "tidak aktif saat boot", _ => action,
-            };
-            _app.Flash($"{name} {done}");
+                "start" => L.T("{} dinyalakan", name), "stop" => L.T("{} dihentikan", name), "restart" => L.T("{} dimulai ulang", name),
+                "reload" => L.T("{} dimuat ulang", name), "enable" => L.T("{} aktif saat boot", name), "disable" => L.T("{} tidak aktif saat boot", name),
+                _ => $"{name} {action}",
+            });
         }
         catch (Exception e) { _app.Flash(Errors.Text(e)); }
         try { Services = await a.Services(); } catch { }
@@ -281,14 +281,14 @@ internal sealed class AdminModel
         var lines = Cron.ToList();
         if (index is { } i) lines[i] = lines[i] with { Job = job };
         else lines.Add(new CronLine("", job));
-        return SaveCron(lines, index == null ? "Jadwal ditambahkan" : "Jadwal disimpan");
+        return SaveCron(lines, index == null ? L.T("Jadwal ditambahkan") : L.T("Jadwal disimpan"));
     }
 
     public Task DeleteJob(int index)
     {
         var lines = Cron.ToList();
         lines.RemoveAt(index);
-        return SaveCron(lines, "Jadwal dihapus");
+        return SaveCron(lines, L.T("Jadwal dihapus"));
     }
 
     // MARK: Log

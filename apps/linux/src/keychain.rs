@@ -9,18 +9,18 @@ use crate::page;
 
 pub fn build(ctx: &Ctx) -> gtk::Widget {
     let import = gtk::Button::builder().build();
-    import.set_child(Some(&adw::ButtonContent::builder().icon_name("document-open-symbolic").label("Import").build()));
+    import.set_child(Some(&adw::ButtonContent::builder().icon_name("document-open-symbolic").label(tr!("Import")).build()));
     let c = ctx.clone();
     import.connect_clicked(move |_| import_dialog(&c));
     let generate = gtk::Button::builder().build();
-    generate.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label("Generate Key").build()));
+    generate.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label(tr!("Generate Key")).build()));
     generate.add_css_class("suggested-action");
     let c = ctx.clone();
     generate.connect_clicked(move |_| generate_dialog(&c));
 
     let (root, body) = page::scaffold(
-        "Keychain",
-        "SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key.",
+        &tr!("Keychain"),
+        &tr!("SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key."),
         &[import.upcast(), generate.upcast()],
     );
 
@@ -37,8 +37,8 @@ fn render(ctx: &Ctx, body: &gtk::Box) {
         body.append(
             &adw::StatusPage::builder()
                 .icon_name("dialog-password-symbolic")
-                .title("Belum ada SSH key")
-                .description("Generate key Ed25519 baru atau import dari ~/.ssh.")
+                .title(tr!("Belum ada SSH key"))
+                .description(tr!("Generate key Ed25519 baru atau import dari ~/.ssh."))
                 .vexpand(true)
                 .build(),
         );
@@ -50,7 +50,7 @@ fn render(ctx: &Ctx, body: &gtk::Box) {
     list.set_selection_mode(gtk::SelectionMode::None);
     for k in keys {
         let used = hosts.iter().filter(|h| h.key_id.as_deref() == Some(k.id.as_str())).count();
-        let usage = if used == 0 { "Belum dipakai".to_string() } else { format!("Dipakai {used} host") };
+        let usage = if used == 0 { tr!("Belum dipakai") } else { tr!("Dipakai {} host", used) };
         let row = adw::ActionRow::builder()
             .title(glib::markup_escape_text(&k.label))
             .subtitle(glib::markup_escape_text(&format!("{} · {} · {usage}", k.key_type, k.fingerprint)))
@@ -59,22 +59,22 @@ fn render(ctx: &Ctx, body: &gtk::Box) {
         let icon = gtk::Image::from_icon_name(if k.passphrase.is_some() { "channel-secure-symbolic" } else { "dialog-password-symbolic" });
         row.add_prefix(&icon);
 
-        let copy = gtk::Button::builder().icon_name("edit-copy-symbolic").tooltip_text("Salin public key").valign(gtk::Align::Center).build();
+        let copy = gtk::Button::builder().icon_name("edit-copy-symbolic").tooltip_text(tr!("Salin public key")).valign(gtk::Align::Center).build();
         copy.add_css_class("flat");
         let (c, pubkey) = (ctx.clone(), k.public_key.clone());
         copy.connect_clicked(move |_| {
             ctx::copy_text(&pubkey);
-            c.toast("Public key disalin");
+            c.toast(&tr!("Public key disalin"));
         });
         row.add_suffix(&copy);
 
-        let rename = gtk::Button::builder().icon_name("document-edit-symbolic").tooltip_text("Ganti nama").valign(gtk::Align::Center).build();
+        let rename = gtk::Button::builder().icon_name("document-edit-symbolic").tooltip_text(tr!("Ganti nama")).valign(gtk::Align::Center).build();
         rename.add_css_class("flat");
         let (c, key) = (ctx.clone(), k.clone());
         rename.connect_clicked(move |_| rename_dialog(&c, &key));
         row.add_suffix(&rename);
 
-        let del = gtk::Button::builder().icon_name("user-trash-symbolic").tooltip_text("Hapus").valign(gtk::Align::Center).build();
+        let del = gtk::Button::builder().icon_name("user-trash-symbolic").tooltip_text(tr!("Hapus")).valign(gtk::Align::Center).build();
         del.add_css_class("flat");
         let (c, key) = (ctx.clone(), k.clone());
         del.connect_clicked(move |_| delete_dialog(&c, &key, used));
@@ -86,12 +86,12 @@ fn render(ctx: &Ctx, body: &gtk::Box) {
 
 fn delete_dialog(ctx: &Ctx, k: &SshKey, used: usize) {
     let body = if used > 0 {
-        format!("{used} host yang memakai key ini akan kehilangan key-nya.")
+        tr!("{} host yang memakai key ini akan kehilangan key-nya.", used)
     } else {
-        "Tindakan ini tidak bisa dibatalkan.".into()
+        tr!("Tindakan ini tidak bisa dibatalkan.")
     };
-    let d = adw::AlertDialog::new(Some(&format!("Hapus key “{}”?", k.label)), Some(&body));
-    d.add_responses(&[("cancel", "Batal"), ("delete", "Hapus")]);
+    let d = adw::AlertDialog::new(Some(&tr!("Hapus key “{}”?", k.label)), Some(&body));
+    d.add_responses(&[("cancel", &tr!("Batal")), ("delete", &tr!("Hapus"))]);
     d.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
     let (c, id) = (ctx.clone(), k.id.clone());
     d.connect_response(None, move |_, r| {
@@ -108,11 +108,11 @@ fn delete_dialog(ctx: &Ctx, k: &SshKey, used: usize) {
 }
 
 fn rename_dialog(ctx: &Ctx, k: &SshKey) {
-    let d = adw::AlertDialog::new(Some("Ganti nama"), None);
+    let d = adw::AlertDialog::new(Some(&tr!("Ganti nama")), None);
     let e = gtk::Entry::builder().text(&k.label).activates_default(true).build();
     let e2 = e.clone();
     d.set_extra_child(Some(&e));
-    d.add_responses(&[("cancel", "Batal"), ("ok", "Simpan")]);
+    d.add_responses(&[("cancel", &tr!("Batal")), ("ok", &tr!("Simpan"))]);
     d.set_response_appearance("ok", adw::ResponseAppearance::Suggested);
     d.set_default_response(Some("ok"));
     let (c, id) = (ctx.clone(), k.id.clone());
@@ -133,13 +133,13 @@ fn rename_dialog(ctx: &Ctx, k: &SshKey) {
 
 fn generate_dialog(ctx: &Ctx) {
     let d = adw::AlertDialog::new(
-        Some("Generate SSH key"),
-        Some("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern."),
+        Some(&tr!("Generate SSH key")),
+        Some(&tr!("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern.")),
     );
-    let e = gtk::Entry::builder().placeholder_text("Label (mis. Laptop kantor)").activates_default(true).build();
+    let e = gtk::Entry::builder().placeholder_text(tr!("Label (mis. Laptop kantor)")).activates_default(true).build();
     let e2 = e.clone();
     d.set_extra_child(Some(&e));
-    d.add_responses(&[("cancel", "Batal"), ("ok", "Generate")]);
+    d.add_responses(&[("cancel", &tr!("Batal")), ("ok", &tr!("Generate"))]);
     d.set_response_appearance("ok", adw::ResponseAppearance::Suggested);
     d.set_default_response(Some("ok"));
     let c = ctx.clone();
@@ -155,7 +155,7 @@ fn generate_dialog(ctx: &Ctx) {
                 c.changed();
                 show_public_key(&c, &k);
             }
-            Err(err) => c.toast(&format!("Gagal membuat key: {err}")),
+            Err(err) => c.toast(&tr!("Gagal membuat key: {}", crate::i18n::msg(&err.to_string()))),
         }
     });
     d.present(Some(&ctx.window));
@@ -164,38 +164,38 @@ fn generate_dialog(ctx: &Ctx) {
 
 fn show_public_key(ctx: &Ctx, k: &SshKey) {
     let d = adw::AlertDialog::new(
-        Some("Key berhasil dibuat"),
-        Some("Tambahkan public key ini ke ~/.ssh/authorized_keys di server."),
+        Some(&tr!("Key berhasil dibuat")),
+        Some(&tr!("Tambahkan public key ini ke ~/.ssh/authorized_keys di server.")),
     );
     let l = gtk::Label::builder().label(&k.public_key).wrap(true).wrap_mode(gtk::pango::WrapMode::Char).selectable(true).xalign(0.0).build();
     l.add_css_class("djie-pubkey");
     d.set_extra_child(Some(&l));
-    d.add_responses(&[("close", "Tutup"), ("copy", "Salin & tutup")]);
+    d.add_responses(&[("close", &tr!("Tutup")), ("copy", &tr!("Salin & tutup"))]);
     d.set_response_appearance("copy", adw::ResponseAppearance::Suggested);
     d.set_default_response(Some("copy"));
     let (c, pubkey) = (ctx.clone(), k.public_key.clone());
     d.connect_response(None, move |_, r| {
         if r == "copy" {
             ctx::copy_text(&pubkey);
-            c.toast("Public key disalin");
+            c.toast(&tr!("Public key disalin"));
         }
     });
     d.present(Some(&ctx.window));
 }
 
 fn import_dialog(ctx: &Ctx) {
-    let dialog = adw::Dialog::builder().title("Import SSH key").content_width(520).content_height(560).build();
+    let dialog = adw::Dialog::builder().title(tr!("Import SSH key")).content_width(520).content_height(560).build();
     let page = adw::PreferencesPage::new();
     let group = adw::PreferencesGroup::builder()
-        .description("Pilih file private key (mis. ~/.ssh/id_ed25519) atau tempel isinya. Format OpenSSH.")
+        .description(tr!("Pilih file private key (mis. ~/.ssh/id_ed25519) atau tempel isinya. Format OpenSSH."))
         .build();
-    let label = adw::EntryRow::builder().title("Label").build();
-    let pass = adw::PasswordEntryRow::builder().title("Passphrase (jika ada)").build();
+    let label = adw::EntryRow::builder().title(tr!("Label")).build();
+    let pass = adw::PasswordEntryRow::builder().title(tr!("Passphrase (jika ada)")).build();
     group.add(&label);
     group.add(&pass);
     page.add(&group);
 
-    let g2 = adw::PreferencesGroup::builder().title("Private key").build();
+    let g2 = adw::PreferencesGroup::builder().title(tr!("Private key")).build();
     let text = gtk::TextView::builder().monospace(true).wrap_mode(gtk::WrapMode::Char).top_margin(10).bottom_margin(10).left_margin(10).right_margin(10).build();
     text.buffer().set_text("");
     let frame = gtk::Frame::new(None);
@@ -203,14 +203,14 @@ fn import_dialog(ctx: &Ctx) {
     frame.set_child(Some(&scroll));
     g2.add(&frame);
     let pick = gtk::Button::builder().halign(gtk::Align::Start).margin_top(8).build();
-    pick.set_child(Some(&adw::ButtonContent::builder().icon_name("folder-open-symbolic").label("Pilih file…").build()));
+    pick.set_child(Some(&adw::ButtonContent::builder().icon_name("folder-open-symbolic").label(tr!("Pilih file…")).build()));
     g2.add(&pick);
     page.add(&g2);
 
     {
         let (ctx, text, label) = (ctx.clone(), text.clone(), label.clone());
         pick.connect_clicked(move |_| {
-            let fd = gtk::FileDialog::builder().title("Pilih private key (bukan file .pub)").modal(true).build();
+            let fd = gtk::FileDialog::builder().title(tr!("Pilih private key (bukan file .pub)")).modal(true).build();
             let ssh_dir = gio::File::for_path(crate::config::home().join(".ssh"));
             fd.set_initial_folder(Some(&ssh_dir));
             let (text, label) = (text.clone(), label.clone());
@@ -234,7 +234,7 @@ fn import_dialog(ctx: &Ctx) {
     }
 
     let header = adw::HeaderBar::new();
-    let ok = gtk::Button::with_label("Import");
+    let ok = gtk::Button::with_label(&tr!("Import"));
     ok.add_css_class("suggested-action");
     header.pack_end(&ok);
     {
@@ -243,7 +243,7 @@ fn import_dialog(ctx: &Ctx) {
             let buf = text.buffer();
             let pem = buf.text(&buf.start_iter(), &buf.end_iter(), false).to_string();
             if pem.trim().is_empty() {
-                return ctx.toast("Tempel private key atau pilih file dulu");
+                return ctx.toast(&tr!("Tempel private key atau pilih file dulu"));
             }
             let l = label.text().trim().to_string();
             let l = if l.is_empty() { "Key".to_string() } else { l };
@@ -252,7 +252,7 @@ fn import_dialog(ctx: &Ctx) {
             match v.import_key(l.clone(), pem, if pp.is_empty() { None } else { Some(pp) }) {
                 Ok(_) => {
                     dialog.close();
-                    ctx.toast(&format!("Key “{l}” diimport"));
+                    ctx.toast(&tr!("Key “{}” diimport", l));
                     ctx.changed();
                 }
                 Err(e) => ctx.error(e),

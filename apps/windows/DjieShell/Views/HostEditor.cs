@@ -34,17 +34,17 @@ internal sealed class HostEditor : Grid
         _showAdvanced = original.AgentForwarding || original.JumpHostId != null || original.Proxy != null || !string.IsNullOrEmpty(original.StartupSnippet) || original.Env.Length > 0;
 
         var header = Ui.Columns("*,Auto", 8,
-            Ui.Col(2, Ui.Text(IsNew ? "Host Baru" : "Edit Host", 17, FontWeights.Bold),
-                Ui.Secondary(M.AccountEmail == null ? "Vault pribadi" : $"Vault · {M.AccountEmail}", 11.5)),
-            Ui.IconBtn(G.Close, "Tutup (Esc)", () => M.Edit(null)));
+            Ui.Col(2, Ui.Text(IsNew ? L.T("Host Baru") : L.T("Edit Host"), 17, FontWeights.Bold),
+                Ui.Secondary(M.AccountEmail == null ? L.T("Vault pribadi") : $"Vault · {M.AccountEmail}", 11.5)),
+            Ui.IconBtn(G.Close, L.T("Tutup (Esc)"), () => M.Edit(null)));
         header.Padding = new Thickness(16, 12, 12, 12);
 
         var body = Ui.Col(14, AddressCard(), GeneralCard(), _colorCard, _sshCard, _advancedCard, _themeCard);
         if (!IsNew)
         {
-            var del = Ui.Secondary("Hapus host", G.Delete, async () =>
+            var del = Ui.Secondary(L.T("Hapus host"), G.Delete, async () =>
             {
-                if (await Ui.Confirm($"Hapus host “{_original.Title()}”?", "Host akan dihapus dari vault di semua perangkat yang tersinkron."))
+                if (await Ui.Confirm(L.T("Hapus host “{}”?", _original.Title()), L.T("Host akan dihapus dari vault di semua perangkat yang tersinkron.")))
                 { M.Delete(_original); M.Edit(null); }
             }, Theme.Brush("#E5484D"));
             del.HorizontalAlignment = HorizontalAlignment.Stretch;
@@ -57,9 +57,9 @@ internal sealed class HostEditor : Grid
             scroll.Loaded += (_, _) => DispatcherQueue.TryEnqueue(() => scroll.ChangeView(null, 5000, null, true));
 #endif
 
-        var save = Ui.Secondary("Simpan", null, () => Save(false));
-        var connect = Ui.Primary("Connect", G.Bolt, () => Save(true));
-        ToolTipService.SetToolTip(connect, "Simpan lalu connect (Ctrl+Enter)");
+        var save = Ui.Secondary(L.T("Simpan"), null, () => Save(false));
+        var connect = Ui.Primary(L.T("Connect"), G.Bolt, () => Save(true));
+        ToolTipService.SetToolTip(connect, L.T("Simpan lalu connect (Ctrl+Enter)"));
         _saveButtons.AddRange([save, connect]);
         var footer = Ui.Row(8, save, connect);
         footer.HorizontalAlignment = HorizontalAlignment.Right;
@@ -100,7 +100,7 @@ internal sealed class HostEditor : Grid
         };
         if (M.Save(h) is not { } saved) return;
         M.Edit(null);
-        M.Flash(IsNew ? $"Host “{saved.Title()}” ditambahkan" : "Perubahan disimpan");
+        M.Flash(IsNew ? L.T("Host “{}” ditambahkan", saved.Title()) : L.T("Perubahan disimpan"));
         if (connect) M.Connect([saved.Id]);
     }
 
@@ -109,7 +109,7 @@ internal sealed class HostEditor : Grid
     private static Border EditorCard(string? title, params UIElement[] content)
     {
         var col = Ui.Col(10);
-        if (title != null) col.Children.Add(Ui.Text(title, 14, FontWeights.SemiBold));
+        if (title != null) col.Children.Add(Ui.Text(L.T(title), 14, FontWeights.SemiBold));
         foreach (var c in content) col.Children.Add(c);
         return Ui.Card(col, 14, 12);
     }
@@ -124,7 +124,7 @@ internal sealed class HostEditor : Grid
             Width = 44, Height = 44, CornerRadius = new CornerRadius(10), Background = Theme.TintGradient(_h.Color),
             Child = new FontIcon { Glyph = G.Server, FontSize = 17, Foreground = Theme.Brush("#000000", 0.7) }
         };
-        var host = Ui.Field("IP atau hostname", _h.Hostname, mono: true);
+        var host = Ui.Field(L.T("IP atau hostname"), _h.Hostname, mono: true);
         host.TextChanged += (_, _) => { _h = _h with { Hostname = host.Text }; UpdateCanSave(); };
         if (IsNew) host.Loaded += (_, _) => host.Focus(FocusState.Programmatic);
         var card = EditorCard("Address", Ui.Columns("Auto,*", 10, icon, host));
@@ -139,7 +139,7 @@ internal sealed class HostEditor : Grid
         var label = Ui.Field("Label", _h.Label);
         label.TextChanged += (_, _) => _h = _h with { Label = label.Text };
         var groups = M.OwnHosts.Select(x => x.Group).Where(g => !string.IsNullOrWhiteSpace(g)).Distinct().Cast<string>().ToList();
-        var group = new AutoSuggestBox { PlaceholderText = "Grup", Text = _h.Group ?? "" };
+        var group = new AutoSuggestBox { PlaceholderText = L.T("Grup"), Text = _h.Group ?? "" };
         group.TextChanged += (s, a) =>
         {
             _h = _h with { Group = group.Text };
@@ -148,7 +148,7 @@ internal sealed class HostEditor : Grid
         };
         group.GotFocus += (_, _) => { if (group.Text.Length == 0) { group.ItemsSource = groups; group.IsSuggestionListOpen = groups.Count > 0; } };
         group.SuggestionChosen += (_, a) => { group.Text = a.SelectedItem as string ?? ""; _h = _h with { Group = group.Text }; };
-        var tags = Ui.Field("Tag (pisahkan dengan koma)", _tags);
+        var tags = Ui.Field(L.T("Tag (pisahkan dengan koma)"), _tags);
         tags.TextChanged += (_, _) => _tags = tags.Text;
         return EditorCard("General", FieldRow(G.Text, label), FieldRow(G.Folder, group), FieldRow(G.Tag, tags));
     }
@@ -160,7 +160,7 @@ internal sealed class HostEditor : Grid
             CornerRadius = new CornerRadius(12), Padding = new Thickness(12), Background = Theme.Card, BorderBrush = Theme.Brush(_h.Color, 0.5), BorderThickness = new Thickness(1),
             Child = Ui.Columns("Auto,*", 10,
                 new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(9), Background = Theme.TintGradient(_h.Color), Child = new FontIcon { Glyph = G.Server, FontSize = 13, Foreground = Theme.Brush("#000000", 0.7) } },
-                Ui.Col(1, Ui.Text(string.IsNullOrEmpty(_h.Label) ? (string.IsNullOrEmpty(_h.Hostname) ? "Host baru" : _h.Hostname) : _h.Label, 13, FontWeights.SemiBold),
+                Ui.Col(1, Ui.Text(string.IsNullOrEmpty(_h.Label) ? (string.IsNullOrEmpty(_h.Hostname) ? L.T("Host baru") : _h.Hostname) : _h.Label, 13, FontWeights.SemiBold),
                     Ui.Text($"{_h.Username}@••••••••", 11, fg: Theme.Text2, mono: true)))
         };
         var swatches = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemWidth = 34, ItemHeight = 34 };
@@ -179,7 +179,7 @@ internal sealed class HostEditor : Grid
             swatches.Children.Add(b);
         }
         var picker = new ColorPicker { Color = Theme.Hex(_h.Color), IsAlphaEnabled = false, IsMoreButtonVisible = false, ColorSpectrumShape = ColorSpectrumShape.Ring };
-        var pickBtn = Ui.Secondary("Warna lain", null, () => { });
+        var pickBtn = Ui.Secondary(L.T("Warna lain"), null, () => { });
         var fly = new Flyout { Content = picker };
         fly.Closed += (_, _) => SetColor(Theme.ToHex(picker.Color));
         pickBtn.Flyout = fly;
@@ -198,7 +198,7 @@ internal sealed class HostEditor : Grid
     {
         var port = Ui.Number(_h.Port, 1, 65535, 90);
         port.ValueChanged += (_, _) => { if (!double.IsNaN(port.Value)) _h = _h with { Port = (ushort)port.Value }; };
-        var portRow = Ui.Columns("*,Auto", 8, Ui.Text("SSH di port", 14, FontWeights.SemiBold), port);
+        var portRow = Ui.Columns("*,Auto", 8, Ui.Text(L.T("SSH di port"), 14, FontWeights.SemiBold), port);
 
         var user = Ui.Field("Username", _h.Username);
         user.TextChanged += (_, _) => _h = _h with { Username = user.Text };
@@ -210,14 +210,14 @@ internal sealed class HostEditor : Grid
             case AuthMethod.Password:
                 var pw = new PasswordBox { PlaceholderText = "Password", Password = _h.Password ?? "", PasswordRevealMode = PasswordRevealMode.Peek };
                 pw.PasswordChanged += (_, _) => _h = _h with { Password = pw.Password.Length == 0 ? null : pw.Password };
-                detail = Ui.Col(6, FieldRow(G.Lock, pw), Ui.Secondary("Kosongkan jika ingin mengetik password saat connect.", 11.5, true));
+                detail = Ui.Col(6, FieldRow(G.Lock, pw), Ui.Secondary(L.T("Kosongkan jika ingin mengetik password saat connect."), 11.5, true));
                 break;
             case AuthMethod.Key:
                 detail = KeyPicker();
                 break;
             default:
                 detail = Ui.Row(8, Ui.Icon(G.Person, 13, Theme.Text2),
-                    Ui.Secondary("Memakai SSH agent Windows (OpenSSH Authentication Agent / Pageant).", 12, true).With(t => t.MaxWidth = 300));
+                    Ui.Secondary(L.T("Memakai SSH agent Windows (OpenSSH Authentication Agent / Pageant)."), 12, true).With(t => t.MaxWidth = 300));
                 break;
         }
         _sshCard.Child = Ui.Col(14, EditorCard(null, portRow), EditorCard("Credentials", FieldRow(G.Person, user), auth, detail));
@@ -227,7 +227,7 @@ internal sealed class HostEditor : Grid
     {
         var selected = M.KeyById(_h.KeyId);
         var content = Ui.Columns("Auto,*,Auto", 10, Ui.Icon(G.Key, 14, Theme.AccentBrush),
-            Ui.Col(1, Ui.Text(selected?.Label ?? "Pilih SSH key", 13, FontWeights.Medium),
+            Ui.Col(1, Ui.Text(selected?.Label ?? (L10n.English ? "Choose SSH key" : "Pilih SSH key"), 13, FontWeights.Medium),
                 selected == null ? null : Ui.Text(selected.Fingerprint, 10, fg: Theme.Text2, mono: true)),
             Ui.Icon(G.ChevronDown, 10, Theme.Text2));
         var b = new Button
@@ -243,7 +243,7 @@ internal sealed class HostEditor : Grid
             f.Items.Add(item);
         }
         if (M.Keys.Length > 0) f.Items.Add(new MenuFlyoutSeparator());
-        var gen = new MenuFlyoutItem { Text = "Generate key Ed25519 baru", Icon = new FontIcon { Glyph = G.Sparkle } };
+        var gen = new MenuFlyoutItem { Text = L.T("Generate key Ed25519 baru"), Icon = new FontIcon { Glyph = G.Sparkle } };
         gen.Click += (_, _) =>
         {
             try
@@ -251,12 +251,12 @@ internal sealed class HostEditor : Grid
                 var k = M.GenerateKey(string.IsNullOrEmpty(_h.Title()) ? "host-key" : _h.Title());
                 _h = _h with { KeyId = k.Id };
                 Ui.CopyText(k.PublicKey);
-                M.Flash("Key dibuat · public key disalin ke clipboard");
+                M.Flash(L.T("Key dibuat · public key disalin ke clipboard"));
                 RenderSsh();
             }
             catch (Exception e) { M.Flash(Errors.Text(e)); }
         };
-        var open = new MenuFlyoutItem { Text = "Buka Keychain…" };
+        var open = new MenuFlyoutItem { Text = L.T("Buka Keychain…") };
         open.Click += (_, _) => { M.Edit(null); M.Navigate(Section.Keychain); };
         f.Items.Add(gen); f.Items.Add(open);
         b.Flyout = f;
@@ -266,18 +266,18 @@ internal sealed class HostEditor : Grid
     private void RenderAdvanced()
     {
         var chevron = Ui.Icon(_showAdvanced ? G.ChevronDown : G.ChevronRight, 11, Theme.Text2);
-        var head = Ui.Plain(Ui.Columns("*,Auto", 8, Ui.Text("Lanjutan", 14, FontWeights.SemiBold), chevron), () => { _showAdvanced = !_showAdvanced; RenderAdvanced(); }, new Thickness(0));
+        var head = Ui.Plain(Ui.Columns("*,Auto", 8, Ui.Text(L.T("Lanjutan"), 14, FontWeights.SemiBold), chevron), () => { _showAdvanced = !_showAdvanced; RenderAdvanced(); }, new Thickness(0));
         if (!_showAdvanced) { _advancedCard.Child = EditorCard(null, head); return; }
 
         var fwd = new ToggleSwitch { IsOn = _h.AgentForwarding, OnContent = "", OffContent = "", MinWidth = 0 };
         fwd.Toggled += (_, _) => _h = _h with { AgentForwarding = fwd.IsOn };
         var fwdRow = Ui.Columns("Auto,*,Auto", 10, Ui.Icon(G.Forward, 13, Theme.Text3), Ui.Text("Agent Forwarding", 13), fwd);
 
-        var startup = Ui.Field("Startup snippet (dijalankan setelah login)", _h.StartupSnippet ?? "", mono: true);
+        var startup = Ui.Field(L.T("Startup snippet (dijalankan setelah login)"), _h.StartupSnippet ?? "", mono: true);
         startup.TextChanged += (_, _) => _h = _h with { StartupSnippet = startup.Text.Length == 0 ? null : startup.Text };
 
-        var jump = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "Tanpa jump host" };
-        jump.Items.Add(new ComboBoxItem { Content = "Tanpa jump host", Tag = "" });
+        var jump = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = L.T("Tanpa jump host") };
+        jump.Items.Add(new ComboBoxItem { Content = L.T("Tanpa jump host"), Tag = "" });
         foreach (var x in M.OwnHosts.Where(x => x.Id != _h.Id)) jump.Items.Add(new ComboBoxItem { Content = x.Title(), Tag = x.Id });
         jump.SelectedItem = jump.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == (_h.JumpHostId ?? "")) ?? jump.Items[0];
         jump.SelectionChanged += (_, _) => { var id = (jump.SelectedItem as ComboBoxItem)?.Tag as string; _h = _h with { JumpHostId = string.IsNullOrEmpty(id) ? null : id }; };
@@ -294,11 +294,11 @@ internal sealed class HostEditor : Grid
         for (int i = 0; i < _h.Env.Length; i++)
         {
             var idx = i;
-            var name = Ui.Field("NAMA", _h.Env[i].Name, mono: true);
-            var value = Ui.Field("nilai", _h.Env[i].Value, mono: true);
+            var name = Ui.Field(L.T("NAMA"), _h.Env[i].Name, mono: true);
+            var value = Ui.Field(L.T("nilai"), _h.Env[i].Value, mono: true);
             name.TextChanged += (_, _) => { var e = _h.Env.ToArray(); e[idx] = e[idx] with { Name = name.Text }; _h = _h with { Env = e }; };
             value.TextChanged += (_, _) => { var e = _h.Env.ToArray(); e[idx] = e[idx] with { Value = value.Text }; _h = _h with { Env = e }; };
-            var rm = Ui.IconBtn(G.Close, "Hapus", () => { _h = _h with { Env = _h.Env.Where((_, j) => j != idx).ToArray() }; RenderAdvanced(); }, size: 10);
+            var rm = Ui.IconBtn(G.Close, L.T("Hapus"), () => { _h = _h with { Env = _h.Env.Where((_, j) => j != idx).ToArray() }; RenderAdvanced(); }, size: 10);
             env.Children.Add(Ui.Columns("*,*,Auto", 6, name, value, rm));
         }
         var addEnv = Ui.Plain(Ui.Row(6, Ui.Icon(G.Add, 11, Theme.AccentBrush), Ui.Text("Environment variable", 12.5, fg: Theme.AccentBrush)),
@@ -313,7 +313,7 @@ internal sealed class HostEditor : Grid
     {
         var kind = new ComboBox { HorizontalAlignment = HorizontalAlignment.Stretch };
         foreach (var (label, tag) in new[] { ("Tanpa proxy", ""), ("SOCKS5", "socks5"), ("HTTP", "http") })
-            kind.Items.Add(new ComboBoxItem { Content = label, Tag = tag });
+            kind.Items.Add(new ComboBoxItem { Content = L.T(label), Tag = tag });
         var cur = _h.Proxy is null ? "" : _h.Proxy.Kind == ProxyKind.Http ? "http" : "socks5";
         kind.SelectedItem = kind.Items.OfType<ComboBoxItem>().First(i => (string)i.Tag == cur);
         kind.SelectionChanged += (_, _) =>
@@ -332,17 +332,17 @@ internal sealed class HostEditor : Grid
         var col = Ui.Col(6, Ui.Col(4, Ui.Secondary("Proxy", 11.5), kind));
         if (_h.Proxy is not { } px) return col;
 
-        var host = Ui.Field("Alamat proxy", px.Host, mono: true);
+        var host = Ui.Field(L.T("Alamat proxy"), px.Host, mono: true);
         host.TextChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Host = host.Text.Trim() } }; UpdateCanSave(); };
         var port = Ui.Number(px.Port, 1, 65535, 96);
         port.ValueChanged += (_, _) => { if (_h.Proxy is { } p && !double.IsNaN(port.Value)) _h = _h with { Proxy = p with { Port = (ushort)port.Value } }; };
-        var user = Ui.Field("Username (opsional)", px.Username ?? "");
+        var user = Ui.Field(L.T("Username (opsional)"), px.Username ?? "");
         user.TextChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Username = user.Text.Length == 0 ? null : user.Text } }; };
         var pw = new PasswordBox { PlaceholderText = "Password", Password = px.Password ?? "", PasswordRevealMode = PasswordRevealMode.Peek };
         pw.PasswordChanged += (_, _) => { if (_h.Proxy is { } p) _h = _h with { Proxy = p with { Password = pw.Password.Length == 0 ? null : pw.Password } }; };
         var note = _h.JumpHostId != null
-            ? "Proxy tidak dipakai di terminal selama jump host aktif."
-            : "Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini.";
+            ? L.T("Proxy tidak dipakai di terminal selama jump host aktif.")
+            : L.T("Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini.");
         col.Children.Add(Ui.Columns("*,Auto", 6, host, port));
         col.Children.Add(Ui.Columns("*,*", 6, user, pw));
         col.Children.Add(Ui.Secondary(note, 11.5, true));
@@ -352,7 +352,7 @@ internal sealed class HostEditor : Grid
     private void RenderTheme()
     {
         var grid = new VariableSizedWrapGrid { Orientation = Orientation.Horizontal, ItemWidth = 108, ItemHeight = 92 };
-        grid.Children.Add(ThemeOption(null, "Otomatis", TerminalThemes.Get(null)));
+        grid.Children.Add(ThemeOption(null, L.T("Otomatis"), TerminalThemes.Get(null)));
         foreach (var t in TerminalThemes.All) grid.Children.Add(ThemeOption(t.Id, t.Name, t));
         _themeCard.Child = EditorCard("Tema terminal", grid);
     }
@@ -361,7 +361,7 @@ internal sealed class HostEditor : Grid
     {
         var active = _h.TerminalTheme == id;
         var lines = Ui.Col(3,
-            Ui.Row(4, Ui.Text("$", 10, fg: Theme.Brush(t.Accent), mono: true), Ui.Text(id == null ? "ikut app" : "ls -la", 10, fg: Theme.Brush(t.Fg), mono: true)),
+            Ui.Row(4, Ui.Text("$", 10, fg: Theme.Brush(t.Accent), mono: true), Ui.Text(id == null ? L.T("ikut app") : "ls -la", 10, fg: Theme.Brush(t.Fg), mono: true)),
             Ui.Row(4, new Border { Width = 18, Height = 4, CornerRadius = new CornerRadius(2), Background = Theme.Brush(t.Ansi[2]) },
                 new Border { Width = 26, Height = 4, CornerRadius = new CornerRadius(2), Background = Theme.Brush(t.Ansi[4]) }),
             Ui.Row(4, new Border { Width = 12, Height = 4, CornerRadius = new CornerRadius(2), Background = Theme.Brush(t.Ansi[1]) },

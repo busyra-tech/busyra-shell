@@ -42,7 +42,7 @@ struct HostEditor: View {
                             model.delete(original)
                             model.editingHost = nil
                         } label: {
-                            Label("Hapus host", systemImage: "trash").frame(maxWidth: .infinity)
+                            Label(L("Hapus host"), systemImage: "trash").frame(maxWidth: .infinity)
                         }
                         .buttonStyle(SecondaryButtonStyle(wide: true))
                         .foregroundStyle(.red)
@@ -62,12 +62,12 @@ struct HostEditor: View {
     private var header: some View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
-                Text(isNew ? "Host Baru" : "Edit Host").font(.system(size: 17, weight: .bold))
-                Text(model.accountEmail == nil ? "Vault pribadi" : "Vault · \(model.accountEmail!)")
+                Text(isNew ? L("Host Baru") : L("Edit Host")).font(.system(size: 17, weight: .bold))
+                Text(model.accountEmail == nil ? L("Vault pribadi") : L("Vault · {}", model.accountEmail!))
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
-            IconButton(symbol: "xmark", help: "Tutup (Esc)") { model.editingHost = nil }
+            IconButton(symbol: "xmark", help: L("Tutup (Esc)")) { model.editingHost = nil }
                 .keyboardShortcut(.cancelAction)
         }
         .padding(.horizontal, 16).padding(.vertical, 12)
@@ -77,15 +77,15 @@ struct HostEditor: View {
     private var footer: some View {
         HStack(spacing: 8) {
             Spacer()
-            Button("Simpan") { save(connect: false) }
+            Button(L("Simpan")) { save(connect: false) }
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut("s")
             Button {
                 save(connect: true)
             } label: {
-                Label("Connect", systemImage: "bolt.fill").lineLimit(1)
+                Label(L("Connect"), systemImage: "bolt.fill").lineLimit(1)
             }
-            .help("Simpan lalu connect (⌘⏎)")
+            .help(L("Simpan lalu connect (⌘⏎)"))
             .buttonStyle(PrimaryButtonStyle())
             .keyboardShortcut(.return, modifiers: .command)
         }
@@ -100,14 +100,14 @@ struct HostEditor: View {
         if h.group?.trimmingCharacters(in: .whitespaces).isEmpty == true { h.group = nil }
         guard let saved = model.save(h) else { return }
         model.editingHost = nil
-        model.flash(isNew ? "Host “\(saved.title)” ditambahkan" : "Perubahan disimpan")
+        model.flash(isNew ? L("Host “{}” ditambahkan", saved.title) : L("Perubahan disimpan"))
         if connect { model.connect([saved.id]) }
     }
 
     // MARK: Cards
 
     private var addressCard: some View {
-        EditorCard("Address") {
+        EditorCard(L("Address")) {
             HStack(spacing: 10) {
                 Menu {
                     ForEach(Theme.hostColors, id: \.self) { c in
@@ -125,9 +125,9 @@ struct HostEditor: View {
                     .frame(width: 44, height: 44)
                 }
                 .menuStyle(.button).buttonStyle(.plain)
-                .help("Ganti warna")
+                .help(L("Ganti warna"))
 
-                TextField("IP atau hostname", text: $h.hostname)
+                TextField(L("IP atau hostname"), text: $h.hostname)
                     .focused($addressFocused)
                     .djieField()
                     .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(addressFocused ? Theme.accent : .clear, lineWidth: 1.5))
@@ -137,10 +137,10 @@ struct HostEditor: View {
     }
 
     private var generalCard: some View {
-        EditorCard("General") {
-            FieldRow(icon: "textformat") { TextField("Label", text: $h.label).textFieldStyle(.plain) }
+        EditorCard(L("General")) {
+            FieldRow(icon: "textformat") { TextField(L("Label"), text: $h.label).textFieldStyle(.plain) }
             FieldRow(icon: "square.stack.3d.up") {
-                TextField("Grup", text: Binding(get: { h.group ?? "" }, set: { h.group = $0 }))
+                TextField(L("Grup"), text: Binding(get: { h.group ?? "" }, set: { h.group = $0 }))
                     .textFieldStyle(.plain)
                 let groups = Set(model.ownHosts.compactMap(\.group)).sorted()
                 if !groups.isEmpty {
@@ -150,28 +150,28 @@ struct HostEditor: View {
                         .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 }
             }
-            FieldRow(icon: "tag") { TextField("Tag (pisahkan dengan koma)", text: $tagsText).textFieldStyle(.plain) }
+            FieldRow(icon: "tag") { TextField(L("Tag (pisahkan dengan koma)"), text: $tagsText).textFieldStyle(.plain) }
         }
     }
 
     private var sshCard: some View {
         EditorCard(nil) {
             HStack(spacing: 8) {
-                Text("SSH di port").font(.system(size: 14, weight: .semibold))
+                Text(L("SSH di port")).font(.system(size: 14, weight: .semibold))
                 TextField("22", value: $h.port, format: .number.grouping(.never))
                     .multilineTextAlignment(.center)
                     .frame(width: 70)
                     .djieField()
             }
             Divider().padding(.vertical, 4)
-            Text("Credentials").font(.system(size: 14, weight: .semibold))
+            Text(L("Credentials")).font(.system(size: 14, weight: .semibold))
 
-            FieldRow(icon: "person.fill") { TextField("Username", text: $h.username).textFieldStyle(.plain) }
+            FieldRow(icon: "person.fill") { TextField(L("Username"), text: $h.username).textFieldStyle(.plain) }
 
             Picker("", selection: $h.auth.animation(.djie)) {
-                Text("Password").tag(AuthMethod.password)
-                Text("SSH Key").tag(AuthMethod.key)
-                Text("Agent").tag(AuthMethod.agent)
+                Text(L("Password")).tag(AuthMethod.password)
+                Text(L("SSH Key")).tag(AuthMethod.key)
+                Text(L("Agent")).tag(AuthMethod.agent)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
@@ -182,9 +182,9 @@ struct HostEditor: View {
                     FieldRow(icon: "ellipsis.rectangle") {
                         Group {
                             if showPassword {
-                                TextField("Password", text: passwordBinding)
+                                TextField(L("Password"), text: passwordBinding)
                             } else {
-                                SecureField("Password", text: passwordBinding)
+                                SecureField(L("Password"), text: passwordBinding)
                             }
                         }
                         .textFieldStyle(.plain)
@@ -194,12 +194,12 @@ struct HostEditor: View {
                         }
                         .buttonStyle(.plain).foregroundStyle(.secondary)
                     }
-                    Text("Kosongkan jika ingin mengetik password saat connect.")
+                    Text(L("Kosongkan jika ingin mengetik password saat connect."))
                         .font(.caption).foregroundStyle(.tertiary)
                 case .key:
                     keyPicker
                 case .agent:
-                    Label("Memakai SSH agent sistem (mis. 1Password, ssh-agent).", systemImage: "person.badge.key")
+                    Label(L("Memakai SSH agent sistem (mis. 1Password, ssh-agent)."), systemImage: "person.badge.key")
                         .font(.callout).foregroundStyle(.secondary)
                 }
             }
@@ -223,15 +223,15 @@ struct HostEditor: View {
                 }
             }
             if !model.keys.isEmpty { Divider() }
-            Button("Generate key Ed25519 baru") {
+            Button(L("Generate key Ed25519 baru")) {
                 if let k = try? model.generateKey(label: h.title.isEmpty ? "host-key" : h.title) {
                     h.keyId = k.id
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(k.publicKey, forType: .string)
-                    model.flash("Key dibuat · public key disalin ke clipboard")
+                    model.flash(L("Key dibuat · public key disalin ke clipboard"))
                 }
             }
-            Button("Buka Keychain…") {
+            Button(L("Buka Keychain…")) {
                 model.editingHost = nil
                 model.section = .keychain
             }
@@ -239,7 +239,7 @@ struct HostEditor: View {
             HStack(spacing: 10) {
                 Image(systemName: "key.fill").foregroundStyle(Theme.accent)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(selected?.label ?? "Pilih SSH key").font(.system(size: 13, weight: .medium))
+                    Text(selected?.label ?? L("Pilih SSH key")).font(.system(size: 13, weight: .medium))
                     if let s = selected {
                         Text(s.fingerprint).font(.system(size: 10, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
                     }
@@ -260,7 +260,7 @@ struct HostEditor: View {
                 withAnimation(.djie) { showAdvanced.toggle() }
             } label: {
                 HStack {
-                    Text("Lanjutan").font(.system(size: 14, weight: .semibold))
+                    Text(L("Lanjutan")).font(.system(size: 14, weight: .semibold))
                     Spacer()
                     Image(systemName: "chevron.right")
                         .rotationEffect(.degrees(showAdvanced ? 90 : 0))
@@ -273,36 +273,36 @@ struct HostEditor: View {
             if showAdvanced {
                 VStack(spacing: 10) {
                     FieldRow(icon: "shield.lefthalf.filled") {
-                        Text("Agent Forwarding")
+                        Text(L("Agent Forwarding"))
                         Spacer()
                         Toggle("", isOn: $h.agentForwarding).toggleStyle(.switch).labelsHidden().controlSize(.small)
                     }
                     FieldRow(icon: "curlybraces") {
-                        TextField("Startup snippet (dijalankan setelah login)",
+                        TextField(L("Startup snippet (dijalankan setelah login)"),
                                   text: Binding(get: { h.startupSnippet ?? "" }, set: { h.startupSnippet = $0.isEmpty ? nil : $0 }))
                             .textFieldStyle(.plain).font(.system(size: 13, design: .monospaced))
                     }
                     FieldRow(icon: "point.3.connected.trianglepath.dotted") {
-                        Picker("Host Chaining", selection: $h.jumpHostId) {
-                            Text("Tanpa jump host").tag(String?.none)
+                        Picker(L("Host Chaining"), selection: $h.jumpHostId) {
+                            Text(L("Tanpa jump host")).tag(String?.none)
                             ForEach(model.ownHosts.filter { $0.id != h.id }) { j in
                                 Text(j.title).tag(Optional(j.id))
                             }
                         }
                         .labelsHidden()
                         Spacer()
-                        Text("Jump host").font(.caption).foregroundStyle(.secondary)
+                        Text(L("Jump host")).font(.caption).foregroundStyle(.secondary)
                     }
                     proxyEditor
                     envEditor
                     FieldRow(icon: "character.cursor.ibeam") {
-                        Picker("Charset", selection: $h.charset) {
+                        Picker(L("Charset"), selection: $h.charset) {
                             Text("UTF-8").tag("UTF-8")
                             Text("ASCII").tag("ASCII")
                         }
                         .labelsHidden()
                         Spacer()
-                        Text("Charset").font(.caption).foregroundStyle(.secondary)
+                        Text(L("Charset")).font(.caption).foregroundStyle(.secondary)
                     }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
@@ -337,31 +337,31 @@ struct HostEditor: View {
     private var proxyEditor: some View {
         VStack(alignment: .leading, spacing: 6) {
             FieldRow(icon: "network.badge.shield.half.filled") {
-                Picker("Proxy", selection: proxyKind) {
-                    Text("Tanpa proxy").tag(ProxyKind?.none)
+                Picker(L("Proxy"), selection: proxyKind) {
+                    Text(L("Tanpa proxy")).tag(ProxyKind?.none)
                     Text("SOCKS5").tag(Optional(ProxyKind.socks5))
                     Text("HTTP").tag(Optional(ProxyKind.http))
                 }
                 .labelsHidden()
                 Spacer()
-                Text("Proxy").font(.caption).foregroundStyle(.secondary)
+                Text(L("Proxy")).font(.caption).foregroundStyle(.secondary)
             }
             if h.proxy != nil {
                 HStack(spacing: 6) {
-                    TextField("Alamat proxy", text: proxyText({ $0.host }, { $0.host = ($1 ?? "").trimmingCharacters(in: .whitespaces) }))
+                    TextField(L("Alamat proxy"), text: proxyText({ $0.host }, { $0.host = ($1 ?? "").trimmingCharacters(in: .whitespaces) }))
                         .djieField(error: h.proxy?.host.isEmpty ?? false).font(.system(size: 12, design: .monospaced))
-                    TextField("Port", text: proxyText({ String($0.port) }, { p, v in if let n = UInt16(v ?? "") { p.port = n } }))
+                    TextField(L("Port"), text: proxyText({ String($0.port) }, { p, v in if let n = UInt16(v ?? "") { p.port = n } }))
                         .djieField().font(.system(size: 12, design: .monospaced)).frame(width: 72)
                 }
                 HStack(spacing: 6) {
-                    TextField("Username (opsional)", text: proxyText({ $0.username }, { $0.username = $1 }))
+                    TextField(L("Username (opsional)"), text: proxyText({ $0.username }, { $0.username = $1 }))
                         .djieField().font(.system(size: 12))
-                    SecureField("Password", text: proxyText({ $0.password }, { $0.password = $1 }))
+                    SecureField(L("Password"), text: proxyText({ $0.password }, { $0.password = $1 }))
                         .djieField().font(.system(size: 12))
                 }
                 Text(h.jumpHostId != nil
-                     ? "Proxy tidak dipakai di terminal selama jump host aktif."
-                     : "Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini.")
+                     ? L("Proxy tidak dipakai di terminal selama jump host aktif.")
+                     : L("Dipakai untuk terminal, SFTP, port forwarding, dan tunnel database host ini."))
                     .font(.caption).foregroundStyle(.secondary).padding(.leading, 4)
             }
         }
@@ -372,16 +372,16 @@ struct HostEditor: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(h.env.indices, id: \.self) { i in
                 HStack(spacing: 6) {
-                    TextField("NAMA", text: $h.env[i].name).djieField().font(.system(size: 12, design: .monospaced))
-                    TextField("nilai", text: $h.env[i].value).djieField().font(.system(size: 12, design: .monospaced))
-                    IconButton(symbol: "minus", help: "Hapus") { withAnimation(.djieSnappy) { _ = h.env.remove(at: i) } }
+                    TextField(L("NAMA"), text: $h.env[i].name).djieField().font(.system(size: 12, design: .monospaced))
+                    TextField(L("nilai"), text: $h.env[i].value).djieField().font(.system(size: 12, design: .monospaced))
+                    IconButton(symbol: "minus", help: L("Hapus")) { withAnimation(.djieSnappy) { _ = h.env.remove(at: i) } }
                 }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
             Button {
                 withAnimation(.djieSnappy) { h.env.append(EnvVar(name: "", value: "")) }
             } label: {
-                Label("Environment variable", systemImage: "plus").font(.callout)
+                Label(L("Environment variable"), systemImage: "plus").font(.callout)
             }
             .buttonStyle(.plain).foregroundStyle(.secondary)
             .padding(.leading, 4)
@@ -389,9 +389,9 @@ struct HostEditor: View {
     }
 
     private var themeCard: some View {
-        EditorCard("Tema terminal") {
+        EditorCard(L("Tema terminal")) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 12) {
-                themeOption(id: nil, name: "Otomatis", preview: TerminalThemes.def(nil))
+                themeOption(id: nil, name: L("Otomatis"), preview: TerminalThemes.def(nil))
                 ForEach(TerminalThemes.all) { t in themeOption(id: t.id, name: t.name, preview: t) }
             }
         }
@@ -418,7 +418,7 @@ struct HostEditor: View {
     }
 
     private var colorCard: some View {
-        EditorCard("Warna kartu") {
+        EditorCard(L("Warna kartu")) {
             CardPreview(host: h)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 26), spacing: 8)], spacing: 8) {
                 ForEach(Theme.cardPalette, id: \.self) { c in
@@ -434,7 +434,7 @@ struct HostEditor: View {
                 }
             }
             HStack {
-                Text("Warna lain").font(.callout).foregroundStyle(.secondary)
+                Text(L("Warna lain")).font(.callout).foregroundStyle(.secondary)
                 Spacer()
                 ColorPicker("", selection: Binding(
                     get: { Color(hex: h.color) },
@@ -532,7 +532,7 @@ struct CardPreview: View {
                 .frame(width: 40, height: 40)
                 .shadow(color: c.opacity(0.5), radius: 8)
             VStack(alignment: .leading, spacing: 2) {
-                Text(host.title.isEmpty ? "Nama host" : host.title).font(.system(size: 13, weight: .semibold))
+                Text(host.title.isEmpty ? L("Nama host") : host.title).font(.system(size: 13, weight: .semibold))
                 Text("\(host.username)@••••••••").font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
             }
             Spacer()

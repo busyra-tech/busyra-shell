@@ -20,12 +20,12 @@ internal static class SectionInfo
     public static readonly Section[] Main = [Section.Dashboard, Section.Hosts, Section.ServerAdmin, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Docker, Section.Snippets, Section.KnownHosts, Section.Logs];
     public static readonly Section[] Community = [Section.Donate, Section.About];
 
-    public static string Title(this Section s) => s switch
+    public static string Title(this Section s) => L.T(s switch
     {
         Section.Dashboard => "Dashboard", Section.Hosts => "Hosts", Section.ServerAdmin => "Kelola Server", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
         Section.Database => "Database", Section.LocalServer => "Server Lokal", Section.Docker => "Docker", Section.Snippets => "Snippets", Section.KnownHosts => "Known Hosts", Section.Logs => "Logs",
         Section.Donate => "Donasi", Section.About => "Tentang", _ => "Akun",
-    };
+    });
 
     public static string Glyph(this Section s) => s switch
     {
@@ -438,11 +438,11 @@ internal sealed class AppModel
             Update = u;
             if (u != null) UpdateDismissed = false;
             Raise("update");
-            if (manual && u == null) Flash($"Djie Shell {Config.Version} sudah versi terbaru");
+            if (manual && u == null) Flash(L.T("Djie Shell {} sudah versi terbaru", Config.Version));
         }
         catch
         {
-            if (manual) Flash("Gagal memeriksa pembaruan");
+            if (manual) Flash(L.T("Gagal memeriksa pembaruan"));
         }
     }
 
@@ -468,11 +468,11 @@ internal sealed class AppModel
     {
         if (on && !Notifier.Allowed)
         {
-            Flash("Notifikasi diblokir — izinkan Djie Shell di Settings Windows → Sistem → Notifikasi");
+            Flash(L.T("Notifikasi diblokir — izinkan Djie Shell di Settings Windows → Sistem → Notifikasi"));
             return;
         }
         Dashboard.Alerts = on;
-        if (on) { Dashboard.Start(); Flash("Notifikasi aktif — Dashboard memantau semua server di latar belakang"); }
+        if (on) { Dashboard.Start(); Flash(L.T("Notifikasi aktif — Dashboard memantau semua server di latar belakang")); }
         else if (Section != Section.Dashboard || ActiveSessionId != null) Dashboard.Stop();
         Raise("dashboard");
     }
@@ -599,12 +599,12 @@ internal sealed class AppModel
 
     public string SyncStatusText => Sync switch
     {
-        SyncKind.Off => "Lokal saja",
-        SyncKind.Idle => "Siap sync",
-        SyncKind.Syncing => "Menyinkronkan…",
-        SyncKind.Synced => LastSynced is { } d && DateTimeOffset.Now - d < TimeSpan.FromMinutes(1) ? "Tersinkron" : $"Sinkron {Ui.Relative(LastSynced ?? DateTimeOffset.Now)}",
-        SyncKind.Failed => "Sync gagal — klik untuk ulang",
-        _ => "Masuk ulang Google",
+        SyncKind.Off => L.T("Lokal saja"),
+        SyncKind.Idle => L.T("Siap sync"),
+        SyncKind.Syncing => L.T("Menyinkronkan…"),
+        SyncKind.Synced => LastSynced is { } d && DateTimeOffset.Now - d < TimeSpan.FromMinutes(1) ? L.T("Tersinkron") : L.T("Sinkron {}", Ui.Relative(LastSynced ?? DateTimeOffset.Now)),
+        SyncKind.Failed => L.T("Sync gagal — klik untuk ulang"),
+        _ => L.T("Masuk ulang Google"),
     };
 
     // MARK: Navigasi
@@ -633,7 +633,7 @@ internal sealed class AppModel
     public Host? Save(Host host)
     {
         if (_vault == null) return null;
-        if (host.IsTeam()) { Flash("Host tim hanya bisa diubah admin tim"); return null; }
+        if (host.IsTeam()) { Flash(L.T("Host tim hanya bisa diubah admin tim")); return null; }
         try
         {
             var saved = _vault.UpsertHost(host);
@@ -646,7 +646,7 @@ internal sealed class AppModel
 
     public void Delete(Host host)
     {
-        if (host.IsTeam()) { Flash("Host tim hanya bisa diubah admin tim"); return; }
+        if (host.IsTeam()) { Flash(L.T("Host tim hanya bisa diubah admin tim")); return; }
         try { _vault?.DeleteHost(host.Id); } catch { }
         Selection.Remove(host.Id);
         if (EditingHost?.Id == host.Id) Edit(null);
@@ -698,7 +698,7 @@ internal sealed class AppModel
     {
         if (Tunnels.IsRunning(f.Id)) Tunnels.Stop(f.Id);
         else if (HostById(f.HostId) is { } h) Tunnels.Start(f, h, KeyById(h.KeyId), HostById(h.JumpHostId));
-        else Flash("Host untuk aturan ini sudah tidak ada");
+        else Flash(L.T("Host untuk aturan ini sudah tidak ada"));
     }
 
     // MARK: Database
@@ -1095,7 +1095,7 @@ internal sealed class AppModel
 #if DEBUG
             if (Environment.GetEnvironmentVariable("DJIE_TEST_DRIVE_EMAIL") is { } e) return e;
 #endif
-            if (AccountEmail == null) { TeamError = "Masuk dengan Google dulu untuk memakai Tim"; Raise("team"); }
+            if (AccountEmail == null) { TeamError = L.T("Masuk dengan Google dulu untuk memakai Tim"); Raise("team"); }
             return AccountEmail;
         }
     }
@@ -1124,20 +1124,20 @@ internal sealed class AppModel
     {
         if (TeamEmail is not { } email) return false;
         var ok = await TeamCall((v, t) => v.TeamCreate(t, name, email)) != null;
-        if (ok) Flash($"Tim {name} dibuat");
+        if (ok) Flash(L.T("Tim {} dibuat", name));
         return ok;
     }
 
     public async Task<bool> InviteToTeam(TeamInfo team, string email)
     {
         var ok = await TeamCall((v, t) => v.TeamInvite(t, team.Id, email)) != null;
-        if (ok) Flash($"Undangan dikirim ke {email}");
+        if (ok) Flash(L.T("Undangan dikirim ke {}", email));
         return ok;
     }
 
     public async Task RemoveFromTeam(TeamInfo team, string email)
     {
-        if (await TeamCall((v, t) => v.TeamRemoveMember(t, team.Id, email)) != null) Flash($"{email} dikeluarkan · kunci tim diganti");
+        if (await TeamCall((v, t) => v.TeamRemoveMember(t, team.Id, email)) != null) Flash(L.T("{} dikeluarkan · kunci tim diganti", email));
     }
 
     public Task ShareHosts(TeamInfo team, IEnumerable<string> ids) => TeamCall((v, t) => v.TeamShareHosts(t, team.Id, ids.ToArray()));
@@ -1153,7 +1153,7 @@ internal sealed class AppModel
         var id = FileIdFrom(fileOrLink);
         if (await TeamCall((v, t) => v.TeamJoin(t, id, email)) is not { } info) return false;
         TeamInvites = TeamInvites.Where(i => i.FileId != id).ToArray();
-        Flash(info.Status == TeamStatus.Active ? $"Bergabung ke {info.Name}" : $"Bergabung ke {info.Name} · menunggu admin");
+        Flash(info.Status == TeamStatus.Active ? L.T("Bergabung ke {}", info.Name) : L.T("Bergabung ke {} · menunggu admin", info.Name));
         Raise("team");
         return true;
     }
@@ -1161,7 +1161,7 @@ internal sealed class AppModel
     public async Task LeaveTeam(TeamInfo team)
     {
         if (await TeamCall<object>(async (v, t) => { await v.TeamLeave(t, team.Id); return team; }) != null)
-            Flash(team.IsOwner ? $"Tim {team.Name} dihapus" : $"Keluar dari {team.Name}");
+            Flash(team.IsOwner ? L.T("Tim {} dihapus", team.Name) : L.T("Keluar dari {}", team.Name));
     }
 
     /// <summary>Sinkron semua tim (diam-diam; error per tim tampil di kartunya).</summary>
@@ -1177,7 +1177,7 @@ internal sealed class AppModel
         try
         {
             await SignInGoogle();
-            TeamError = GoogleTokens.HasDriveFileScope ? null : "Izin Google Drive belum dicentang. Coba lagi dan centang izin Drive.";
+            TeamError = GoogleTokens.HasDriveFileScope ? null : L.T("Izin Google Drive belum dicentang. Coba lagi dan centang izin Drive.");
         }
         catch (AuthCancelledException) { }
         catch (Exception e) { TeamError = Errors.Text(e); }

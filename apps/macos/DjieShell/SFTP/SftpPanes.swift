@@ -79,13 +79,13 @@ struct LocalPane: View {
     var body: some View {
         let sftp = model.sftp
         FilePane(
-            title: "Mac ini", icon: "laptopcomputer", path: sftp.localPath, items: sftp.localItems,
-            selection: $selection, isDropTarget: dropTarget, dropHint: "Lepas untuk download / salin ke sini",
+            title: L("Mac ini"), icon: "laptopcomputer", path: sftp.localPath, items: sftp.localItems,
+            selection: $selection, isDropTarget: dropTarget, dropHint: L("Lepas untuk download / salin ke sini"),
             onOpen: { item in if item.isDir { sftp.openLocal(item.path) } else { NSWorkspace.shared.open(URL(fileURLWithPath: item.path)) } },
             onUp: { sftp.localUp() },
             onRefresh: { sftp.reloadLocal() },
             onPath: { sftp.openLocal($0) },
-            transferTitle: "Upload", transferIcon: "arrow.up.circle.fill",
+            transferTitle: L("Upload"), transferIcon: "arrow.up.circle.fill",
             onTransfer: { sftp.upload(selected.map(\.path)); selection.removeAll() },
             dragItem: { item in
                 // Seret banyak file sekaligus jika baris ini bagian dari pilihan
@@ -96,10 +96,10 @@ struct LocalPane: View {
             },
             onDropOnFolder: { folder, providers in handleDrop(providers, into: folder.path) }
         ) { item in
-            Button("Upload ke server") { sftp.upload([item.path]) }
-            Button("Tampilkan di Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
+            Button(L("Upload ke server")) { sftp.upload([item.path]) }
+            Button(L("Tampilkan di Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
         } toolbarExtra: {
-            IconButton(symbol: "house", help: "Home") { sftp.openLocal(FileManager.default.homeDirectoryForCurrentUser.path) }
+            IconButton(symbol: "house", help: L("Home")) { sftp.openLocal(FileManager.default.homeDirectoryForCurrentUser.path) }
         }
         .onDrop(of: dropTypes, isTargeted: $dropTarget) { providers in
             handleDrop(providers, into: sftp.localPath)
@@ -142,8 +142,8 @@ struct RemotePane: View {
     var body: some View {
         let sftp = model.sftp
         FilePane(
-            title: sftp.host?.title ?? "Server", icon: "server.rack", path: sftp.remotePath, items: sftp.remoteItems,
-            selection: $selection, isDropTarget: dropTarget, loading: sftp.remoteLoading, dropHint: "Lepas untuk upload ke sini",
+            title: sftp.host?.title ?? L("Server"), icon: "server.rack", path: sftp.remotePath, items: sftp.remoteItems,
+            selection: $selection, isDropTarget: dropTarget, loading: sftp.remoteLoading, dropHint: L("Lepas untuk upload ke sini"),
             onOpen: { item in
                 if item.isDir { Task { await sftp.openRemote(item.path) } }
                 else if RemoteFiles.isTextLike(item) { Task { await sftp.openEditor(item) } }
@@ -152,41 +152,41 @@ struct RemotePane: View {
             onUp: { Task { await sftp.remoteUp() } },
             onRefresh: { Task { await sftp.refreshRemote() } },
             onPath: { p in Task { await sftp.openRemote(p) } },
-            transferTitle: "Download", transferIcon: "arrow.down.circle.fill",
+            transferTitle: L("Download"), transferIcon: "arrow.down.circle.fill",
             onTransfer: { sftp.download(selected); selection.removeAll() },
             remoteDrag: { RemoteDragItem(item: $0) },
             onDropOnFolder: { folder, providers in handleDrop(providers, into: folder.path) }
         ) { item in
             if !item.isDir {
-                Button("Edit di Djie Shell") { Task { await sftp.openEditor(item) } }
+                Button(L("Edit di Djie Shell")) { Task { await sftp.openEditor(item) } }
                     .disabled(item.size > RemoteFiles.editorLimit)
-                Menu("Buka dengan") {
+                Menu(L("Buka dengan")) {
                     let apps = RemoteFiles.apps(for: item.name)
                     if let def = apps.first {
-                        Button("\(RemoteFiles.appName(def)) (bawaan)") { Task { await sftp.openWith(item, app: def) } }
+                        Button(L("{} (bawaan)", RemoteFiles.appName(def))) { Task { await sftp.openWith(item, app: def) } }
                         Divider()
                     }
                     ForEach(apps.dropFirst(), id: \.self) { app in
                         Button(RemoteFiles.appName(app)) { Task { await sftp.openWith(item, app: app) } }
                     }
                     Divider()
-                    Button("Aplikasi lain…") { sftp.chooseAppAndOpen(item) }
+                    Button(L("Aplikasi lain…")) { sftp.chooseAppAndOpen(item) }
                 }
                 Divider()
             }
-            Button("Download ke Mac") { sftp.download([item]) }
-            Button("Ganti nama…") { renaming = item }
-            Button("Ubah izin (chmod)…") { chmodding = item }
-            Button("Salin path") {
+            Button(L("Download ke Mac")) { sftp.download([item]) }
+            Button(L("Ganti nama…")) { renaming = item }
+            Button(L("Ubah izin (chmod)…")) { chmodding = item }
+            Button(L("Salin path")) {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(item.path, forType: .string)
             }
             Divider()
-            Button("Hapus", role: .destructive) { confirmDelete = selection.contains(item.id) ? selected : [item] }
+            Button(L("Hapus"), role: .destructive) { confirmDelete = selection.contains(item.id) ? selected : [item] }
         } toolbarExtra: {
-            IconButton(symbol: "house", help: "Home") { Task { await sftp.remoteHome() } }
-            IconButton(symbol: "folder.badge.plus", help: "Folder baru") { newFolder = true }
-            IconButton(symbol: "trash", help: "Hapus yang dipilih", tint: .red) { confirmDelete = selected }
+            IconButton(symbol: "house", help: L("Home")) { Task { await sftp.remoteHome() } }
+            IconButton(symbol: "folder.badge.plus", help: L("Folder baru")) { newFolder = true }
+            IconButton(symbol: "trash", help: L("Hapus yang dipilih"), tint: .red) { confirmDelete = selected }
                 .disabled(selection.isEmpty)
         }
         .onDrop(of: dropTypes, isTargeted: $dropTarget) { providers in
@@ -196,25 +196,25 @@ struct RemotePane: View {
         .onChange(of: selection) { _, s in sftp.remoteSelection = s }
         .onChange(of: sftp.remotePath) { _, _ in selection.removeAll() }
         .sheet(item: $renaming) { item in
-            TextPromptSheet(title: "Ganti nama", initial: item.name, action: "Simpan") { name in
+            TextPromptSheet(title: L("Ganti nama"), initial: item.name, action: L("Simpan")) { name in
                 Task { await sftp.renameRemote(item, to: name) }
             }
         }
         .sheet(item: $chmodding) { item in ChmodSheet(item: item) { mode in Task { await sftp.chmodRemote(item, mode: mode) } } }
         .sheet(isPresented: $newFolder) {
-            TextPromptSheet(title: "Folder baru", initial: "folder-baru", action: "Buat") { name in
+            TextPromptSheet(title: L("Folder baru"), initial: L("folder-baru"), action: L("Buat")) { name in
                 Task { await sftp.mkdirRemote(name) }
             }
         }
-        .confirmationDialog("Hapus \(confirmDelete.count) item dari server?",
+        .confirmationDialog(L("Hapus {} item dari server?", confirmDelete.count),
                             isPresented: Binding(get: { !confirmDelete.isEmpty }, set: { if !$0 { confirmDelete = [] } })) {
-            Button("Hapus", role: .destructive) {
+            Button(L("Hapus"), role: .destructive) {
                 let items = confirmDelete
                 selection.removeAll()
                 Task { await sftp.deleteRemote(items) }
             }
         } message: {
-            Text(confirmDelete.map(\.name).prefix(5).joined(separator: ", ") + " — tidak bisa dibatalkan. Folder dihapus beserta isinya.")
+            Text(confirmDelete.map(\.name).prefix(5).joined(separator: ", ") + L(" — tidak bisa dibatalkan. Folder dihapus beserta isinya."))
         }
     }
 
@@ -272,15 +272,15 @@ struct FilePane<RowMenu: View, Extra: View>: View {
                 Text(title).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                 Spacer()
                 if loading { ProgressView().controlSize(.small) }
-                IconButton(symbol: "chevron.up", help: "Folder induk", action: onUp)
-                IconButton(symbol: "arrow.clockwise", help: "Muat ulang", action: onRefresh)
+                IconButton(symbol: "chevron.up", help: L("Folder induk"), action: onUp)
+                IconButton(symbol: "arrow.clockwise", help: L("Muat ulang"), action: onRefresh)
                 toolbarExtra()
             }
             .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 6)
 
             Group {
                 if editingPath {
-                    TextField("Path", text: $pathText, onCommit: { onPath(pathText); editingPath = false })
+                    TextField(L("Path"), text: $pathText, onCommit: { onPath(pathText); editingPath = false })
                         .textFieldStyle(.plain)
                         .font(.system(size: 11, design: .monospaced))
                 } else {
@@ -293,9 +293,9 @@ struct FilePane<RowMenu: View, Extra: View>: View {
             .padding(.horizontal, 12).padding(.bottom, 8)
 
             HStack(spacing: 0) {
-                Text("Nama").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Ukuran").frame(width: 76, alignment: .trailing)
-                Text("Diubah").frame(width: 118, alignment: .trailing)
+                Text(L("Nama")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(L("Ukuran")).frame(width: 76, alignment: .trailing)
+                Text(L("Diubah")).frame(width: 118, alignment: .trailing)
             }
             .font(.system(size: 10.5, weight: .semibold))
             .foregroundStyle(.tertiary)
@@ -314,8 +314,8 @@ struct FilePane<RowMenu: View, Extra: View>: View {
                 if items.isEmpty && !loading {
                     VStack(spacing: 6) {
                         Image(systemName: "tray").font(.system(size: 26)).foregroundStyle(.tertiary)
-                        Text("Folder kosong").foregroundStyle(.secondary)
-                        Text("Seret file ke sini").font(.caption).foregroundStyle(.tertiary)
+                        Text(L("Folder kosong")).foregroundStyle(.secondary)
+                        Text(L("Seret file ke sini")).font(.caption).foregroundStyle(.tertiary)
                     }
                 }
             }
@@ -323,7 +323,7 @@ struct FilePane<RowMenu: View, Extra: View>: View {
             .onTapGesture { selection.removeAll() }
 
             HStack {
-                Text(selection.isEmpty ? "\(items.count) item" : "\(selection.count) dipilih")
+                Text(selection.isEmpty ? L("{} item", items.count) : L("{} dipilih", selection.count))
                     .font(.caption).foregroundStyle(.secondary)
                     .contentTransition(.numericText())
                 Spacer()
@@ -465,7 +465,7 @@ struct DragPreview: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: item.isDir ? "folder.fill" : fileIcon(item.name)).foregroundStyle(Theme.accent)
-            Text(count > 1 ? "\(count) item" : item.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
+            Text(count > 1 ? L("{} item", count) : item.name).font(.system(size: 12, weight: .semibold)).lineLimit(1)
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
         .background(.regularMaterial, in: Capsule())

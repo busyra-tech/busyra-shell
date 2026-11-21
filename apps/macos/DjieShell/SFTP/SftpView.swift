@@ -71,12 +71,12 @@ struct SftpHeader: View {
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 Text("SFTP").font(.system(size: 22, weight: .bold, design: .rounded))
-                Text(sftp.host.map { "Tersambung ke \($0.title)" } ?? "Transfer file Mac ↔ server")
+                Text(sftp.host.map { L("Tersambung ke {}", $0.title) } ?? L("Transfer file Mac ↔ server"))
                     .font(.callout).foregroundStyle(.secondary)
             }
             Spacer()
             if sftp.status == .connected {
-                Toggle("File tersembunyi", isOn: Binding(get: { sftp.showHidden }, set: { v in
+                Toggle(L("File tersembunyi"), isOn: Binding(get: { sftp.showHidden }, set: { v in
                     sftp.showHidden = v
                     sftp.reloadLocal()
                     Task { await sftp.refreshRemote() }
@@ -89,13 +89,13 @@ struct SftpHeader: View {
                     Button(h.title) { Task { await model.openSftp(h) } }
                 }
             } label: {
-                Label(sftp.host == nil ? "Pilih host" : "Ganti host", systemImage: "server.rack")
+                Label(sftp.host == nil ? L("Pilih host") : L("Ganti host"), systemImage: "server.rack")
             }
             .menuStyle(.button)
             .fixedSize()
             .disabled(model.hosts.isEmpty)
             if sftp.status == .connected {
-                Button { Task { await sftp.disconnect() } } label: { Label("Putuskan", systemImage: "xmark.circle") }
+                Button { Task { await sftp.disconnect() } } label: { Label(L("Putuskan"), systemImage: "xmark.circle") }
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
@@ -109,8 +109,8 @@ struct SftpPicker: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
-                EmptyState(icon: "folder.badge.gearshape", title: "Pilih server",
-                           text: "Buka file di server lewat SFTP — memakai login host yang sudah tersimpan.")
+                EmptyState(icon: "folder.badge.gearshape", title: L("Pilih server"),
+                           text: L("Buka file di server lewat SFTP — memakai login host yang sudah tersimpan."))
                     .padding(.top, -30)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 220), spacing: 12)], spacing: 12) {
                     ForEach(Array(model.hosts.enumerated()), id: \.element.id) { i, h in
@@ -155,12 +155,12 @@ struct SftpFailed: View {
     var body: some View {
         VStack(spacing: 14) {
             Image(systemName: "bolt.horizontal.circle").font(.system(size: 40)).foregroundStyle(.orange)
-            Text("Tidak bisa membuka SFTP").font(.title3.bold())
+            Text(L("Tidak bisa membuka SFTP")).font(.title3.bold())
             Text(message).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 440)
             HStack {
-                Button("Coba lagi") { if let h = model.sftp.host { Task { await model.openSftp(h) } } }
+                Button(L("Coba lagi")) { if let h = model.sftp.host { Task { await model.openSftp(h) } } }
                     .buttonStyle(PrimaryButtonStyle())
-                Button("Pilih host lain") { Task { await model.sftp.disconnect() } }
+                Button(L("Pilih host lain")) { Task { await model.sftp.disconnect() } }
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
@@ -202,11 +202,11 @@ struct TransferList: View {
         VStack(spacing: 0) {
             Divider()
             HStack {
-                Text("Transfer").font(.system(size: 12, weight: .semibold))
+                Text(L("Transfer")).font(.system(size: 12, weight: .semibold))
                 let running = sftp.transfers.filter { $0.state == .running }.count
-                if running > 0 { Badge(text: "\(running) BERJALAN") }
+                if running > 0 { Badge(text: L("{} BERJALAN", running)) }
                 Spacer()
-                Button("Bersihkan selesai") { sftp.clearFinished() }.buttonStyle(.borderless).font(.caption)
+                Button(L("Bersihkan selesai")) { sftp.clearFinished() }.buttonStyle(.borderless).font(.caption)
             }
             .padding(.horizontal, 14).padding(.top, 8)
             ScrollView {
@@ -246,7 +246,7 @@ struct TransferRow: View {
                     .animation(.easeOut(duration: 0.2), value: transfer.fraction)
             }
             if transfer.state == .running {
-                IconButton(symbol: "xmark", help: "Batalkan", action: onCancel)
+                IconButton(symbol: "xmark", help: L("Batalkan"), action: onCancel)
             } else {
                 Image(systemName: icon).foregroundStyle(color).frame(width: 28)
                     .transition(.scale.combined(with: .opacity))
@@ -277,10 +277,10 @@ struct TransferRow: View {
         switch transfer.state {
         case .running:
             let speed = Double(transfer.done) / max(Date().timeIntervalSince(transfer.started), 0.1)
-            return "\(transfer.done.byteString) / \(transfer.total.byteString) · \(UInt64(speed).byteString)/s"
-        case .done: return "Selesai · \(transfer.total.byteString)"
+            return L("{} / {} · {}/s", transfer.done.byteString, transfer.total.byteString, UInt64(speed).byteString)
+        case .done: return L("Selesai · {}", transfer.total.byteString)
         case .failed(let m): return m
-        case .cancelled: return "Dibatalkan"
+        case .cancelled: return L("Dibatalkan")
         }
     }
 }
@@ -297,7 +297,7 @@ struct TextPromptSheet: View {
     var body: some View {
         FormSheet(title: title, saveTitle: action, canSave: !text.trimmingCharacters(in: .whitespaces).isEmpty,
                   onSave: { onSubmit(text.trimmingCharacters(in: .whitespaces)) }) {
-            TextField("Nama", text: $text).djieField()
+            TextField(L("Nama"), text: $text).djieField()
         }
         .onAppear { text = initial }
     }
@@ -308,11 +308,11 @@ struct ChmodSheet: View {
     var onSave: (UInt32) -> Void
     @State private var mode: UInt32 = 0
 
-    private let rows: [(String, UInt32)] = [("Pemilik", 6), ("Grup", 3), ("Lainnya", 0)]
-    private let cols: [(String, UInt32)] = [("Baca", 4), ("Tulis", 2), ("Jalankan", 1)]
+    private let rows: [(String, UInt32)] = [(L("Pemilik"), 6), (L("Grup"), 3), (L("Lainnya"), 0)]
+    private let cols: [(String, UInt32)] = [("Baca", 4), (L("Tulis"), 2), (L("Jalankan"), 1)]
 
     var body: some View {
-        FormSheet(title: "Izin “\(item.name)”", onSave: { onSave(mode) }) {
+        FormSheet(title: L("Izin “{}”", item.name), onSave: { onSave(mode) }) {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 10) {
                 GridRow {
                     Text("")

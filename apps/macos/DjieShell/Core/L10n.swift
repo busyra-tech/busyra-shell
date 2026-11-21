@@ -25,12 +25,65 @@ enum AppLanguage: String, CaseIterable, Identifiable {
     /// Bahasa yang dipakai sekarang ("id" atau "en"), ditetapkan sekali saat app dibuka.
     static let resolved: String = {
         if let forced = ProcessInfo.processInfo.environment["DJIE_LANG"], ["id", "en"].contains(forced) { return forced }
-        switch choice {
+        return choice.language
+    }()
+
+    /// Kode bahasa ("id"/"en") untuk pilihan ini.
+    var language: String {
+        switch self {
         case .id: return "id"
         case .en: return "en"
         case .system: return Locale.preferredLanguages.first.map { $0.hasPrefix("id") || $0.hasPrefix("in") } == true ? "id" : "en"
         }
-    }()
+    }
+}
+
+import AppKit
+import SwiftUI
+
+/// Ganti bahasa: simpan pilihan, lalu tawarkan buka ulang app (teks dimuat sekali saat app dibuka).
+@MainActor
+enum LanguageSwitch {
+    static let title = "Bahasa / Language"
+
+    static var binding: Binding<AppLanguage> {
+        Binding(get: { AppLanguage.choice }, set: { choose($0) })
+    }
+
+    static func choose(_ lang: AppLanguage) {
+        guard lang != AppLanguage.choice else { return }
+        AppLanguage.choice = lang
+        guard lang.language != AppLanguage.resolved else { return }
+        // Tampilkan setelah menu tertutup
+        DispatchQueue.main.async {
+            let alert = NSAlert()
+            alert.messageText = L("Bahasa diterapkan setelah Djie Shell dibuka ulang")
+            alert.informativeText = lang.language == "en" ? "The new language is applied after Djie Shell restarts." : "Bahasa baru diterapkan setelah Djie Shell dibuka ulang."
+            alert.addButton(withTitle: L("Buka ulang sekarang"))
+            alert.addButton(withTitle: L("Nanti"))
+            if alert.runModal() == .alertFirstButtonReturn { relaunch() }
+        }
+    }
+
+    static func relaunch() {
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        p.arguments = ["-n", Bundle.main.bundlePath]
+        try? p.run()
+        NSApp.terminate(nil)
+    }
+}
+
+/// Pilihan bahasa (dipakai di halaman Tentang).
+struct LanguagePicker: View {
+    @State private var choice = AppLanguage.choice
+
+    var body: some View {
+        Picker(LanguageSwitch.title, selection: Binding(get: { choice }, set: { choice = $0; LanguageSwitch.choose($0) })) {
+            ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
+        }
+        .fixedSize()
+    }
 }
 
 final class L10n: @unchecked Sendable {
@@ -55,15 +108,44 @@ final class L10n: @unchecked Sendable {
             guard let re = try? NSRegularExpression(pattern: "^" + parts.joined(separator: "(.+?)") + "$", options: [.dotMatchesLineSeparators]) else { return nil }
             return (re, v)
         }
-        // Pola yang lebih panjang (lebih spesifik) dicoba dulu
-        .sorted { $0.0.pattern.count > $1.0.pattern.count }
+        // Pola dengan teks tetap terbanyak (paling spesifik) dicoba dulu
+        .sorted { $0.0.pattern.replacingOccurrences(of: "(.+?)", with: "").count > $1.0.pattern.replacingOccurrences(of: "(.+?)", with: "").count }
     }
 
-    func text(_ s: String) -> String { english ? (table[s] ?? s) : s }
+    func text(_ s: String) -> String {
+        guard english else { return s }
+        if let t = table[s] { return t }
+        #if DEBUG
+        reportMissing(s)
+        #endif
+        return s
+    }
+
+    #if DEBUG
+    /// Hanya build debug + env `DJIE_I18N_CHECK=1`: catat ke stderr teks `L()` yang belum ada di kamus Inggris.
+    private let checkMissing = ProcessInfo.processInfo.environment["DJIE_I18N_CHECK"] == "1"
+    private var reported = Set<String>()
+    private let lock = NSLock()
+    private func reportMissing(_ s: String) {
+        guard checkMissing, s.rangeOfCharacter(from: .letters) != nil else { return }
+        lock.lock(); defer { lock.unlock() }
+        guard reported.insert(s).inserted else { return }
+        FileHandle.standardError.write(Data("i18n: belum diterjemahkan: \(s.debugDescription)\n".utf8))
+    }
+    #endif
 
     /// Terjemahkan pesan utuh (mis. error dari core) memakai entri persis atau berpola.
     func message(_ s: String) -> String {
         guard english else { return s }
+        if let t = match(s) { return t }
+        // App sering menaikkan huruf pertama pesan core ("server tidak…" → "Server tidak…")
+        if let f = s.first, f.isUppercase, let t = match(f.lowercased() + s.dropFirst()) {
+            return t.prefix(1).uppercased() + t.dropFirst()
+        }
+        return s
+    }
+
+    private func match(_ s: String) -> String? {
         if let t = table[s] { return t }
         let range = NSRange(s.startIndex..., in: s)
         for (re, out) in patterns {
@@ -76,7 +158,7 @@ final class L10n: @unchecked Sendable {
             }
             return result
         }
-        return s
+        return nil
     }
 }
 

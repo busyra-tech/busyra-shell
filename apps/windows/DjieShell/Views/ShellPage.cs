@@ -144,7 +144,7 @@ internal sealed class ShellPage : Grid
         var list = Ui.Col(3);
         list.Children.Add(Ui.Caps("Workspace").With(t => t.Margin = new Thickness(10, 0, 0, 4)));
         foreach (var s in SectionInfo.Main) list.Children.Add(SidebarRow(s));
-        list.Children.Add(Ui.Caps("Komunitas").With(t => t.Margin = new Thickness(10, 14, 0, 4)));
+        list.Children.Add(Ui.Caps(L.T("Komunitas")).With(t => t.Margin = new Thickness(10, 14, 0, 4)));
         foreach (var s in SectionInfo.Community) list.Children.Add(SidebarRow(s));
         var scroll = new ScrollViewer { Content = list, Padding = new Thickness(10, 0, 10, 0), VerticalScrollBarVisibility = ScrollBarVisibility.Hidden };
 
@@ -181,28 +181,52 @@ internal sealed class ShellPage : Grid
     private Button AppearanceButton()
     {
         var glyph = M.Appearance switch { "light" => G.Sun, "system" => G.Contrast, _ => G.Moon };
-        var b = Ui.IconBtn(glyph, "Tampilan", () => { });
+        var b = Ui.IconBtn(glyph, L.T("Tampilan & bahasa"), () => { });
         var f = new MenuFlyout();
         foreach (var (mode, title, g) in new[] { ("system", "Ikuti sistem", G.Contrast), ("light", "Terang", G.Sun), ("dark", "Gelap", G.Moon) })
         {
-            var item = new ToggleMenuFlyoutItem { Text = title, IsChecked = M.Appearance == mode, Icon = new FontIcon { Glyph = g } };
+            var item = new ToggleMenuFlyoutItem { Text = L.T(title), IsChecked = M.Appearance == mode, Icon = new FontIcon { Glyph = g } };
             item.Click += (_, _) => M.SetAppearance(mode);
             f.Items.Add(item);
         }
+        f.Items.Add(new MenuFlyoutSeparator());
+        var lang = new MenuFlyoutSubItem { Text = "Bahasa / Language", Icon = new FontIcon { Glyph = G.Globe } };
+        foreach (var choice in L10n.Choices)
+        {
+            var item = new ToggleMenuFlyoutItem { Text = L10n.Title(choice), IsChecked = L10n.Choice == choice };
+            item.Click += (_, _) => _ = SetLanguage(choice);
+            lang.Items.Add(item);
+        }
+        f.Items.Add(lang);
         b.Flyout = f;
         return b;
     }
 
+    /// <summary>Simpan pilihan bahasa; berlaku setelah app dibuka ulang (teks dibaca sekali saat mulai).</summary>
+    internal static async System.Threading.Tasks.Task SetLanguage(string choice)
+    {
+        if (L10n.Choice == choice) return;
+        L10n.Choice = choice;
+        var d = Ui.Dialog(L.T("Bahasa / Language"), Ui.Secondary(L.T("Bahasa diterapkan setelah Djie Shell dibuka ulang."), 13, true), L.T("Buka ulang sekarang"), L.T("Nanti"));
+        if (await d.ShowAsync() != ContentDialogResult.Primary) return;
+        try
+        {
+            if (Environment.ProcessPath is { } exe) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(exe) { UseShellExecute = false });
+            Application.Current.Exit();
+        }
+        catch (Exception e) { App.Model.Flash(Errors.Text(e)); }
+    }
+
     private UIElement UpdateCard(AvailableUpdate u)
     {
-        var close = Ui.IconBtn(G.Close, "Tutup", () => { M.UpdateDismissed = true; RenderSidebar(); }, size: 9);
-        var top = Ui.Columns("Auto,*,Auto", 6, Ui.Icon(G.Sparkle, 13, Theme.BrandGradient), Ui.Text($"Versi {u.Version} tersedia", 12, FontWeights.SemiBold), close);
-        var buttons = Ui.Row(6, Ui.Primary("Download", null, () => Ui.Open(u.Download ?? u.Page)), Ui.Secondary("Catatan", null, () => Ui.Open(u.Page)));
+        var close = Ui.IconBtn(G.Close, L.T("Tutup"), () => { M.UpdateDismissed = true; RenderSidebar(); }, size: 9);
+        var top = Ui.Columns("Auto,*,Auto", 6, Ui.Icon(G.Sparkle, 13, Theme.BrandGradient), Ui.Text(L.T("Versi {} tersedia", u.Version), 12, FontWeights.SemiBold), close);
+        var buttons = Ui.Row(6, Ui.Primary("Download", null, () => Ui.Open(u.Download ?? u.Page)), Ui.Secondary(L.T("Catatan"), null, () => Ui.Open(u.Page)));
         return new Border
         {
             Margin = new Thickness(10, 8, 10, 0), Padding = new Thickness(12), CornerRadius = new CornerRadius(10),
             Background = Theme.Brush(Theme.Accent, 0.08), BorderBrush = Theme.Brush(Theme.Accent, 0.35), BorderThickness = new Thickness(1),
-            Child = Ui.Col(8, top, Ui.Secondary($"Kamu memakai {Config.Version}.", 11), buttons)
+            Child = Ui.Col(8, top, Ui.Secondary(L.T("Kamu memakai {}.", Config.Version), 11), buttons)
         };
     }
 
@@ -211,10 +235,10 @@ internal sealed class ShellPage : Grid
         var avatar = Ui.Avatar(M.ProfileName, M.AccountEmail, 30);
         var failed = M.Sync is SyncKind.Failed or SyncKind.NeedsLogin;
         var status = Ui.Text(M.SyncStatusText, 11, fg: failed ? Theme.Brush(Theme.Orange) : Theme.Text2);
-        var text = Ui.Col(1, Ui.Text(M.ProfileName ?? M.AccountEmail ?? "Tanpa akun", 12, FontWeights.Medium), status);
-        var menu = Ui.IconBtn(G.More, "Akun", () => { });
+        var text = Ui.Col(1, Ui.Text(M.ProfileName ?? M.AccountEmail ?? L.T("Tanpa akun"), 12, FontWeights.Medium), status);
+        var menu = Ui.IconBtn(G.More, L.T("Akun"), () => { });
         var f = new MenuFlyout();
-        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = t }; i.Click += (_, _) => a(); f.Items.Add(i); }
+        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = L.T(t) }; i.Click += (_, _) => a(); f.Items.Add(i); }
         if (M.AccountEmail == null) Item("Hubungkan Google Drive…", () => _ = ConnectGoogle());
         else if (M.Sync == SyncKind.NeedsLogin) Item("Masuk ulang Google…", () => _ = ConnectGoogle());
         else { Item("Sinkronkan sekarang", M.SyncNow); f.Items.Add(new MenuFlyoutSeparator()); Item("Putuskan akun Google", M.DisconnectGoogle); }
@@ -244,7 +268,7 @@ internal sealed class ShellPage : Grid
     private void RenderTabs()
     {
         var home = TabChip(M.ActiveSessionId == null, Ui.Icon(G.Apps, 13), M.ShowHome, null);
-        ToolTipService.SetToolTip(home, "Daftar host (Ctrl+Shift+0)");
+        ToolTipService.SetToolTip(home, L.T("Daftar host (Ctrl+Shift+0)"));
         var tabs = Ui.Row(6);
         for (int i = 0; i < M.Sessions.Count; i++) tabs.Children.Add(SessionTab(M.Sessions[i], i));
         var tabScroll = new ScrollViewer
@@ -256,10 +280,10 @@ internal sealed class ShellPage : Grid
         if (M.ActiveSession is { IsLocal: false })
         {
             var on = M.ShowServerInfo;
-            var info = Ui.Plain(Ui.Row(6, Ui.Icon("\uE9D9", 12, on ? Theme.AccentBrush : Theme.Text2), Ui.Text("Info server", 12, on ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal, on ? Theme.AccentBrush : Theme.Text2)),
+            var info = Ui.Plain(Ui.Row(6, Ui.Icon("\uE9D9", 12, on ? Theme.AccentBrush : Theme.Text2), Ui.Text(L.T("Info server"), 12, on ? Microsoft.UI.Text.FontWeights.SemiBold : Microsoft.UI.Text.FontWeights.Normal, on ? Theme.AccentBrush : Theme.Text2)),
                 () => M.ToggleServerInfo(), new Thickness(10, 5, 10, 5));
             if (on) info.Background = Theme.Brush(Theme.Accent, 0.14);
-            ToolTipService.SetToolTip(info, "Spesifikasi & grafik server (Ctrl+Shift+I)");
+            ToolTipService.SetToolTip(info, L.T("Spesifikasi & grafik server (Ctrl+Shift+I)"));
             right.Children.Add(info);
         }
         if (M.ActiveSessionId != null)
@@ -272,7 +296,7 @@ internal sealed class ShellPage : Grid
                         Ui.Text("Broadcast", 12, on ? FontWeights.SemiBold : FontWeights.Normal, on ? Theme.Brush(Theme.Orange) : Theme.Text2)),
                     M.ToggleBroadcast, new Thickness(10, 5, 10, 5));
                 if (on) bc.Background = Theme.Brush(Theme.Orange, 0.16);
-                ToolTipService.SetToolTip(bc, "Ketik sekali, kirim ke semua panel split (Ctrl+Shift+B)");
+                ToolTipService.SetToolTip(bc, L.T("Ketik sekali, kirim ke semua panel split (Ctrl+Shift+B)"));
                 right.Children.Add(bc);
             }
             right.Children.Add(AutocompleteMenu());
@@ -287,7 +311,7 @@ internal sealed class ShellPage : Grid
                     f.Items.Add(item);
                 }
                 sn.Flyout = f;
-                ToolTipService.SetToolTip(sn, "Jalankan snippet di tab ini");
+                ToolTipService.SetToolTip(sn, L.T("Jalankan snippet di tab ini"));
                 right.Children.Add(sn);
             }
         }
@@ -297,12 +321,12 @@ internal sealed class ShellPage : Grid
         var addMenu = new MenuFlyout();
         foreach (var sh in LocalShell.Available)
         {
-            var it = new MenuFlyoutItem { Text = sh.Name + (sh.Id == LocalShell.Default.Id ? "  (bawaan)" : "") };
+            var it = new MenuFlyoutItem { Text = sh.Name + (sh.Id == LocalShell.Default.Id ? L.T("  (bawaan)") : "") };
             it.Click += (_, _) => { Settings.Set(Settings.LocalShell, sh.Id); M.OpenLocalTerminal(sh); };
             addMenu.Items.Add(it);
         }
         add.Flyout = addMenu;
-        ToolTipService.SetToolTip(add, $"Terminal lokal — {LocalShell.Default.Name} (Ctrl+Shift+T)");
+        ToolTipService.SetToolTip(add, L.T("Terminal lokal — {} (Ctrl+Shift+T)", LocalShell.Default.Name));
         var tabsAndAdd = Ui.Columns("Auto,Auto", 6, tabScroll, add);
         tabsAndAdd.HorizontalAlignment = HorizontalAlignment.Left;
         var strip = Ui.Columns("Auto,*,Auto", 6, home, tabsAndAdd, right);
@@ -337,14 +361,14 @@ internal sealed class ShellPage : Grid
         if (s.State == TerminalSession.Status.Connecting && !s.IsLocal) Ui.Pulse(dot);
         UIElement mark = s.IsLocal ? Ui.Icon(G.Terminal, 11, active ? Theme.Text : Theme.Text2) : dot;
         var title = Ui.Text(s.Title, 12, FontWeights.Medium, active ? Theme.Text : Theme.Text2).With(t => t.MaxWidth = 150);
-        var close = Ui.IconBtn(G.Close, "Tutup tab (Ctrl+Shift+W)", () => M.Close(s), size: 8);
+        var close = Ui.IconBtn(G.Close, L.T("Tutup tab (Ctrl+Shift+W)"), () => M.Close(s), size: 8);
         close.Padding = new Thickness(4);
         close.Opacity = active ? 1 : 0.5;
         var tip = s.Host.DisplayAddress(M.HideAddresses) + (index < 9 ? $"  ·  Ctrl+Shift+{index + 1}" : "");
         if (s.IsLocal) tip = s.Local!.Name + (index < 9 ? $"  ·  Ctrl+Shift+{index + 1}" : "");
         var chip = TabChip(active, Ui.Row(7, mark, title, close), () => M.Activate(s), tip);
         var menu = new MenuFlyout();
-        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = t }; i.Click += (_, _) => a(); menu.Items.Add(i); }
+        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = L.T(t) }; i.Click += (_, _) => a(); menu.Items.Add(i); }
         Item(s.IsLocal ? "Buka ulang" : "Sambung ulang", s.Reconnect);
         Item("Duplikat tab", () => { if (s.Local is { } l) M.OpenLocalTerminal(l); else M.Connect([s.Host.Id]); });
         if (!s.IsLocal) Item("Buka SFTP", () => _ = M.OpenSftp(s.Host));
@@ -360,7 +384,7 @@ internal sealed class ShellPage : Grid
         var f = new MenuFlyout();
         void Item(string text, Action a, bool enabled = true)
         {
-            var i = new MenuFlyoutItem { Text = text, IsEnabled = enabled };
+            var i = new MenuFlyoutItem { Text = L.T(text), IsEnabled = enabled };
             i.Click += (s, e) => a();
             f.Items.Add(i);
         }
@@ -368,13 +392,13 @@ internal sealed class ShellPage : Grid
         var others = M.Sessions.Where(x => x.Id != M.ActiveSessionId && !(M.SplitVisible && M.SplitIds.Contains(x.Id))).ToList();
         if (others.Count > 0)
         {
-            var sub = new MenuFlyoutSubItem { Text = "Gabung tab", IsEnabled = M.CanSplit };
+            var sub = new MenuFlyoutSubItem { Text = L.T("Gabung tab"), IsEnabled = M.CanSplit };
             foreach (var o in others) { var it = new MenuFlyoutItem { Text = o.Title }; it.Click += (s, e) => M.SplitWith(o); sub.Items.Add(it); }
             f.Items.Add(sub);
         }
         if (M.Hosts.Length > 0)
         {
-            var sub = new MenuFlyoutSubItem { Text = "Host baru", IsEnabled = M.CanSplit };
+            var sub = new MenuFlyoutSubItem { Text = L.T("Host baru"), IsEnabled = M.CanSplit };
             foreach (var h in M.Hosts) { var it = new MenuFlyoutItem { Text = h.Title() }; it.Click += (s, e) => M.SplitNew(h); sub.Items.Add(it); }
             f.Items.Add(sub);
         }
@@ -389,7 +413,7 @@ internal sealed class ShellPage : Grid
             Content = Ui.Row(6, Ui.Icon("\uE89F", 12), Ui.Text(M.SplitVisible ? $"Split · {M.SplitIds.Count}" : "Split", 12)),
             Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0), Flyout = f,
         };
-        ToolTipService.SetToolTip(b, "Bagi layar: 2–4 terminal berdampingan");
+        ToolTipService.SetToolTip(b, L.T("Bagi layar: 2–4 terminal berdampingan"));
         return b;
     }
 
@@ -402,17 +426,17 @@ internal sealed class ShellPage : Grid
             Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0)
         };
         var f = new MenuFlyout();
-        var toggle = new ToggleMenuFlyoutItem { Text = "Saran perintah saat mengetik", IsChecked = on };
+        var toggle = new ToggleMenuFlyoutItem { Text = L.T("Saran perintah saat mengetik"), IsChecked = on };
         toggle.Click += (_, _) => { Settings.Set(Settings.Autocomplete, toggle.IsChecked); M.PushAutocompleteConfig(); RenderTabs(); };
-        var clear = new MenuFlyoutItem { Text = $"Hapus riwayat perintah ({CommandHistory.Count})", Icon = new FontIcon { Glyph = G.Delete } };
+        var clear = new MenuFlyoutItem { Text = L.T("Hapus riwayat perintah ({})", CommandHistory.Count), Icon = new FontIcon { Glyph = G.Delete } };
         clear.Click += async (_, _) =>
         {
-            if (await Ui.Confirm("Hapus semua riwayat perintah?", "Riwayat hanya tersimpan di PC ini dan dipakai untuk saran autocomplete."))
+            if (await Ui.Confirm(L.T("Hapus semua riwayat perintah?"), L.T("Riwayat hanya tersimpan di PC ini dan dipakai untuk saran autocomplete.")))
             { CommandHistory.Clear(); M.PushAutocompleteConfig(); }
         };
         f.Items.Add(toggle); f.Items.Add(new MenuFlyoutSeparator()); f.Items.Add(clear);
         b.Flyout = f;
-        ToolTipService.SetToolTip(b, "Saran perintah dari riwayat, snippet, dan perintah umum");
+        ToolTipService.SetToolTip(b, L.T("Saran perintah dari riwayat, snippet, dan perintah umum"));
         return b;
     }
 
@@ -489,7 +513,7 @@ internal sealed class ShellPage : Grid
                 HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 16),
                 IsHitTestVisible = false,
                 Child = Ui.Row(8, Ui.Icon("\uE95A", 12, Theme.Brush("#000000", 0.8)),
-                    Ui.Text($"Broadcast aktif — ketikan dikirim ke {split.Count} terminal", 12, FontWeights.SemiBold, Theme.Brush("#000000", 0.8))),
+                    Ui.Text(L.T("Broadcast aktif — ketikan dikirim ke {} terminal", split.Count), 12, FontWeights.SemiBold, Theme.Brush("#000000", 0.8))),
             };
             Place(banner, 0, 0, cols, rows);
             _terminals.Children.Add(banner);
@@ -507,7 +531,7 @@ internal sealed class ShellPage : Grid
     /// <summary>Judul kecil di atas panel split: warna host, nama, keluarkan dari split.</summary>
     private FrameworkElement PaneHeader(TerminalSession s, bool active)
     {
-        var remove = Ui.IconBtn("\uE738", "Keluarkan dari split (tab tetap terbuka)", () => M.RemoveFromSplit(s.Id), size: 10);
+        var remove = Ui.IconBtn("\uE738", L.T("Keluarkan dari split (tab tetap terbuka)"), () => M.RemoveFromSplit(s.Id), size: 10);
         var row = Ui.Columns("Auto,*,Auto,Auto", 7,
             new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(s.Host.Color), VerticalAlignment = VerticalAlignment.Center },
             Ui.Text(s.Title, 11.5, active ? FontWeights.SemiBold : FontWeights.Normal, active ? null : Theme.Text2).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis),

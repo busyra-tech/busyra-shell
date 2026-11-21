@@ -80,8 +80,8 @@ enum DriveError: LocalizedError {
     case notSignedIn, http(Int, String)
     var errorDescription: String? {
         switch self {
-        case .notSignedIn: "Sesi Google berakhir. Masuk lagi untuk melanjutkan sync."
-        case .http(let code, let msg): "Google Drive error \(code): \(msg)"
+        case .notSignedIn: L("Sesi Google berakhir. Masuk lagi untuk melanjutkan sync.")
+        case .http(let code, let msg): L("Google Drive error {}: {}", code, msg)
         }
     }
 }

@@ -84,7 +84,7 @@ impl Session {
             gio::Cancellable::NONE,
             move |res| {
                 if let (Err(e), Some(s)) = (res, weak.upgrade()) {
-                    s.term.feed(format!("\r\nGagal menjalankan {program}: {}\r\n", e.message()).as_bytes());
+                    s.term.feed(format!("\r\n{}\r\n", tr!("Gagal menjalankan {}: {}", program, e.message())).as_bytes());
                     s.ended(None);
                 }
             },
@@ -97,10 +97,10 @@ impl Session {
         }
         self.cleanup();
         self.finish_log(code);
-        self.term.feed("\r\n\x1b[2m— sesi berakhir —\x1b[0m\r\n".as_bytes());
+        self.term.feed(format!("\r\n\x1b[2m— {} —\x1b[0m\r\n", tr!("sesi berakhir")).as_bytes());
         let title = match code {
-            Some(0) | None => "Sesi berakhir".to_string(),
-            Some(c) => format!("Sesi berakhir (kode {c})"),
+            Some(0) | None => tr!("Sesi berakhir"),
+            Some(c) => tr!("Sesi berakhir (kode {})", c),
         };
         self.banner.set_title(&title);
         self.banner.set_revealed(true);
@@ -168,7 +168,7 @@ impl Session {
 pub fn local_host() -> Host {
     let mut h = ctx::blank_host();
     h.id = "local".into();
-    h.label = "Lokal".into();
+    h.label = tr!("Lokal");
     h.hostname = "localhost".into();
     h.username = config::user_name();
     h.color = "#94A3B8".into();
@@ -196,8 +196,8 @@ fn open(ctx: &Ctx, host: Host, key: Option<SshKey>, jump: Option<Host>, run: Opt
     term.set_allow_hyperlink(true);
     theme::apply_term_theme(&term, host.terminal_theme.as_deref());
 
-    let banner = adw::Banner::new("Sesi berakhir");
-    banner.set_button_label(Some("Sambung ulang"));
+    let banner = adw::Banner::new(&tr!("Sesi berakhir"));
+    banner.set_button_label(Some(&tr!("Sambung ulang")));
 
     let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
     root.append(&banner);
@@ -221,7 +221,7 @@ fn open(ctx: &Ctx, host: Host, key: Option<SshKey>, jump: Option<Host>, run: Opt
 
     let page = ctx.tabs.append(&root);
     page.set_title(&ctx::host_title(&session.host));
-    page.set_tooltip(&if local { "Terminal lokal".to_string() } else { ctx::host_address(&session.host, ctx.hide_addresses.get()) });
+    page.set_tooltip(&if local { tr!("Terminal lokal") } else { ctx::host_address(&session.host, ctx.hide_addresses.get()) });
     page.set_icon(Some(&gio::ThemedIcon::new(if local { "utilities-terminal-symbolic" } else { "network-server-symbolic" })));
     *session.page.borrow_mut() = Some(page.clone());
 
@@ -323,12 +323,12 @@ fn install_menu(term: &vte::Terminal) {
 
     let menu = gio::Menu::new();
     let s1 = gio::Menu::new();
-    s1.append(Some("Salin"), Some("term.copy"));
-    s1.append(Some("Tempel"), Some("term.paste"));
-    s1.append(Some("Pilih Semua"), Some("term.select-all"));
+    s1.append(Some(&tr!("Salin")), Some("term.copy"));
+    s1.append(Some(&tr!("Tempel")), Some("term.paste"));
+    s1.append(Some(&tr!("Pilih Semua")), Some("term.select-all"));
     menu.append_section(None, &s1);
     let s2 = gio::Menu::new();
-    s2.append(Some("Bersihkan layar"), Some("term.clear"));
+    s2.append(Some(&tr!("Bersihkan layar")), Some("term.clear"));
     menu.append_section(None, &s2);
     let popover = gtk::PopoverMenu::from_model(Some(&menu));
     popover.set_parent(term);

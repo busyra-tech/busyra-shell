@@ -107,7 +107,7 @@ internal sealed class BackupModel
         var dest = Path.Combine(Folder(c), $"{DateTime.Now:yyyy-MM-dd_HHmm}{db}{DjieCoreMethods.BackupExtension(c.Engine)}");
         var p = Progress(c.Id);
         _progress[c.Id] = p;
-        Jobs[c.Id] = new Job { Stage = "Membuat backup…" };
+        Jobs[c.Id] = new Job { Stage = L.T("Membuat backup…") };
         Raise();
         var s = Schedule(c.Id);
         var ok = false;
@@ -115,28 +115,28 @@ internal sealed class BackupModel
         {
             var r = await DjieCoreMethods.BackupDatabase(c, _app.SshTarget(c.SshHostId), dest, [_app.Stack.RootPath], p);
             Prune(c, s.Keep);
-            var note = $"Backup {c.Title()} selesai · {Ui.Bytes(r.Bytes)}";
+            var note = L.T("Backup {} selesai · {}", c.Title(), Ui.Bytes(r.Bytes));
             if (s.Drive)
             {
-                Jobs[c.Id].Stage = "Mengunggah ke Google Drive…";
+                Jobs[c.Id].Stage = L.T("Mengunggah ke Google Drive…");
                 Jobs[c.Id].Bytes = 0;
                 Raise();
-                try { await DjieCoreMethods.DriveUploadBackup(await GoogleTokens.ValidAccessToken(), r.Path, p); note += " · tersimpan juga di Google Drive"; }
-                catch (Exception e) { note += " · gagal unggah ke Drive: " + Errors.Text(e); }
+                try { await DjieCoreMethods.DriveUploadBackup(await GoogleTokens.ValidAccessToken(), r.Path, p); note += L.T(" · tersimpan juga di Google Drive"); }
+                catch (Exception e) { note += L.T(" · gagal unggah ke Drive: {}", Errors.Text(e)); }
             }
             s.Last = DateTimeOffset.Now; s.LastError = null;
             SetSchedule(c.Id, s);
             _app.Flash(note);
             ok = true;
         }
-        catch (CoreException.Cancelled) { _app.Flash("Backup dibatalkan"); }
+        catch (CoreException.Cancelled) { _app.Flash(L.T("Backup dibatalkan")); }
         catch (Exception e)
         {
             s.LastError = Errors.Text(e);
             if (scheduled) s.Last = DateTimeOffset.Now;
             SetSchedule(c.Id, s);
-            _app.Flash($"Backup {c.Title()} gagal: {Errors.Text(e)}");
-            if (scheduled) Notifier.Send($"Backup {c.Title()} gagal", Errors.Text(e), "backup:" + c.Id);
+            _app.Flash(L.T("Backup {} gagal: {}", c.Title(), Errors.Text(e)));
+            if (scheduled) Notifier.Send(L.T("Backup {} gagal", c.Title()), Errors.Text(e), "backup:" + c.Id);
         }
         Jobs.Remove(c.Id);
         _progress.Remove(c.Id);
@@ -149,15 +149,15 @@ internal sealed class BackupModel
         if (Jobs.ContainsKey(c.Id)) return;
         var p = Progress(c.Id);
         _progress[c.Id] = p;
-        Jobs[c.Id] = new Job { Restore = true, Stage = $"Memulihkan {item.Name}…" };
+        Jobs[c.Id] = new Job { Restore = true, Stage = L.T("Memulihkan {}…", item.Name) };
         Raise();
         try
         {
             await DjieCoreMethods.RestoreDatabase(c, _app.SshTarget(c.SshHostId), item.Path, [_app.Stack.RootPath], p);
-            _app.Flash($"{c.Title()} dipulihkan dari {item.Name}");
+            _app.Flash(L.T("{} dipulihkan dari {}", c.Title(), item.Name));
         }
-        catch (CoreException.Cancelled) { _app.Flash("Restore dibatalkan"); }
-        catch (Exception e) { _app.Flash("Restore gagal: " + Errors.Text(e)); }
+        catch (CoreException.Cancelled) { _app.Flash(L.T("Restore dibatalkan")); }
+        catch (Exception e) { _app.Flash(L.T("Restore gagal: {}", Errors.Text(e))); }
         Jobs.Remove(c.Id);
         _progress.Remove(c.Id);
         Raise();

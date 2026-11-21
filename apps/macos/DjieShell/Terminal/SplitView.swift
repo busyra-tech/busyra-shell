@@ -36,7 +36,7 @@ struct TerminalPanes: View {
             .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             .overlay(alignment: .bottom) {
                 if model.splitVisible && model.broadcast {
-                    Label("Broadcast aktif — ketikan dikirim ke \(model.splitIDs.count) terminal", systemImage: "dot.radiowaves.left.and.right")
+                    Label(L("Broadcast aktif — ketikan dikirim ke {} terminal", model.splitIDs.count), systemImage: "dot.radiowaves.left.and.right")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.black.opacity(0.8))
                         .padding(.horizontal, 14).padding(.vertical, 7)
@@ -110,7 +110,7 @@ private struct PaneHeader: View {
                 Image(systemName: "rectangle.badge.minus").font(.system(size: 11))
             }
             .buttonStyle(.plain).foregroundStyle(.secondary)
-            .help("Keluarkan dari split (tab tetap terbuka)")
+            .help(L("Keluarkan dari split (tab tetap terbuka)"))
         }
         .padding(.horizontal, 10).frame(height: 26)
         .background(focused ? Theme.accent.opacity(0.1) : Theme.ink.opacity(0.04))
@@ -130,31 +130,31 @@ struct SplitMenu: View {
     var body: some View {
         let others = model.sessions.filter { s in s.id != model.activeSessionID && !(model.splitVisible && model.splitIDs.contains(s.id)) }
         Menu {
-            Button { model.splitDuplicate() } label: { Label("Duplikat tab ini", systemImage: "plus.square.on.square") }
+            Button { model.splitDuplicate() } label: { Label(L("Duplikat tab ini"), systemImage: "plus.square.on.square") }
                 .keyboardShortcut("d")
                 .disabled(!model.canSplit)
             if !others.isEmpty {
-                Menu("Gabung tab") {
+                Menu(L("Gabung tab")) {
                     ForEach(others) { s in Button(s.title) { model.split(with: s) } }
                 }
                 .disabled(!model.canSplit)
             }
             if !model.hosts.isEmpty {
-                Menu("Host baru") {
+                Menu(L("Host baru")) {
                     ForEach(model.hosts) { h in Button(h.title) { model.splitNew(h) } }
                 }
                 .disabled(!model.canSplit)
             }
             if model.splitVisible {
                 Divider()
-                Button(model.broadcast ? "Matikan broadcast" : "Broadcast ke semua panel") { model.toggleBroadcast() }
-                Button("Keluar dari split") { model.unsplit() }
+                Button(model.broadcast ? L("Matikan broadcast") : L("Broadcast ke semua panel")) { model.toggleBroadcast() }
+                Button(L("Keluar dari split")) { model.unsplit() }
             }
         } label: {
-            Label(model.splitVisible ? "Split · \(model.splitIDs.count)" : "Split", systemImage: "rectangle.split.2x1")
+            Label(model.splitVisible ? L("Split · {}", model.splitIDs.count) : L("Split"), systemImage: "rectangle.split.2x1")
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Bagi layar: 2–4 terminal berdampingan (⌘D)")
+        .help(L("Bagi layar: 2–4 terminal berdampingan (⌘D)"))
     }
 }

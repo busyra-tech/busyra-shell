@@ -16,9 +16,9 @@ internal sealed class KeychainPage : PageBase
 
     public KeychainPage() : base("data")
     {
-        var header = Ui.Header("Keychain", "SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key.",
-            Ui.Secondary("Import", G.Download, () => _ = ImportDialog()),
-            Ui.Primary("Generate Key", G.Sparkle, () => _ = GenerateDialog()));
+        var header = Ui.Header(L.T("Keychain"), L.T("SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key."),
+            Ui.Secondary(L.T("Import"), G.Download, () => _ = ImportDialog()),
+            Ui.Primary(L.T("Generate Key"), G.Sparkle, () => _ = GenerateDialog()));
         Children.Add(Ui.Scroll(Ui.Col(22, header, _list)));
         Render();
     }
@@ -28,8 +28,8 @@ internal sealed class KeychainPage : PageBase
         _list.Children.Clear();
         if (M.Keys.Length == 0)
         {
-            _list.Children.Add(Ui.EmptyState(G.Key, "Belum ada SSH key", "Generate key Ed25519 baru atau import dari %USERPROFILE%\\.ssh.",
-                Ui.Primary("Generate Key", G.Sparkle, () => _ = GenerateDialog())));
+            _list.Children.Add(Ui.EmptyState(G.Key, L.T("Belum ada SSH key"), L.T("Generate key Ed25519 baru atau import dari %USERPROFILE%\\.ssh."),
+                Ui.Primary(L.T("Generate Key"), G.Sparkle, () => _ = GenerateDialog())));
             return;
         }
         for (int i = 0; i < M.Keys.Length; i++)
@@ -47,16 +47,16 @@ internal sealed class KeychainPage : PageBase
         var title = Ui.Text(k.Label, 14, FontWeights.SemiBold);
         var titleBox = new Grid { Children = { title } };
         title.DoubleTapped += (_, _) => StartRename(titleBox, k);
-        ToolTipService.SetToolTip(title, "Klik dua kali untuk ganti nama");
+        ToolTipService.SetToolTip(title, L.T("Klik dua kali untuk ganti nama"));
         var info = Ui.Col(3,
-            Ui.Row(8, titleBox, Ui.Badge(k.KeyType.Replace("ssh-", "").ToUpperInvariant(), Theme.Accent2), used > 0 ? Ui.Pill($"{used} host") : null),
+            Ui.Row(8, titleBox, Ui.Badge(k.KeyType.Replace("ssh-", "").ToUpperInvariant(), Theme.Accent2), used > 0 ? Ui.Pill(L10n.English && used == 1 ? "1 host" : L.T("{} host", used)) : null),
             Ui.Text(k.Fingerprint, 11, fg: Theme.Text2, mono: true).With(t => t.IsTextSelectionEnabled = true));
-        var copy = Ui.Secondary("Salin public key", G.Copy, () => { Ui.CopyText(k.PublicKey); M.Flash("Public key disalin"); });
-        var rename = Ui.IconBtn(G.Rename, "Ganti nama", () => StartRename(titleBox, k));
-        var del = Ui.IconBtn(G.Delete, "Hapus key", async () =>
+        var copy = Ui.Secondary(L.T("Salin public key"), G.Copy, () => { Ui.CopyText(k.PublicKey); M.Flash(L.T("Public key disalin")); });
+        var rename = Ui.IconBtn(G.Rename, L.T("Ganti nama"), () => StartRename(titleBox, k));
+        var del = Ui.IconBtn(G.Delete, L.T("Hapus key"), async () =>
         {
-            var msg = used > 0 ? $"Key ini dipakai {used} host. Host tersebut tidak bisa login dengan key sampai kamu memilih key lain." : "Key akan dihapus dari vault di semua perangkat.";
-            if (await Ui.Confirm($"Hapus “{k.Label}”?", msg)) M.DeleteKey(k);
+            var msg = used > 0 ? L.T("Key ini dipakai {} host. Host tersebut tidak bisa login dengan key sampai kamu memilih key lain.", used) : L.T("Key akan dihapus dari vault di semua perangkat.");
+            if (await Ui.Confirm(L.T("Hapus “{}”?", k.Label), msg)) M.DeleteKey(k);
         }, Theme.Brush("#E5484D"));
         var row = Ui.Columns("Auto,*,Auto", 14, icon, info, Ui.Row(4, copy, rename, del));
         var card = Ui.HoverCard(row, 14);
@@ -64,8 +64,8 @@ internal sealed class KeychainPage : PageBase
         {
             Items =
             {
-                new MenuFlyoutItem { Text = "Salin public key" }.With(i => i.Click += (_, _) => { Ui.CopyText(k.PublicKey); M.Flash("Public key disalin"); }),
-                new MenuFlyoutItem { Text = "Salin fingerprint" }.With(i => i.Click += (_, _) => Ui.CopyText(k.Fingerprint)),
+                new MenuFlyoutItem { Text = L.T("Salin public key") }.With(i => i.Click += (_, _) => { Ui.CopyText(k.PublicKey); M.Flash(L.T("Public key disalin")); }),
+                new MenuFlyoutItem { Text = L.T("Salin fingerprint") }.With(i => i.Click += (_, _) => Ui.CopyText(k.Fingerprint)),
             }
         };
         return card;
@@ -92,26 +92,26 @@ internal sealed class KeychainPage : PageBase
 
     private async Task GenerateDialog()
     {
-        var label = Ui.Field("Label (mis. Laptop kantor)", Environment.MachineName);
-        var content = Ui.Col(10, Ui.Secondary("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern.", 13, true), label);
-        var d = Ui.Dialog("Generate SSH key", content, "Generate");
+        var label = Ui.Field(L.T("Label (mis. Laptop kantor)"), Environment.MachineName);
+        var content = Ui.Col(10, Ui.Secondary(L.T("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern."), 13, true), label);
+        var d = Ui.Dialog(L.T("Generate SSH key"), content, L.T("Generate"));
         if (await d.ShowAsync() != ContentDialogResult.Primary) return;
         SshKey k;
         try { k = M.GenerateKey(label.Text.Trim().Length == 0 ? "key" : label.Text.Trim()); }
         catch (Exception e) { M.Flash(Errors.Text(e)); return; }
         var pub = new TextBox { Text = k.PublicKey, IsReadOnly = true, TextWrapping = TextWrapping.Wrap, FontFamily = Theme.MonoFont, FontSize = 11.5 };
-        var done = Ui.Dialog("Key berhasil dibuat", Ui.Col(10,
-            Ui.Secondary("Tambahkan public key ini ke ~/.ssh/authorized_keys di server.", 13, true), pub), "Salin & tutup", "Tutup");
-        if (await done.ShowAsync() == ContentDialogResult.Primary) { Ui.CopyText(k.PublicKey); M.Flash("Public key disalin"); }
+        var done = Ui.Dialog(L.T("Key berhasil dibuat"), Ui.Col(10,
+            Ui.Secondary(L.T("Tambahkan public key ini ke ~/.ssh/authorized_keys di server."), 13, true), pub), L.T("Salin & tutup"), L.T("Tutup"));
+        if (await done.ShowAsync() == ContentDialogResult.Primary) { Ui.CopyText(k.PublicKey); M.Flash(L.T("Public key disalin")); }
     }
 
     private async Task ImportDialog()
     {
         var label = Ui.Field("Label");
         var key = new TextBox { PlaceholderText = "-----BEGIN OPENSSH PRIVATE KEY-----", AcceptsReturn = true, TextWrapping = TextWrapping.NoWrap, FontFamily = Theme.MonoFont, FontSize = 11, Height = 150 };
-        var pass = new PasswordBox { PlaceholderText = "Passphrase (jika ada)" };
+        var pass = new PasswordBox { PlaceholderText = L.T("Passphrase (jika ada)") };
         var error = new InfoBar { Severity = InfoBarSeverity.Error, IsClosable = false, IsOpen = false };
-        var pick = Ui.Secondary("Pilih file…", G.Folder, async () =>
+        var pick = Ui.Secondary(L.T("Pilih file…"), G.Folder, async () =>
         {
             var p = new Windows.Storage.Pickers.FileOpenPicker();
             WinRT.Interop.InitializeWithWindow.Initialize(p, App.Window!.Hwnd);
@@ -125,16 +125,16 @@ internal sealed class KeychainPage : PageBase
             }
             catch (Exception e) { error.Message = e.Message; error.IsOpen = true; }
         });
-        var content = Ui.Col(10, Ui.Secondary("Pilih file private key (mis. %USERPROFILE%\\.ssh\\id_ed25519) atau tempel isinya. Format OpenSSH.", 13, true),
+        var content = Ui.Col(10, Ui.Secondary(L.T("Pilih file private key (mis. %USERPROFILE%\\.ssh\\id_ed25519) atau tempel isinya. Format OpenSSH."), 13, true),
             label, key, pass, pick, error);
         content.Width = 460;
-        var d = Ui.Dialog("Import SSH key", content, "Import");
+        var d = Ui.Dialog(L.T("Import SSH key"), content, L.T("Import"));
         d.PrimaryButtonClick += (s, a) =>
         {
             try
             {
                 M.ImportKey(label.Text.Trim().Length == 0 ? "key" : label.Text.Trim(), key.Text, pass.Password.Length == 0 ? null : pass.Password);
-                M.Flash("Key berhasil diimport");
+                M.Flash(L.T("Key berhasil diimport"));
             }
             catch (Exception e) { error.Message = Errors.Text(e); error.IsOpen = true; a.Cancel = true; }
         };

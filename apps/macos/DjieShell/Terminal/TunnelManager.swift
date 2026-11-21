@@ -52,7 +52,7 @@ final class TunnelManager {
                 if self?.processes[id]?.isRunning == true { withAnimation(.djie) { self?.states[id] = .running } }
             }
         } catch {
-            states[id] = .failed(error.localizedDescription)
+            states[id] = .failed(Lmsg(error.localizedDescription))
         }
     }
 
@@ -69,7 +69,7 @@ final class TunnelManager {
         guard processes[id] != nil else { return } // dihentikan manual
         processes[id] = nil
         cleanup(id)
-        withAnimation(.djie) { states[id] = .failed(message.isEmpty ? "ssh keluar dengan kode \(code)" : message) }
+        withAnimation(.djie) { states[id] = .failed(message.isEmpty ? L("ssh keluar dengan kode {}", code) : Lmsg(message)) }
     }
 
     private func cleanup(_ id: String) {

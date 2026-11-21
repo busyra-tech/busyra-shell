@@ -32,7 +32,7 @@ struct HostsView: View {
                     if model.hosts.isEmpty {
                         EmptyHosts { model.editingHost = .blank() }
                     } else if filtered.isEmpty {
-                        Text("Tidak ada host yang cocok dengan “\(query)”")
+                        Text(L("Tidak ada host yang cocok dengan “{}”", query))
                             .foregroundStyle(.secondary)
                             .frame(maxWidth: .infinity).padding(.top, 60)
                     } else {
@@ -88,16 +88,16 @@ struct HostsView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Hosts").font(.system(size: 26, weight: .bold, design: .rounded))
                 HStack(spacing: 6) {
-                    Text("\(model.hosts.count) server")
+                    Text(L("{} server", model.hosts.count))
                     let online = Set(model.sessions.filter { $0.status == .connected }.map(\.host.id)).count
                     if online > 0 {
                         Text("·")
                         Circle().fill(Color(hex: "#4ADE80")).frame(width: 6, height: 6)
-                        Text("\(online) terhubung").contentTransition(.numericText())
+                        Text(L("{} terhubung", online)).contentTransition(.numericText())
                     }
                 }
                 .font(.callout).foregroundStyle(.secondary)
-                .help("⌘-klik untuk memilih beberapa host · klik dua kali untuk connect")
+                .help(L("⌘-klik untuk memilih beberapa host · klik dua kali untuk connect"))
             }
             Spacer()
             LayoutSwitch(layout: $layout)
@@ -109,13 +109,13 @@ struct HostsView: View {
                     .frame(width: 16)
             }
             .buttonStyle(SecondaryButtonStyle())
-            .help(hideAddresses ? "Tampilkan alamat host" : "Sembunyikan alamat host")
-            SearchField(text: $query, prompt: "Cari host, IP, tag…")
+            .help(hideAddresses ? L("Tampilkan alamat host") : L("Sembunyikan alamat host"))
+            SearchField(text: $query, prompt: L("Cari host, IP, tag…"))
             ViewThatFits(in: .horizontal) {
-                Button { model.editingHost = .blank() } label: { Label("Host Baru", systemImage: "plus") }
+                Button { model.editingHost = .blank() } label: { Label(L("Host Baru"), systemImage: "plus") }
                     .buttonStyle(PrimaryButtonStyle()).fixedSize()
                 Button { model.editingHost = .blank() } label: { Image(systemName: "plus") }
-                    .buttonStyle(PrimaryButtonStyle()).help("Host Baru")
+                    .buttonStyle(PrimaryButtonStyle()).help(L("Host Baru"))
             }
         }
     }
@@ -142,7 +142,7 @@ struct LayoutSwitch: View {
                     }
                     .contentShape(Rectangle())
                     .onTapGesture { withAnimation(.djieSnappy) { layout = l } }
-                    .help(l == .grid ? "Tampilan grid" : "Tampilan list")
+                    .help(l == .grid ? L("Tampilan grid") : L("Tampilan list"))
             }
         }
         .padding(3)
@@ -208,8 +208,8 @@ struct HostTile: View {
                 Spacer()
                 if hover && model.selection.isEmpty && !host.isTeam {
                     HStack(spacing: 4) {
-                        IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host }
-                        IconButton(symbol: "doc.on.doc", help: "Duplikat") { duplicate() }
+                        IconButton(symbol: "pencil", help: L("Edit")) { model.editingHost = host }
+                        IconButton(symbol: "doc.on.doc", help: L("Duplikat")) { duplicate() }
                     }
                     .transition(.opacity.combined(with: .scale(scale: 0.85, anchor: .topTrailing)))
                 } else {
@@ -275,7 +275,7 @@ struct HostTile: View {
                 .frame(width: 90, alignment: .leading)
             statusChip.frame(width: 130, alignment: .trailing)
             HStack(spacing: 4) {
-                if !host.isTeam { IconButton(symbol: "pencil", help: "Edit") { model.editingHost = host } }
+                if !host.isTeam { IconButton(symbol: "pencil", help: L("Edit")) { model.editingHost = host } }
                 connectButton
             }
             .opacity(hover || selected ? 1 : 0.35)
@@ -318,7 +318,7 @@ struct HostTile: View {
         if live {
             HStack(spacing: 5) {
                 PulseDot(color: Color(hex: "#4ADE80"))
-                Text("Terhubung")
+                Text(L("Terhubung"))
             }
             .font(.system(size: 10, weight: .semibold))
             .foregroundStyle(Color(hex: "#4ADE80"))
@@ -330,9 +330,9 @@ struct HostTile: View {
                 .foregroundStyle(.tertiary)
                 .padding(.horizontal, 8).padding(.vertical, 4)
                 .background(Theme.ink.opacity(0.05), in: Capsule())
-                .help("Terakhir connect")
+                .help(L("Terakhir connect"))
         } else {
-            Text("Belum pernah")
+            Text(L("Belum pernah"))
                 .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(.tertiary)
         }
@@ -344,7 +344,7 @@ struct HostTile: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "bolt.fill")
-                if layout == .grid && hover { Text("Connect").transition(.opacity.combined(with: .move(edge: .trailing))) }
+                if layout == .grid && hover { Text(L("Connect")).transition(.opacity.combined(with: .move(edge: .trailing))) }
             }
             .font(.system(size: 11, weight: .bold))
             .foregroundStyle(hover ? Color.black.opacity(0.8) : color)
@@ -354,7 +354,7 @@ struct HostTile: View {
             }
         }
         .buttonStyle(.plain)
-        .help("Connect (klik dua kali kartu)")
+        .help(L("Connect (klik dua kali kartu)"))
         .animation(.djieSnappy, value: hover)
     }
 
@@ -404,7 +404,7 @@ struct HostTile: View {
     }
 
     private var authLabel: String {
-        switch host.auth { case .password: "Password"; case .key: "SSH Key"; case .agent: "Agent" }
+        switch host.auth { case .password: L("Password"); case .key: L("SSH Key"); case .agent: L("Agent") }
     }
     private var authIcon: String {
         switch host.auth { case .password: "ellipsis.rectangle"; case .key: "key.fill"; case .agent: "person.badge.key" }
@@ -412,24 +412,24 @@ struct HostTile: View {
 
     @ViewBuilder
     private var menu: some View {
-        Button("Connect") { model.connect([host.id]) }
-        Button("Buka SFTP") { Task { await model.openSftp(host) } }
+        Button(L("Connect")) { model.connect([host.id]) }
+        Button(L("Buka SFTP")) { Task { await model.openSftp(host) } }
         if host.isTeam {
-            Text("Host tim · hanya admin yang bisa mengubah")
+            Text(L("Host tim · hanya admin yang bisa mengubah"))
         } else {
-            Button("Edit") { model.editingHost = host }
-            Button("Duplikat") { duplicate() }
+            Button(L("Edit")) { model.editingHost = host }
+            Button(L("Duplikat")) { duplicate() }
         }
-        Button(selected ? "Batal pilih" : "Pilih") { toggle() }
+        Button(selected ? L("Batal pilih") : L("Pilih")) { toggle() }
         Divider()
-        Button("Salin alamat") {
+        Button(L("Salin alamat")) {
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(host.address, forType: .string)
-            model.flash("Alamat disalin")
+            model.flash(L("Alamat disalin"))
         }
         if !host.isTeam {
             Divider()
-            Button("Hapus", role: .destructive) { model.delete(host) }
+            Button(L("Hapus"), role: .destructive) { model.delete(host) }
         }
     }
 
@@ -472,16 +472,16 @@ struct SelectionBar: View {
                 .background(Theme.accent, in: Circle())
                 .foregroundStyle(.black)
                 .contentTransition(.numericText())
-            Text("host dipilih").font(.callout)
+            Text(L("host dipilih")).font(.callout)
             Divider().frame(height: 18)
-            Button("Pilih semua") { withAnimation(.djieSnappy) { model.selection = Set(visibleIDs) } }
+            Button(L("Pilih semua")) { withAnimation(.djieSnappy) { model.selection = Set(visibleIDs) } }
                 .buttonStyle(.borderless)
-            Button("Batal") { withAnimation(.djieSnappy) { model.selection.removeAll() } }
+            Button(L("Batal")) { withAnimation(.djieSnappy) { model.selection.removeAll() } }
                 .buttonStyle(.borderless)
             Button {
                 model.connect(model.hosts.map(\.id).filter { model.selection.contains($0) })
             } label: {
-                Label("Connect semua", systemImage: "bolt.fill")
+                Label(L("Connect semua"), systemImage: "bolt.fill")
             }
             .buttonStyle(PrimaryButtonStyle())
             .keyboardShortcut(.return)
@@ -514,10 +514,10 @@ struct EmptyHosts: View {
                     .foregroundStyle(Theme.brandGradient)
             }
             .frame(height: 140)
-            Text("Belum ada host").font(.title3.bold())
-            Text("Tambahkan server pertamamu, lalu connect dengan satu klik.")
+            Text(L("Belum ada host")).font(.title3.bold())
+            Text(L("Tambahkan server pertamamu, lalu connect dengan satu klik."))
                 .foregroundStyle(.secondary)
-            Button(action: onAdd) { Label("Tambah host", systemImage: "plus") }
+            Button(action: onAdd) { Label(L("Tambah host"), systemImage: "plus") }
                 .buttonStyle(PrimaryButtonStyle())
         }
         .frame(maxWidth: .infinity)

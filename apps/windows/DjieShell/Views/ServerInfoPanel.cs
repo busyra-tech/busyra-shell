@@ -36,16 +36,16 @@ internal sealed class ServerInfoPanel : Grid
             Ui.TintIcon("", _stats.Host.Color, 32, 13, 9),
             Ui.Col(1,
                 Ui.Text(_stats.Info is { Hostname.Length: > 0 } i0 ? i0.Hostname : _stats.Host.Title(), 14, FontWeights.SemiBold).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis),
-                Ui.Text(_stats.State == ServerStats.Status.Ready ? "● Live · tiap 3 detik" : "Info server", 11, fg: _stats.State == ServerStats.Status.Ready ? Theme.Brush(Theme.Green) : Theme.Text2)),
-            Ui.IconBtn(G.Close, "Tutup panel (Ctrl+Shift+I)", () => M.ToggleServerInfo(false), size: 10));
+                Ui.Text(_stats.State == ServerStats.Status.Ready ? L.T("● Live · tiap 3 detik") : L.T("Info server"), 11, fg: _stats.State == ServerStats.Status.Ready ? Theme.Brush(Theme.Green) : Theme.Text2)),
+            Ui.IconBtn(G.Close, L.T("Tutup panel (Ctrl+Shift+I)"), () => M.ToggleServerInfo(false), size: 10));
         head.Padding = new Thickness(14, 12, 12, 12);
 
         UIElement body = _stats.State switch
         {
-            ServerStats.Status.Connecting => Ui.Col(10, new ProgressRing { IsActive = true, Width = 22, Height = 22 }, Ui.Secondary("Membaca info server…", 12.5))
+            ServerStats.Status.Connecting => Ui.Col(10, new ProgressRing { IsActive = true, Width = 22, Height = 22 }, Ui.Secondary(L.T("Membaca info server…"), 12.5))
                 .With(c => { c.HorizontalAlignment = HorizontalAlignment.Center; c.VerticalAlignment = VerticalAlignment.Center; }),
             ServerStats.Status.Failed => Ui.Col(10, Ui.Icon(G.Warning, 22, Theme.Brush(Theme.Orange)), Ui.Secondary(_stats.Error ?? "", 12.5, true).With(t => t.TextAlignment = TextAlignment.Center),
-                    Ui.Secondary("Coba lagi", G.Refresh, M.RetryServerStats))
+                    Ui.Secondary(L.T("Coba lagi"), G.Refresh, M.RetryServerStats))
                 .With(c => { c.HorizontalAlignment = HorizontalAlignment.Center; c.VerticalAlignment = VerticalAlignment.Center; c.Padding = new Thickness(20); }),
             _ => Ui.Scroll(Content(_stats.Info!), 14),
         };
@@ -80,7 +80,7 @@ internal sealed class ServerInfoPanel : Grid
         col.Children.Add(Chart("CPU", l != null ? $"{l.CpuPercent:0}%" : "—", Theme.Accent, [pts.Select(p => p.Cpu).ToList()], 100));
         col.Children.Add(Chart("RAM", l != null ? $"{Ui.Bytes(l.MemUsedBytes)} / {Ui.Bytes(l.MemTotalBytes)}" : "—", Theme.Accent3, [pts.Select(p => p.Mem).ToList()], 100));
         var last = pts.LastOrDefault();
-        col.Children.Add(Chart("Jaringan", last != null ? $"↓ {Rate(last.Rx)}  ↑ {Rate(last.Tx)}" : "—", Theme.Accent2,
+        col.Children.Add(Chart(L.T("Jaringan"), last != null ? $"↓ {Rate(last.Rx)}  ↑ {Rate(last.Tx)}" : "—", Theme.Accent2,
             [pts.Select(p => p.Rx).ToList(), pts.Select(p => p.Tx).ToList()], null, Theme.Orange));
 
         // Memori & storage
@@ -149,7 +149,7 @@ internal sealed class ServerInfoPanel : Grid
     private static string CpuText(ServerInfo i)
     {
         var m = i.CpuModel.Length == 0 ? i.Arch : $"{i.CpuModel} · {i.Arch}";
-        return i.CpuCores > 0 ? $"{m} · {i.CpuCores} core" : m;
+        return i.CpuCores > 0 ? L.T("{} · {} core", m, i.CpuCores) : m;
     }
 
     private static string Rate(double bps) => bps < 1 ? "0 B/s" : Ui.Bytes((ulong)bps) + "/s";
@@ -157,6 +157,6 @@ internal sealed class ServerInfoPanel : Grid
     private static string Uptime(ulong s)
     {
         ulong d = s / 86400, h = s % 86400 / 3600, m = s % 3600 / 60;
-        return d > 0 ? $"{d} hari {h} jam" : h > 0 ? $"{h} jam {m} menit" : $"{m} menit";
+        return d > 0 ? L.T("{} hari {} jam", d, h) : h > 0 ? L.T("{} jam {} menit", h, m) : L.T("{} menit", m);
     }
 }

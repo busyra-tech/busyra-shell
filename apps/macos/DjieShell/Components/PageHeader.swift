@@ -75,7 +75,7 @@ struct Badge: View {
 /// Sheet form standar: judul, isi, tombol Batal / Simpan.
 struct FormSheet<Content: View>: View {
     let title: String
-    var saveTitle = "Simpan"
+    var saveTitle = L("Simpan")
     var canSave = true
     var onSave: () -> Void
     @ViewBuilder var content: () -> Content
@@ -87,7 +87,7 @@ struct FormSheet<Content: View>: View {
             content()
             HStack {
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
                 Button(saveTitle) { onSave(); dismiss() }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)

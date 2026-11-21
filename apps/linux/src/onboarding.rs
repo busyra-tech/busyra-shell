@@ -9,6 +9,7 @@ use gtk::{gio, glib};
 use crate::config;
 use crate::ctx::Ctx;
 use crate::theme;
+use crate::window::language_button;
 
 /// Tampilkan layar awal sesuai keadaan vault di disk.
 pub fn show_start(ctx: &Ctx) {
@@ -107,18 +108,18 @@ pub fn show_welcome(ctx: &Ctx) {
     logo.set_margin_bottom(24);
     col.append(&logo);
 
-    let title = gtk::Label::new(Some("Selamat datang di Djie Shell"));
+    let title = gtk::Label::new(Some(&tr!("Selamat datang di Djie Shell")));
     title.add_css_class("djie-hero");
     title.set_wrap(true);
     title.set_justify(gtk::Justification::Center);
     col.append(&title);
 
-    let tag = gtk::Label::new(Some("Semua servermu, satu terminal."));
+    let tag = gtk::Label::new(Some(&tr!("Semua servermu, satu terminal.")));
     tag.add_css_class("djie-tagline");
     tag.set_margin_top(10);
     col.append(&tag);
 
-    let start = gtk::Button::with_label("Mulai");
+    let start = gtk::Button::with_label(if crate::i18n::english() { "Get Started" } else { "Mulai" });
     start.add_css_class("suggested-action");
     start.add_css_class("pill");
     start.set_margin_top(40);
@@ -126,14 +127,18 @@ pub fn show_welcome(ctx: &Ctx) {
     start.connect_clicked(move |_| show_create(&c));
     col.append(&start);
 
-    let note = gtk::Label::new(Some(
-        "Data host dienkripsi di perangkatmu. Sync lewat Google Drive menyusul di versi Linux.",
-    ));
+    let note = gtk::Label::new(Some(&tr!(
+        "Data host dienkripsi di perangkatmu. Sync lewat Google Drive menyusul di versi Linux."
+    )));
     note.add_css_class("djie-hint");
     note.set_wrap(true);
     note.set_justify(gtk::Justification::Center);
     note.set_margin_top(28);
     col.append(&note);
+    let lang = language_button(ctx, true);
+    lang.set_halign(gtk::Align::Center);
+    lang.set_margin_top(16);
+    col.append(&lang);
 
     set_page(ctx, "welcome", &scroll);
 }
@@ -164,7 +169,7 @@ pub fn show_create(ctx: &Ctx) {
     let (scroll, col) = column();
 
     let back = gtk::Button::builder().halign(gtk::Align::Start).build();
-    back.set_child(Some(&adw::ButtonContent::builder().icon_name("go-previous-symbolic").label("Kembali").build()));
+    back.set_child(Some(&adw::ButtonContent::builder().icon_name("go-previous-symbolic").label(tr!("Kembali")).build()));
     back.add_css_class("flat");
     back.set_margin_bottom(20);
     let c = ctx.clone();
@@ -177,14 +182,14 @@ pub fn show_create(ctx: &Ctx) {
     icon.add_css_class("accent");
     col.append(&icon);
 
-    let title = label("Buat master password", "djie-title");
+    let title = label(&tr!("Buat master password"), "djie-title");
     title.set_margin_top(14);
     col.append(&title);
-    let sub = label("Password ini mengunci semua host dan SSH key di perangkat ini.", "djie-muted");
+    let sub = label(&tr!("Password ini mengunci semua host dan SSH key di perangkat ini."), "djie-muted");
     sub.set_margin_top(6);
     col.append(&sub);
 
-    let pw = password_entry("Master password (min. 8 karakter)");
+    let pw = password_entry(&tr!("Master password (min. 8 karakter)"));
     pw.set_margin_top(24);
     col.append(&pw);
 
@@ -192,7 +197,7 @@ pub fn show_create(ctx: &Ctx) {
     bar_row.set_margin_top(8);
     let bar = gtk::LevelBar::builder().min_value(0.0).max_value(4.0).mode(gtk::LevelBarMode::Discrete).hexpand(true).build();
     bar.set_valign(gtk::Align::Center);
-    let bar_label = gtk::Label::new(Some(STRENGTH[0]));
+    let bar_label = gtk::Label::new(Some(&tr!(STRENGTH[0])));
     bar_label.add_css_class("djie-hint");
     bar_label.set_width_chars(12);
     bar_label.set_xalign(1.0);
@@ -200,7 +205,7 @@ pub fn show_create(ctx: &Ctx) {
     bar_row.append(&bar_label);
     col.append(&bar_row);
 
-    let confirm = password_entry("Ulangi password");
+    let confirm = password_entry(&tr!("Ulangi password"));
     confirm.set_margin_top(8);
     col.append(&confirm);
 
@@ -209,14 +214,14 @@ pub fn show_create(ctx: &Ctx) {
     error.set_margin_top(8);
     col.append(&error);
 
-    let submit = gtk::Button::with_label("Buat vault & mulai");
+    let submit = gtk::Button::with_label(&tr!("Buat vault & mulai"));
     submit.add_css_class("suggested-action");
     submit.add_css_class("pill");
     submit.set_sensitive(false);
     submit.set_margin_top(24);
     col.append(&submit);
 
-    let warn = label("Tidak bisa dipulihkan jika lupa. Simpan di tempat aman.", "djie-hint");
+    let warn = label(&tr!("Tidak bisa dipulihkan jika lupa. Simpan di tempat aman."), "djie-hint");
     warn.set_margin_top(14);
     col.append(&warn);
 
@@ -226,7 +231,7 @@ pub fn show_create(ctx: &Ctx) {
             let (a, b) = (pw.text(), confirm.text());
             let s = strength(&a);
             bar.set_value(s as f64);
-            bar_label.set_label(STRENGTH[s]);
+            bar_label.set_label(&tr!(STRENGTH[s]));
             let mismatch = !b.is_empty() && a != b;
             if mismatch { confirm.add_css_class("error") } else { confirm.remove_css_class("error") }
             submit.set_sensitive(a.chars().count() >= 8 && a == b);
@@ -248,7 +253,7 @@ pub fn show_create(ctx: &Ctx) {
                 return;
             }
             submit.set_sensitive(false);
-            submit.set_label("Membuat vault…");
+            submit.set_label(&tr!("Membuat vault…"));
             let password = pw.text().to_string();
             let (ctx, submit, error) = (ctx.clone(), submit.clone(), error.clone());
             glib::spawn_future_local(async move {
@@ -256,9 +261,9 @@ pub fn show_create(ctx: &Ctx) {
                 match res {
                     Ok(Ok(vault)) => finish(&ctx, vault),
                     Ok(Err(e)) => {
-                        error.set_label(&e.to_string());
+                        error.set_label(&crate::i18n::msg(&e.to_string()));
                         error.set_visible(true);
-                        submit.set_label("Buat vault & mulai");
+                        submit.set_label(&tr!("Buat vault & mulai"));
                         submit.set_sensitive(true);
                     }
                     Err(_) => {}
@@ -283,21 +288,21 @@ pub fn show_lock(ctx: &Ctx) {
     let logo = theme::logo(72);
     logo.set_margin_bottom(20);
     col.append(&logo);
-    let title = gtk::Label::new(Some("Vault terkunci"));
+    let title = gtk::Label::new(Some(&tr!("Vault terkunci")));
     title.add_css_class("djie-title");
     col.append(&title);
-    let sub = gtk::Label::new(Some("Masukkan master password untuk melanjutkan."));
+    let sub = gtk::Label::new(Some(&tr!("Masukkan master password untuk melanjutkan.")));
     sub.add_css_class("djie-muted");
     sub.set_margin_top(6);
     col.append(&sub);
 
     let row = gtk::Box::new(gtk::Orientation::Horizontal, 8);
     row.set_margin_top(24);
-    let pw = password_entry("Master password");
+    let pw = password_entry(&tr!("Master password"));
     let go = gtk::Button::from_icon_name("go-next-symbolic");
     go.add_css_class("suggested-action");
     go.add_css_class("circular");
-    go.set_tooltip_text(Some("Buka"));
+    go.set_tooltip_text(Some(&tr!("Buka vault")));
     row.append(&pw);
     row.append(&go);
     col.append(&row);
@@ -307,6 +312,10 @@ pub fn show_lock(ctx: &Ctx) {
     error.set_visible(false);
     error.set_margin_top(10);
     col.append(&error);
+    let lang = language_button(ctx, true);
+    lang.set_halign(gtk::Align::Center);
+    lang.set_margin_top(16);
+    col.append(&lang);
 
     let run = {
         let (ctx, pw, go, error) = (ctx.clone(), pw.clone(), go.clone(), error.clone());
@@ -326,8 +335,8 @@ pub fn show_lock(ctx: &Ctx) {
                     Ok(Ok(vault)) => finish(&ctx, vault),
                     Ok(Err(e)) => {
                         let msg = match e {
-                            CoreError::WrongPassword => "Master password salah".to_string(),
-                            other => other.to_string(),
+                            CoreError::WrongPassword => tr!("Master password salah"),
+                            other => crate::i18n::msg(&other.to_string()),
                         };
                         error.set_label(&msg);
                         error.set_visible(true);

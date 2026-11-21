@@ -65,7 +65,7 @@ final class ServerTile: Identifiable {
                     await m?.close()
                     self.prev = nil
                     if self.state == .online {
-                        self.onAlert?("\(self.host.title) tidak bisa dihubungi", error.djieMessage, "down:\(self.id)")
+                        self.onAlert?(L("{} tidak bisa dihubungi", self.host.title), error.djieMessage, "down:\(self.id)")
                     }
                     self.alerting.removeAll()
                     withAnimation(.djie) { self.state = .offline(error.djieMessage) }
@@ -98,7 +98,7 @@ final class ServerTile: Identifiable {
             t = Double(s.netTxBytes - p.netTxBytes) / dt
         }
         prev = (s, now)
-        if isOffline, wasOnline { onAlert?("\(host.title) kembali online", "Server bisa dihubungi lagi.", "down:\(id)") }
+        if isOffline, wasOnline { onAlert?(L("{} kembali online", host.title), L("Server bisa dihubungi lagi."), "down:\(id)") }
         wasOnline = true
         defer { checkAlerts() }
         withAnimation(.easeOut(duration: 0.4)) {
@@ -114,9 +114,9 @@ final class ServerTile: Identifiable {
     private func checkAlerts() {
         guard let s = sample else { return }
         let metrics: [(String, Double, String)] = [
-            ("CPU", cpu.count >= 3 ? cpuNow / 100 : 0, "rata-rata 15 detik terakhir"),
-            ("RAM", memFraction, "\(Self.bytes(s.memUsedBytes)) dari \(Self.bytes(s.memTotalBytes)) terpakai"),
-            ("Disk", diskFraction, "\(Self.bytes(s.diskUsedBytes)) dari \(Self.bytes(s.diskTotalBytes)) terpakai"),
+            ("CPU", cpu.count >= 3 ? cpuNow / 100 : 0, L("rata-rata 15 detik terakhir")),
+            ("RAM", memFraction, L("{} dari {} terpakai", Self.bytes(s.memUsedBytes), Self.bytes(s.memTotalBytes))),
+            (L("Disk"), diskFraction, L("{} dari {} terpakai", Self.bytes(s.diskUsedBytes), Self.bytes(s.diskTotalBytes))),
         ]
         for (name, f, detail) in metrics {
             if f >= 0.9, !alerting.contains(name) {
@@ -163,9 +163,9 @@ final class ServerTile: Identifiable {
     var issues: [String] {
         guard state == .online else { return [] }
         var out: [String] = []
-        if Self.level(cpuNow / 100) == .critical { out.append("CPU \(Int(cpuNow.rounded()))%") }
-        if Self.level(memFraction) == .critical { out.append("RAM \(Int((memFraction * 100).rounded()))%") }
-        if Self.level(diskFraction) == .critical { out.append("Disk \(Int((diskFraction * 100).rounded()))%") }
+        if Self.level(cpuNow / 100) == .critical { out.append(L("CPU {}%", Int(cpuNow.rounded()))) }
+        if Self.level(memFraction) == .critical { out.append(L("RAM {}%", Int((memFraction * 100).rounded()))) }
+        if Self.level(diskFraction) == .critical { out.append(L("Disk {}%", Int((diskFraction * 100).rounded()))) }
         return out
     }
 
@@ -180,9 +180,9 @@ final class DashboardModel {
         var id: String { rawValue }
         var title: String {
             switch self {
-            case .all: "Semua"
-            case .attention: "Perlu perhatian"
-            case .offline: "Offline"
+            case .all: L("Semua")
+            case .attention: L("Perlu perhatian")
+            case .offline: L("Offline")
             }
         }
     }
@@ -260,27 +260,27 @@ struct DashboardView: View {
         let tiles = dash.ordered(model)
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                PageHeader(title: "Dashboard", subtitle: "Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik") {
+                PageHeader(title: "Dashboard", subtitle: L("Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik")) {
                     if dash.tiles.values.contains(where: \.isOffline) {
                         Button { dash.retryOffline(model) } label: { Image(systemName: "arrow.clockwise") }
                             .buttonStyle(SecondaryButtonStyle())
-                            .help("Coba lagi semua server yang offline")
+                            .help(L("Coba lagi semua server yang offline"))
                     }
                     Button { Task { await model.setDashboardAlerts(!dash.alerts) } } label: {
-                        Label(dash.alerts ? "Notifikasi aktif" : "Notifikasi", systemImage: dash.alerts ? "bell.badge.fill" : "bell.slash")
+                        Label(dash.alerts ? L("Notifikasi aktif") : L("Notifikasi"), systemImage: dash.alerts ? "bell.badge.fill" : "bell.slash")
                     }
                     .buttonStyle(SecondaryButtonStyle())
-                    .help(dash.alerts ? "Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan."
-                                      : "Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%")
+                    .help(dash.alerts ? L("Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan.")
+                                      : L("Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%"))
                     if !model.hosts.isEmpty {
-                        Button { model.openRunMany(Array(dash.selection)) } label: { Label("Jalankan perintah", systemImage: "play.rectangle.on.rectangle") }
+                        Button { model.openRunMany(Array(dash.selection)) } label: { Label(L("Jalankan perintah"), systemImage: "play.rectangle.on.rectangle") }
                             .buttonStyle(PrimaryButtonStyle())
-                            .help("Jalankan satu perintah di banyak server sekaligus, hasilnya per server")
+                            .help(L("Jalankan satu perintah di banyak server sekaligus, hasilnya per server"))
                     }
                 }
                 if model.hosts.isEmpty {
-                    EmptyState(icon: "gauge.with.dots.needle.67percent", title: "Belum ada server",
-                               text: "Tambahkan host di menu Hosts — semua server langsung tampil di sini lengkap dengan pemakaian CPU, RAM, dan disk.")
+                    EmptyState(icon: "gauge.with.dots.needle.67percent", title: L("Belum ada server"),
+                               text: L("Tambahkan host di menu Hosts — semua server langsung tampil di sini lengkap dengan pemakaian CPU, RAM, dan disk."))
                 } else {
                     SummaryRow()
                     HStack(spacing: 12) {
@@ -291,10 +291,10 @@ struct DashboardView: View {
                         .labelsHidden()
                         .fixedSize()
                         Spacer()
-                        SearchField(text: $dash.query, prompt: "Cari server, OS, grup…").frame(maxWidth: 260)
+                        SearchField(text: $dash.query, prompt: L("Cari server, OS, grup…")).frame(maxWidth: 260)
                     }
                     if tiles.isEmpty {
-                        Text(dash.filter == .all ? "Tidak ada server yang cocok." : "Semua server sehat 🎉")
+                        Text(dash.filter == .all ? L("Tidak ada server yang cocok.") : L("Semua server sehat 🎉"))
                             .foregroundStyle(.secondary).frame(maxWidth: .infinity).padding(.top, 40)
                     }
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 290), spacing: 14, alignment: .top)], alignment: .leading, spacing: 14) {
@@ -334,11 +334,11 @@ private struct SummaryRow: View {
         let used = live.compactMap(\.sample).map(\.memUsedBytes).reduce(0, +)
         let total = live.compactMap(\.sample).map(\.memTotalBytes).reduce(0, +)
         HStack(spacing: 14) {
-            stat("Online", "\(dash.online)/\(dash.tiles.count)", icon: "dot.radiowaves.up.forward", tint: Color(hex: "#4ADE80"))
-            stat("Perlu perhatian", "\(dash.attention)", icon: "exclamationmark.triangle.fill",
+            stat(L("Online"), "\(dash.online)/\(dash.tiles.count)", icon: "dot.radiowaves.up.forward", tint: Color(hex: "#4ADE80"))
+            stat(L("Perlu perhatian"), "\(dash.attention)", icon: "exclamationmark.triangle.fill",
                  tint: dash.attention > 0 ? Color(hex: "#F0616D") : .secondary)
-            stat("CPU rata-rata", live.isEmpty ? "—" : "\(Int(cpu.rounded()))%", icon: "cpu", tint: Theme.accent)
-            stat("RAM terpakai", total == 0 ? "—" : "\(bytes(used)) / \(bytes(total))", icon: "memorychip", tint: Theme.accent3)
+            stat(L("CPU rata-rata"), live.isEmpty ? "—" : "\(Int(cpu.rounded()))%", icon: "cpu", tint: Theme.accent)
+            stat(L("RAM terpakai"), total == 0 ? "—" : "\(bytes(used)) / \(bytes(total))", icon: "memorychip", tint: Theme.accent3)
         }
     }
 
@@ -375,16 +375,16 @@ private struct ServerCard: View {
             case .connecting where tile.sample == nil:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
-                    Text("Menghubungkan…").font(.callout).foregroundStyle(.secondary)
+                    Text(L("Menghubungkan…")).font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, minHeight: 118)
             case .offline(let msg):
                 VStack(alignment: .leading, spacing: 10) {
-                    Label("Tidak bisa dihubungi", systemImage: "bolt.horizontal.circle").font(.callout.weight(.semibold))
+                    Label(L("Tidak bisa dihubungi"), systemImage: "bolt.horizontal.circle").font(.callout.weight(.semibold))
                         .foregroundStyle(Color(hex: "#F0616D"))
                     Text(msg).font(.caption).foregroundStyle(.secondary).lineLimit(3).textSelection(.enabled)
                     Spacer(minLength: 0)
-                    Button("Coba lagi") { tile.restart(target: model.sshTarget(forId: tile.id)) }
+                    Button(L("Coba lagi")) { tile.restart(target: model.sshTarget(forId: tile.id)) }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 .frame(maxWidth: .infinity, minHeight: 118, alignment: .topLeading)
@@ -399,11 +399,11 @@ private struct ServerCard: View {
         .animation(.djieHover, value: hover)
         .onHover { hover = $0 }
         .contextMenu {
-            Button("Buka terminal") { model.connect([tile.id]) }
-            Button("Buka SFTP") { Task { await model.openSftp(tile.host) } }
+            Button(L("Buka terminal")) { model.connect([tile.id]) }
+            Button(L("Buka SFTP")) { Task { await model.openSftp(tile.host) } }
             Divider()
-            Button(selected ? "Batal pilih" : "Pilih") { toggle() }
-            Button("Sambung ulang") { tile.restart(target: model.sshTarget(forId: tile.id)) }
+            Button(selected ? L("Batal pilih") : L("Pilih")) { toggle() }
+            Button(L("Sambung ulang")) { tile.restart(target: model.sshTarget(forId: tile.id)) }
         }
     }
 
@@ -436,15 +436,15 @@ private struct ServerCard: View {
                 .frame(width: 32, height: 32)
             }
             .buttonStyle(.plain)
-            .help(selected ? "Batal pilih" : "Pilih untuk dibuka bersama (split & broadcast)")
+            .help(selected ? L("Batal pilih") : L("Pilih untuk dibuka bersama (split & broadcast)"))
             VStack(alignment: .leading, spacing: 1) {
                 Text(tile.host.title).font(.system(size: 13.5, weight: .semibold)).lineLimit(1)
                 Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
             if hover {
-                IconButton(symbol: "terminal", help: "Buka terminal") { model.connect([tile.id]) }
-                IconButton(symbol: "folder", help: "Buka SFTP") { Task { await model.openSftp(tile.host) } }
+                IconButton(symbol: "terminal", help: L("Buka terminal")) { model.connect([tile.id]) }
+                IconButton(symbol: "folder", help: L("Buka SFTP")) { Task { await model.openSftp(tile.host) } }
             } else {
                 status
             }
@@ -465,13 +465,13 @@ private struct ServerCard: View {
             } else {
                 HStack(spacing: 5) {
                     PulseDot(color: Color(hex: "#4ADE80"))
-                    Text("Online").font(.caption).foregroundStyle(.secondary)
+                    Text(L("Online")).font(.caption).foregroundStyle(.secondary)
                 }
             }
         case .connecting:
             ProgressView().controlSize(.mini)
         case .offline:
-            Badge(text: "Offline", color: Color(hex: "#F0616D"))
+            Badge(text: L("Offline"), color: Color(hex: "#F0616D"))
         }
     }
 
@@ -500,7 +500,7 @@ private struct ServerCard: View {
                 .frame(height: 40)
             }
             bar("RAM", used: s?.memUsedBytes ?? 0, total: s?.memTotalBytes ?? 0, color: Theme.accent3)
-            bar("Disk", used: s?.diskUsedBytes ?? 0, total: s?.diskTotalBytes ?? 0, color: Color(hex: "#F2A65A"))
+            bar(L("Disk"), used: s?.diskUsedBytes ?? 0, total: s?.diskTotalBytes ?? 0, color: Color(hex: "#F2A65A"))
             HStack(spacing: 12) {
                 foot("clock.arrow.circlepath", s.map { uptime($0.uptimeSecs) } ?? "—")
                 foot("gauge.with.dots.needle.33percent", s.map { String(format: "%.2f", $0.load1) } ?? "—")
@@ -550,16 +550,16 @@ private struct ServerCard: View {
 
     private func uptime(_ s: UInt64) -> String {
         let d = s / 86_400, h = (s % 86_400) / 3_600, m = (s % 3_600) / 60
-        if d > 0 { return "\(d) hari" }
-        if h > 0 { return "\(h) jam" }
-        return "\(m) mnt"
+        if d > 0 { return L("{} hari", d) }
+        if h > 0 { return L("{} jam", h) }
+        return L("{} mnt", m)
     }
 
     private func rate(_ bps: Double) -> String {
         switch bps {
-        case ..<1_000: "\(Int(bps)) B/s"
-        case ..<1_000_000: String(format: "%.0f KB/s", bps / 1_000)
-        default: String(format: "%.1f MB/s", bps / 1_000_000)
+        case ..<1_000: L("{} B/s", Int(bps))
+        case ..<1_000_000: String(format: L("%.0f KB/s"), bps / 1_000)
+        default: String(format: L("%.1f MB/s"), bps / 1_000_000)
         }
     }
 }
@@ -578,24 +578,24 @@ private struct DashboardSelectionBar: View {
                 .background(Theme.accent, in: Circle())
                 .foregroundStyle(.black)
                 .contentTransition(.numericText())
-            Text("server dipilih").font(.callout)
+            Text(L("server dipilih")).font(.callout)
             Divider().frame(height: 18)
-            Button("Batal") { withAnimation(.djieSnappy) { dash.selection.removeAll() } }
+            Button(L("Batal")) { withAnimation(.djieSnappy) { dash.selection.removeAll() } }
                 .buttonStyle(.borderless)
             Button {
                 model.connect(ids)
                 dash.selection.removeAll()
-            } label: { Label("Buka tab", systemImage: "terminal") }
+            } label: { Label(L("Buka tab"), systemImage: "terminal") }
                 .buttonStyle(SecondaryButtonStyle())
-            Button { model.openRunMany(ids) } label: { Label("Jalankan perintah", systemImage: "play.rectangle.on.rectangle") }
+            Button { model.openRunMany(ids) } label: { Label(L("Jalankan perintah"), systemImage: "play.rectangle.on.rectangle") }
                 .buttonStyle(SecondaryButtonStyle())
             Button {
                 model.openSplit(ids, broadcast: true)
                 dash.selection.removeAll()
-            } label: { Label("Split & broadcast", systemImage: "dot.radiowaves.left.and.right") }
+            } label: { Label(L("Split & broadcast"), systemImage: "dot.radiowaves.left.and.right") }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(ids.count < 2 || ids.count > AppModel.maxSplit)
-                .help(ids.count > AppModel.maxSplit ? "Maksimal \(AppModel.maxSplit) server dalam satu split" : "Buka berdampingan, ketikan dikirim ke semua")
+                .help(ids.count > AppModel.maxSplit ? L("Maksimal {} server dalam satu split", AppModel.maxSplit) : L("Buka berdampingan, ketikan dikirim ke semua"))
         }
         .padding(.leading, 14).padding(.trailing, 8).padding(.vertical, 8)
         .background(.ultraThickMaterial, in: Capsule())

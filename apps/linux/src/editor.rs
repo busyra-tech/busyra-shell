@@ -41,18 +41,18 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     let h = existing.unwrap_or_else(ctx::blank_host);
 
     let dialog = adw::Dialog::builder()
-        .title(if is_new { "Host Baru" } else { "Edit Host" })
+        .title(if is_new { tr!("Host Baru") } else { tr!("Edit Host") })
         .content_width(560)
         .content_height(720)
         .build();
     let page = adw::PreferencesPage::new();
 
     // ---- Address ----
-    let g_addr = adw::PreferencesGroup::builder().title("Address").build();
-    let hostname = entry("IP atau hostname", &h.hostname);
+    let g_addr = adw::PreferencesGroup::builder().title(tr!("Address")).build();
+    let hostname = entry(&tr!("IP atau hostname"), &h.hostname);
     g_addr.add(&hostname);
     let color = Rc::new(RefCell::new(h.color.clone()));
-    let color_row = adw::ActionRow::builder().title("Warna").build();
+    let color_row = adw::ActionRow::builder().title(tr!("Warna")).build();
     let swatches = gtk::FlowBox::builder()
         .selection_mode(gtk::SelectionMode::None)
         .max_children_per_line(8)
@@ -86,12 +86,12 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     page.add(&g_addr);
 
     // ---- General ----
-    let g_gen = adw::PreferencesGroup::builder().title("General").build();
-    let label = entry("Label", &h.label);
-    let group = entry("Grup", h.group.as_deref().unwrap_or(""));
-    let tags = entry("Tag (pisahkan dengan koma)", &h.tags.join(", "));
+    let g_gen = adw::PreferencesGroup::builder().title(tr!("General")).build();
+    let label = entry(&tr!("Label"), &h.label);
+    let group = entry(&tr!("Grup"), h.group.as_deref().unwrap_or(""));
+    let tags = entry(&tr!("Tag (pisahkan dengan koma)"), &h.tags.join(", "));
     let port = adw::SpinRow::with_range(1.0, 65535.0, 1.0);
-    port.set_title("SSH di port");
+    port.set_title(&tr!("SSH di port"));
     port.set_value(h.port as f64);
     g_gen.add(&label);
     g_gen.add(&group);
@@ -100,20 +100,20 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     page.add(&g_gen);
 
     // ---- Credentials ----
-    let g_cred = adw::PreferencesGroup::builder().title("Credentials").build();
-    let username = entry("Username", &h.username);
-    let auth = combo("Autentikasi", &["Password", "SSH Key", "Agent"]);
+    let g_cred = adw::PreferencesGroup::builder().title(tr!("Credentials")).build();
+    let username = entry(&tr!("Username"), &h.username);
+    let auth = combo(&tr!("Autentikasi"), &["Password", "SSH Key", "Agent"]);
     auth.set_selected(match h.auth {
         AuthMethod::Password => 0,
         AuthMethod::Key => 1,
         AuthMethod::Agent => 2,
     });
-    let pass = password("Password", h.password.as_deref().unwrap_or(""));
-    let pass_hint = adw::ActionRow::builder().subtitle("Kosongkan jika ingin mengetik password saat connect.").build();
+    let pass = password(&tr!("Password"), h.password.as_deref().unwrap_or(""));
+    let pass_hint = adw::ActionRow::builder().subtitle(tr!("Kosongkan jika ingin mengetik password saat connect.")).build();
     pass_hint.add_css_class("dim-label");
     let keys: Rc<RefCell<Vec<SshKey>>> = Rc::new(RefCell::new(ctx.keys()));
-    let key_row = adw::ComboRow::builder().title("Pilih SSH key").build();
-    let gen_key = gtk::Button::builder().icon_name("list-add-symbolic").tooltip_text("Generate key Ed25519 baru").valign(gtk::Align::Center).build();
+    let key_row = adw::ComboRow::builder().title(tr!("Pilih SSH key")).build();
+    let gen_key = gtk::Button::builder().icon_name("list-add-symbolic").tooltip_text(tr!("Generate key Ed25519 baru")).valign(gtk::Align::Center).build();
     gen_key.add_css_class("flat");
     key_row.add_suffix(&gen_key);
     let fill_keys = {
@@ -121,8 +121,9 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
         move |select: Option<String>| {
             let list = keys.borrow();
             let names: Vec<String> = list.iter().map(|k| format!("{} · {}", k.label, k.key_type)).collect();
+            let none = tr!("Belum ada SSH key");
             let refs: Vec<&str> = names.iter().map(String::as_str).collect();
-            let items: Vec<&str> = if refs.is_empty() { vec!["Belum ada SSH key"] } else { refs };
+            let items: Vec<&str> = if refs.is_empty() { vec![none.as_str()] } else { refs };
             key_row.set_model(Some(&gtk::StringList::new(&items)));
             let idx = select.and_then(|id| list.iter().position(|k| k.id == id)).unwrap_or(0);
             key_row.set_selected(idx as u32);
@@ -137,7 +138,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             match v.generate_key(format!("{name} key")) {
                 Ok(k) => {
                     ctx::copy_text(&k.public_key);
-                    ctx.toast("Key dibuat · public key disalin ke clipboard");
+                    ctx.toast(&tr!("Key dibuat · public key disalin ke clipboard"));
                     *keys.borrow_mut() = ctx.keys();
                     fill(Some(k.id));
                     ctx.changed();
@@ -146,7 +147,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             }
         });
     }
-    let agent_hint = adw::ActionRow::builder().subtitle("Memakai SSH agent sistem (mis. ssh-agent, GNOME Keyring, 1Password).").build();
+    let agent_hint = adw::ActionRow::builder().subtitle(tr!("Memakai SSH agent sistem (mis. ssh-agent, GNOME Keyring, 1Password).")).build();
     agent_hint.add_css_class("dim-label");
     g_cred.add(&username);
     g_cred.add(&auth);
@@ -170,15 +171,15 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     page.add(&g_cred);
 
     // ---- Lanjutan ----
-    let g_adv = adw::PreferencesGroup::builder().title("Lanjutan").build();
-    let fwd = adw::SwitchRow::builder().title("Agent Forwarding").active(h.agent_forwarding).build();
-    let startup = entry("Startup snippet (dijalankan setelah login)", h.startup_snippet.as_deref().unwrap_or(""));
+    let g_adv = adw::PreferencesGroup::builder().title(tr!("Lanjutan")).build();
+    let fwd = adw::SwitchRow::builder().title(tr!("Agent Forwarding")).active(h.agent_forwarding).build();
+    let startup = entry(&tr!("Startup snippet (dijalankan setelah login)"), h.startup_snippet.as_deref().unwrap_or(""));
     let others: Vec<Host> = ctx.hosts().into_iter().filter(|o| o.id != h.id).collect();
-    let mut jump_names = vec!["Tanpa jump host".to_string()];
+    let mut jump_names = vec![tr!("Tanpa jump host")];
     jump_names.extend(others.iter().map(ctx::host_title));
     let jump_refs: Vec<&str> = jump_names.iter().map(String::as_str).collect();
-    let jump = combo("Host Chaining", &jump_refs);
-    jump.set_subtitle("Jump host (ProxyJump)");
+    let jump = combo(&tr!("Host Chaining"), &jump_refs);
+    jump.set_subtitle(&tr!("Jump host (ProxyJump)"));
     if let Some(id) = &h.jump_host_id {
         if let Some(i) = others.iter().position(|o| &o.id == id) {
             jump.set_selected(i as u32 + 1);
@@ -186,16 +187,17 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     }
     let charset = combo("Charset", &["UTF-8", "ASCII"]);
     charset.set_selected(if h.charset.eq_ignore_ascii_case("ASCII") { 1 } else { 0 });
-    let mut theme_names = vec!["Ikuti tampilan app"];
+    let follow_app = tr!("Ikuti tampilan app");
+    let mut theme_names = vec![follow_app.as_str()];
     theme_names.extend(theme::TERM_THEMES.iter().map(|t| t.name));
-    let term_theme = combo("Tema terminal", &theme_names);
+    let term_theme = combo(&tr!("Tema terminal"), &theme_names);
     if let Some(id) = &h.terminal_theme {
         if let Some(i) = theme::TERM_THEMES.iter().position(|t| t.id == id) {
             term_theme.set_selected(i as u32 + 1);
         }
     }
     let env_text = h.env.iter().map(|e| format!("{}={}", e.name, e.value)).collect::<Vec<_>>().join(", ");
-    let env = entry("Environment (NAMA=nilai, pisahkan koma)", &env_text);
+    let env = entry(&tr!("Environment (NAMA=nilai, pisahkan koma)"), &env_text);
     g_adv.add(&fwd);
     g_adv.add(&startup);
     g_adv.add(&jump);
@@ -207,18 +209,18 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     // ---- Proxy ----
     let g_proxy = adw::PreferencesGroup::builder().title("Proxy").build();
     let p = h.proxy.clone();
-    let proxy_kind = combo("Proxy", &["Tanpa proxy", "SOCKS5", "HTTP"]);
+    let proxy_kind = combo(&tr!("Proxy"), &[tr!("Tanpa proxy").as_str(), "SOCKS5", "HTTP"]);
     proxy_kind.set_selected(match p.as_ref().map(|p| p.kind) {
         None => 0,
         Some(ProxyKind::Socks5) => 1,
         Some(ProxyKind::Http) => 2,
     });
-    let proxy_host = entry("Alamat proxy", p.as_ref().map(|p| p.host.as_str()).unwrap_or(""));
+    let proxy_host = entry(&tr!("Alamat proxy"), p.as_ref().map(|p| p.host.as_str()).unwrap_or(""));
     let proxy_port = adw::SpinRow::with_range(1.0, 65535.0, 1.0);
     proxy_port.set_title("Port");
     proxy_port.set_value(p.as_ref().map(|p| p.port).unwrap_or(1080) as f64);
-    let proxy_user = entry("Username (opsional)", p.as_ref().and_then(|p| p.username.as_deref()).unwrap_or(""));
-    let proxy_pass = password("Password", p.as_ref().and_then(|p| p.password.as_deref()).unwrap_or(""));
+    let proxy_user = entry(&tr!("Username (opsional)"), p.as_ref().and_then(|p| p.username.as_deref()).unwrap_or(""));
+    let proxy_pass = password(&tr!("Password"), p.as_ref().and_then(|p| p.password.as_deref()).unwrap_or(""));
     g_proxy.add(&proxy_kind);
     g_proxy.add(&proxy_host);
     g_proxy.add(&proxy_port);
@@ -231,10 +233,10 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             for r in &rows {
                 r.set_visible(on);
             }
-            g.set_description(Some(if on && j.selected() != 0 {
-                "Proxy tidak dipakai di terminal selama jump host aktif."
+            g.set_description(Some(&if on && j.selected() != 0 {
+                tr!("Proxy tidak dipakai di terminal selama jump host aktif.")
             } else {
-                "Dipakai untuk terminal host ini."
+                tr!("Dipakai untuk terminal host ini.")
             }));
         }
     };
@@ -248,7 +250,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     // ---- Hapus ----
     if !is_new {
         let g_del = adw::PreferencesGroup::new();
-        let del = gtk::Button::with_label("Hapus host");
+        let del = gtk::Button::with_label(&tr!("Hapus host"));
         del.add_css_class("destructive-action");
         del.add_css_class("pill");
         del.set_halign(gtk::Align::Center);
@@ -275,7 +277,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             let mut h = base.clone();
             h.hostname = hostname.text().trim().to_string();
             if h.hostname.is_empty() {
-                return Err("Isi IP atau hostname dulu".into());
+                return Err(tr!("Isi IP atau hostname dulu"));
             }
             h.label = label.text().trim().to_string();
             h.group = opt(&group.text());
@@ -292,7 +294,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             h.key_id = None;
             if h.auth == AuthMethod::Key {
                 let list = keys.borrow();
-                let k = list.get(key_row.selected() as usize).ok_or("Pilih SSH key (atau buat di Keychain)")?;
+                let k = list.get(key_row.selected() as usize).ok_or_else(|| tr!("Pilih SSH key (atau buat di Keychain)"))?;
                 h.key_id = Some(k.id.clone());
             }
             h.agent_forwarding = fwd.is_active();
@@ -320,7 +322,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
                 k => {
                     let host = proxy_host.text().trim().to_string();
                     if host.is_empty() {
-                        return Err("Isi alamat proxy".into());
+                        return Err(tr!("Isi alamat proxy"));
                     }
                     Some(HostProxy {
                         kind: if k == 2 { ProxyKind::Http } else { ProxyKind::Socks5 },
@@ -346,7 +348,7 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
             match v.upsert_host(host) {
                 Ok(saved) => {
                     dialog.close();
-                    ctx.toast(&if is_new { format!("Host “{}” ditambahkan", ctx::host_title(&saved)) } else { "Perubahan disimpan".into() });
+                    ctx.toast(&if is_new { tr!("Host “{}” ditambahkan", ctx::host_title(&saved)) } else { tr!("Perubahan disimpan") });
                     ctx.changed();
                     if connect {
                         terminal::open_host(&ctx, &saved, None);
@@ -358,17 +360,17 @@ pub fn open(ctx: &Ctx, existing: Option<Host>) {
     };
 
     let header = adw::HeaderBar::new();
-    let btn_save = gtk::Button::with_label("Simpan");
+    let btn_save = gtk::Button::with_label(&tr!("Simpan"));
     let s = save.clone();
     btn_save.connect_clicked(move |_| s(false));
-    let btn_connect = gtk::Button::builder().tooltip_text("Simpan lalu connect (Ctrl+Enter)").build();
-    btn_connect.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label("Connect").build()));
+    let btn_connect = gtk::Button::builder().tooltip_text(tr!("Simpan lalu connect (Ctrl+Enter)")).build();
+    btn_connect.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label(tr!("Connect")).build()));
     btn_connect.add_css_class("suggested-action");
     let s = save.clone();
     btn_connect.connect_clicked(move |_| s(true));
     header.pack_start(&btn_save);
     header.pack_end(&btn_connect);
-    let subtitle = adw::WindowTitle::new(if is_new { "Host Baru" } else { "Edit Host" }, "Vault pribadi");
+    let subtitle = adw::WindowTitle::new(&if is_new { tr!("Host Baru") } else { tr!("Edit Host") }, &tr!("Vault pribadi"));
     header.set_title_widget(Some(&subtitle));
 
     // Ctrl+Enter: simpan & connect; Ctrl+S: simpan

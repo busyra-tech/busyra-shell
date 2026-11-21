@@ -60,7 +60,7 @@ final class RunManyModel: Identifiable {
                 func launch(_ g: inout TaskGroup<(String, RemoteRun?, String?)>) -> String? {
                     guard let (id, target) = queue.popFirst() else { return nil }
                     g.addTask {
-                        guard let target else { return (id, nil, "Host tidak ditemukan") }
+                        guard let target else { return (id, nil, L("Host tidak ditemukan")) }
                         do { return (id, try await runRemote(target: target, command: cmd, timeoutSecs: timeout), nil) }
                         catch { return (id, nil, error.djieMessage) }
                     }
@@ -76,7 +76,7 @@ final class RunManyModel: Identifiable {
                 }
             }
             guard let self else { return }
-            for i in rows.indices where !rows[i].status.done { rows[i].status = .error("Dibatalkan") }
+            for i in rows.indices where !rows[i].status.done { rows[i].status = .error(L("Dibatalkan")) }
             withAnimation(.djieSnappy) { running = false }
         }
     }
@@ -96,7 +96,7 @@ final class RunManyModel: Identifiable {
                 row.truncated = r.truncated
                 row.status = r.timedOut ? .timeout : r.exitCode == 0 ? .ok : .failed(r.exitCode)
             } else {
-                row.status = .error(error ?? "Gagal")
+                row.status = .error(error ?? L("Gagal"))
             }
         }
         // Yang gagal langsung dibuka agar output-nya terlihat
@@ -107,17 +107,17 @@ final class RunManyModel: Identifiable {
     func report(_ app: AppModel) -> String {
         rows.map { row in
             let name = app.host(id: row.id)?.title ?? row.id
-            return "=== \(name) — \(Self.label(row.status)) ===\n\(row.output)"
+            return L("=== {} — {} ===\n{}", name, Self.label(row.status), row.output)
         }.joined(separator: "\n\n")
     }
 
     static func label(_ s: Status) -> String {
         switch s {
-        case .waiting: "Menunggu"
-        case .running: "Berjalan…"
-        case .ok: "Sukses"
-        case .failed(let c): c.map { "Gagal · exit \($0)" } ?? "Gagal"
-        case .timeout: "Timeout"
+        case .waiting: L("Menunggu")
+        case .running: L("Berjalan…")
+        case .ok: L("Sukses")
+        case .failed(let c): c.map { L("Gagal · exit {}", $0) } ?? L("Gagal")
+        case .timeout: L("Timeout")
         case .error(let m): m
         }
     }
@@ -134,8 +134,8 @@ struct RunManyView: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Jalankan perintah").font(.title3.bold())
-                    Text("Satu perintah di banyak server sekaligus — hasilnya per server").font(.callout).foregroundStyle(.secondary)
+                    Text(L("Jalankan perintah")).font(.title3.bold())
+                    Text(L("Satu perintah di banyak server sekaligus — hasilnya per server")).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -153,19 +153,19 @@ struct RunManyView: View {
     private var editor: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("PERINTAH").font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
+                Text(L("PERINTAH")).font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
                 Spacer()
                 if !model.snippets.isEmpty {
                     Menu {
                         ForEach(model.snippets, id: \.id) { s in Button(s.label) { run.command = s.command } }
-                    } label: { Label("Snippet", systemImage: "curlybraces") }
+                    } label: { Label(L("Snippet"), systemImage: "curlybraces") }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
-                Picker("Batas waktu", selection: $run.timeout) {
-                    Text("30 detik").tag(UInt32(30))
-                    Text("2 menit").tag(UInt32(120))
-                    Text("10 menit").tag(UInt32(600))
-                    Text("30 menit").tag(UInt32(1800))
+                Picker(L("Batas waktu"), selection: $run.timeout) {
+                    Text(L("30 detik")).tag(UInt32(30))
+                    Text(L("2 menit")).tag(UInt32(120))
+                    Text(L("10 menit")).tag(UInt32(600))
+                    Text(L("30 menit")).tag(UInt32(1800))
                 }
                 .fixedSize()
             }
@@ -175,7 +175,7 @@ struct RunManyView: View {
                     .scrollContentBackground(.hidden)
                     .padding(6)
                 if run.command.isEmpty {
-                    Text("mis. df -h /   ·   uptime   ·   apt list --upgradable 2>/dev/null | wc -l")
+                    Text(L("mis. df -h /   ·   uptime   ·   apt list --upgradable 2>/dev/null | wc -l"))
                         .font(.system(size: 12.5, design: .monospaced)).foregroundStyle(.tertiary)
                         .padding(.horizontal, 11).padding(.vertical, 6)
                         .allowsHitTesting(false)
@@ -184,7 +184,7 @@ struct RunManyView: View {
             .frame(height: 72)
             .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.ink.opacity(0.08)))
-            Label("Berjalan tanpa terminal interaktif. Perintah yang menunggu input (mis. sudo dengan password) akan berhenti di batas waktu — pakai user root atau sudo -n.",
+            Label(L("Berjalan tanpa terminal interaktif. Perintah yang menunggu input (mis. sudo dengan password) akan berhenti di batas waktu — pakai user root atau sudo -n."),
                   systemImage: "info.circle")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -193,15 +193,15 @@ struct RunManyView: View {
     private var targets: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                Text("SERVER · \(run.targets.count) DIPILIH").font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
+                Text(L("SERVER · {} DIPILIH", run.targets.count)).font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
                 Spacer()
-                Button("Semua") { run.targets = Set(model.hosts.map(\.id)) }.buttonStyle(.borderless)
-                Button("Hanya online") {
+                Button(L("Semua")) { run.targets = Set(model.hosts.map(\.id)) }.buttonStyle(.borderless)
+                Button(L("Hanya online")) {
                     run.targets = Set(model.dashboard.tiles.values.filter { $0.state == .online }.map(\.id))
                 }
                 .buttonStyle(.borderless)
                 .disabled(model.dashboard.tiles.isEmpty)
-                Button("Kosongkan") { run.targets = [] }.buttonStyle(.borderless)
+                Button(L("Kosongkan")) { run.targets = [] }.buttonStyle(.borderless)
             }
             .font(.callout)
             ScrollView {
@@ -226,8 +226,8 @@ struct RunManyView: View {
                 Circle().fill(Color(hex: h.color)).frame(width: 7, height: 7)
                 Text(h.title).lineLimit(1)
                 Spacer(minLength: 0)
-                if tile?.state == .online { Circle().fill(Color(hex: "#4ADE80")).frame(width: 6, height: 6).help("Online") }
-                else if tile?.isOffline == true { Circle().fill(Color(hex: "#F0616D")).frame(width: 6, height: 6).help("Offline") }
+                if tile?.state == .online { Circle().fill(Color(hex: "#4ADE80")).frame(width: 6, height: 6).help(L("Online")) }
+                else if tile?.isOffline == true { Circle().fill(Color(hex: "#F0616D")).frame(width: 6, height: 6).help(L("Offline")) }
             }
             .font(.system(size: 12.5))
             .padding(.horizontal, 10).padding(.vertical, 7)
@@ -241,16 +241,16 @@ struct RunManyView: View {
     private var results: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 14) {
-                Text("HASIL").font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
-                summary("checkmark.circle.fill", run.okCount, "sukses", Color(hex: "#4ADE80"))
-                summary("xmark.circle.fill", run.failCount, "gagal", Color(hex: "#F0616D"))
-                if run.pendingCount > 0 { summary("clock", run.pendingCount, "berjalan", .secondary) }
+                Text(L("HASIL")).font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
+                summary("checkmark.circle.fill", run.okCount, L("sukses"), Color(hex: "#4ADE80"))
+                summary("xmark.circle.fill", run.failCount, L("gagal"), Color(hex: "#F0616D"))
+                if run.pendingCount > 0 { summary("clock", run.pendingCount, L("berjalan"), .secondary) }
                 Spacer()
                 Button {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(run.report(model), forType: .string)
-                    model.flash("Output semua server disalin")
-                } label: { Label("Salin semua", systemImage: "doc.on.doc") }
+                    model.flash(L("Output semua server disalin"))
+                } label: { Label(L("Salin semua"), systemImage: "doc.on.doc") }
                 .buttonStyle(.borderless)
                 .disabled(run.running)
             }
@@ -274,13 +274,13 @@ struct RunManyView: View {
     private var footer: some View {
         HStack {
             Spacer()
-            Button("Tutup") { run.cancel(); dismiss() }
+            Button(L("Tutup")) { run.cancel(); dismiss() }
                 .buttonStyle(SecondaryButtonStyle())
                 .keyboardShortcut(.cancelAction)
             if run.running {
-                Button("Batalkan") { run.cancel() }.buttonStyle(SecondaryButtonStyle())
+                Button(L("Batalkan")) { run.cancel() }.buttonStyle(SecondaryButtonStyle())
             } else if run.failCount > 0 {
-                Button("Ulangi yang gagal") {
+                Button(L("Ulangi yang gagal")) {
                     run.run(model, only: run.rows.filter { $0.status.done && !$0.status.success }.map(\.id))
                 }
                 .buttonStyle(SecondaryButtonStyle())
@@ -290,7 +290,7 @@ struct RunManyView: View {
             } label: {
                 HStack(spacing: 7) {
                     if run.running { ProgressView().controlSize(.small) } else { Image(systemName: "play.fill") }
-                    Text(run.running ? "Menjalankan…" : "Jalankan di \(run.targets.count) server")
+                    Text(run.running ? L("Menjalankan…") : L("Jalankan di {} server", run.targets.count))
                 }
             }
             .buttonStyle(PrimaryButtonStyle())
@@ -335,7 +335,7 @@ private struct ResultRow: View {
             .buttonStyle(.plain)
             if open {
                 ScrollView {
-                    Text(row.output.isEmpty ? (row.status.done ? "(tidak ada output)" : "…") : row.output + (row.truncated ? "\n… (output dipotong di 256 KB)" : ""))
+                    Text(row.output.isEmpty ? (row.status.done ? L("(tidak ada output)") : "…") : row.output + (row.truncated ? L("\n… (output dipotong di 256 KB)") : ""))
                         .font(.system(size: 11.5, design: .monospaced))
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -370,6 +370,6 @@ private struct ResultRow: View {
     }
 
     private var duration: String {
-        row.durationMs < 1000 ? "\(row.durationMs) ms" : String(format: "%.1f dtk", Double(row.durationMs) / 1000)
+        row.durationMs < 1000 ? L("{} ms", row.durationMs) : String(format: L("%.1f dtk"), Double(row.durationMs) / 1000)
     }
 }

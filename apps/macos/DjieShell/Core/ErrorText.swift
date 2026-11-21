@@ -1,30 +1,30 @@
 import Foundation
 
 extension Error {
-    /// Pesan error yang enak dibaca (bukan nama enum dari binding UniFFI).
+    /// Pesan error yang enak dibaca (bukan nama enum dari binding UniFFI), dalam bahasa aktif.
     var djieMessage: String {
-        guard let e = self as? CoreError else { return localizedDescription }
+        guard let e = self as? CoreError else { return Lmsg(localizedDescription) }
         switch e {
-        case .WrongPassword: return "Master password salah"
-        case .AlreadyExists: return "Data sudah ada"
-        case .NotFound: return "Data tidak ditemukan"
-        case .WeakPassword: return "Password minimal 8 karakter"
-        case .KeyMismatch: return "Vault di Google Drive memakai master password lain"
-        case .InvalidKey(let msg): return "SSH key tidak valid: \(msg)"
-        case .Corrupt(let msg): return "File vault rusak: \(msg)"
-        case .Ssh(let msg): return "Koneksi SSH gagal: \(msg)"
-        case .Proxy(let msg): return "Proxy: \(msg)"
-        case .AuthFailed: return "Login ditolak server — periksa username, password, atau key"
-        case .HostKeyChanged: return "Kunci server berubah! Hapus host ini di Known Hosts jika memang server berganti."
-        case .Db(let msg): return "Database: \(msg)"
-        case .Cancelled: return "Dibatalkan"
-        case .Io(let msg): return "Gagal membaca/menulis file: \(msg)"
-        case .GoogleAuth: return "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan."
-        case .GoogleScope: return "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive."
-        case .Team(let msg): return "Tim: \(msg)"
-        case .Docker(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
-        case .Stack(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
-        case .Server(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
+        case .WrongPassword: return L("Master password salah")
+        case .AlreadyExists: return L("Data sudah ada")
+        case .NotFound: return L("Data tidak ditemukan")
+        case .WeakPassword: return L("Password minimal 8 karakter")
+        case .KeyMismatch: return L("Vault di Google Drive memakai master password lain")
+        case .InvalidKey(let msg): return L("SSH key tidak valid: {}", Lmsg(msg))
+        case .Corrupt(let msg): return L("File vault rusak: {}", Lmsg(msg))
+        case .Ssh(let msg): return L("Koneksi SSH gagal: {}", Lmsg(msg))
+        case .Proxy(let msg): return L("Proxy: {}", Lmsg(msg))
+        case .AuthFailed: return L("Login ditolak server — periksa username, password, atau key")
+        case .HostKeyChanged: return L("Kunci server berubah! Hapus host ini di Known Hosts jika memang server berganti.")
+        case .Db(let msg): return L("Database: {}", Lmsg(msg))
+        case .Cancelled: return L("Dibatalkan")
+        case .Io(let msg): return L("Gagal membaca/menulis file: {}", Lmsg(msg))
+        case .GoogleAuth: return L("Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan.")
+        case .GoogleScope: return L("Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive.")
+        case .Team(let msg): return L("Tim: {}", Lmsg(msg))
+        case .Docker(let msg): return Lmsg(msg.prefix(1).uppercased() + msg.dropFirst())
+        case .Stack(let msg): return Lmsg(msg.prefix(1).uppercased() + msg.dropFirst())
+        case .Server(let msg): return Lmsg(msg.prefix(1).uppercased() + msg.dropFirst())
         }
     }
 }

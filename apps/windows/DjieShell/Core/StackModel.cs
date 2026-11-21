@@ -109,7 +109,7 @@ internal sealed class StackModel
         if (Stack == null || Downloads.ContainsKey(id)) return;
         var bridge = new StackProgress(_dq, (f, l) => { Downloads[id] = new Download(f, l); Raise(); });
         _bridges[id] = bridge;
-        Downloads[id] = new Download(0, "Menyiapkan unduhan…");
+        Downloads[id] = new Download(0, L.T("Menyiapkan unduhan…"));
         Refresh();
         Raise();
         _ = Task.Run(async () =>
@@ -175,8 +175,8 @@ internal sealed class StackModel
             if (p != null) await p.WaitForExitAsync();
             Error = null;
         }
-        catch (System.ComponentModel.Win32Exception) { Error = "Pemasangan Visual C++ Runtime dibatalkan"; }
-        catch (Exception e) { Error = "Gagal memasang Visual C++ Runtime: " + e.Message; }
+        catch (System.ComponentModel.Win32Exception) { Error = L.T("Pemasangan Visual C++ Runtime dibatalkan"); }
+        catch (Exception e) { Error = L.T("Gagal memasang Visual C++ Runtime: {}", e.Message); }
         Refresh();
         Raise();
     }

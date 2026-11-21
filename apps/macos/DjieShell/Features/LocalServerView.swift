@@ -95,7 +95,7 @@ final class StackModel {
             Task { @MainActor in self?.downloads[id] = Download(fraction: frac, label: label) }
         }
         bridges[id] = bridge
-        downloads[id] = Download(fraction: 0, label: "Menyiapkan unduhan…")
+        downloads[id] = Download(fraction: 0, label: L("Menyiapkan unduhan…"))
         refresh()
         Task {
             do {
@@ -156,9 +156,9 @@ private struct DbKind {
 }
 
 private let dbKinds = [
-    DbKind(id: "mysql", name: "MySQL", color: "#00758F", icon: "cylinder.split.1x2.fill", engine: .mysql, user: "root", note: "User root, tanpa password"),
-    DbKind(id: "postgres", name: "PostgreSQL", color: "#336791", icon: "cylinder.fill", engine: .postgres, user: "postgres", note: "User postgres, tanpa password"),
-    DbKind(id: "mongodb", name: "MongoDB", color: "#13AA52", icon: "leaf.fill", engine: .mongodb, user: "", note: "Tanpa autentikasi"),
+    DbKind(id: "mysql", name: "MySQL", color: "#00758F", icon: "cylinder.split.1x2.fill", engine: .mysql, user: "root", note: L("User root, tanpa password")),
+    DbKind(id: "postgres", name: "PostgreSQL", color: "#336791", icon: "cylinder.fill", engine: .postgres, user: "postgres", note: L("User postgres, tanpa password")),
+    DbKind(id: "mongodb", name: "MongoDB", color: "#13AA52", icon: "leaf.fill", engine: .mongodb, user: "", note: L("Tanpa autentikasi")),
 ]
 
 struct LocalServerView: View {
@@ -170,14 +170,14 @@ struct LocalServerView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Server Lokal", subtitle: "Web server & database di komputermu — seperti MAMP, tanpa install manual") {
+                PageHeader(title: L("Server Lokal"), subtitle: L("Web server & database di komputermu — seperti MAMP, tanpa install manual")) {
                     Button { NSWorkspace.shared.open(URL(fileURLWithPath: stack.rootPath)) } label: { Image(systemName: "folder") }
-                        .buttonStyle(SecondaryButtonStyle()).help("Buka folder data & log")
+                        .buttonStyle(SecondaryButtonStyle()).help(L("Buka folder data & log"))
                     if stack.anyRunning {
-                        Button { Task { await stack.stopAll() } } label: { Label("Stop semua", systemImage: "stop.fill") }
+                        Button { Task { await stack.stopAll() } } label: { Label(L("Stop semua"), systemImage: "stop.fill") }
                             .buttonStyle(SecondaryButtonStyle())
                     } else {
-                        Button { Task { await stack.startAll() } } label: { Label("Start semua", systemImage: "play.fill") }
+                        Button { Task { await stack.startAll() } } label: { Label(L("Start semua"), systemImage: "play.fill") }
                             .buttonStyle(PrimaryButtonStyle())
                             .disabled(!stack.services.contains { $0.missing.isEmpty })
                     }
@@ -220,7 +220,7 @@ private struct PowerButton: View {
         Button(action: action) {
             HStack(spacing: 7) {
                 if busy { ProgressView().controlSize(.small) } else { Image(systemName: running ? "stop.fill" : "power") }
-                Text(busy ? (running ? "Menghentikan…" : "Menyalakan…") : running ? "Stop" : "Start")
+                Text(busy ? (running ? L("Menghentikan…") : L("Menyalakan…")) : running ? L("Stop") : L("Start"))
             }
             .frame(minWidth: 96)
         }
@@ -242,7 +242,7 @@ private struct ServiceDot: View {
     var body: some View {
         HStack(spacing: 6) {
             Circle().fill(running ? Color(hex: "#4ADE80") : Color.secondary.opacity(0.5)).frame(width: 7, height: 7)
-            Text(running ? "Berjalan" : "Berhenti").font(.system(size: 11.5, weight: .medium)).foregroundStyle(running ? Color(hex: "#4ADE80") : .secondary)
+            Text(running ? L("Berjalan") : L("Berhenti")).font(.system(size: 11.5, weight: .medium)).foregroundStyle(running ? Color(hex: "#4ADE80") : .secondary)
         }
     }
 }
@@ -264,15 +264,15 @@ private struct ComponentRow: View {
                         ProgressView(value: d.fraction).progressViewStyle(.linear).frame(maxWidth: 260)
                         Text(d.label).font(.system(size: 10.5)).foregroundStyle(.secondary).lineLimit(1)
                     } else {
-                        Text(c.system ? "Bawaan macOS" : c.state == .notInstalled ? "Belum diunduh · ±\(c.sizeMb) MB" : "Terpasang")
+                        Text(c.system ? L("Bawaan macOS") : c.state == .notInstalled ? L("Belum diunduh · ±{} MB", c.sizeMb) : L("Terpasang"))
                             .font(.system(size: 11)).foregroundStyle(.secondary)
                     }
                 }
                 Spacer()
                 if stack.downloads[id] != nil {
-                    Button("Batal") { stack.cancelInstall(id) }.buttonStyle(SecondaryButtonStyle())
+                    Button(L("Batal")) { stack.cancelInstall(id) }.buttonStyle(SecondaryButtonStyle())
                 } else if c.state == .notInstalled {
-                    Button { stack.install(id) } label: { Label("Unduh", systemImage: "arrow.down") }
+                    Button { stack.install(id) } label: { Label(L("Unduh"), systemImage: "arrow.down") }
                         .buttonStyle(SecondaryButtonStyle())
                         .disabled(!c.available)
                 }
@@ -300,20 +300,20 @@ private struct WebCard: View {
                                 in: RoundedRectangle(cornerRadius: 13, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 10) {
-                        Text("Web server").font(.system(size: 18, weight: .bold))
+                        Text(L("Web server")).font(.system(size: 18, weight: .bold))
                         ServiceDot(running: running)
                     }
-                    Text(verbatim: running ? "\(stack.settings.webServer == "nginx" ? "Nginx" : "Apache") + PHP di localhost:\(String(stack.settings.webPort))" : "Apache atau Nginx dengan PHP — untuk Laravel, WordPress, dan proyek PHP lain")
+                    Text(verbatim: running ? L("{} + PHP di localhost:{}", stack.settings.webServer == "nginx" ? "Nginx" : "Apache", String(stack.settings.webPort)) : L("Apache atau Nginx dengan PHP — untuk Laravel, WordPress, dan proyek PHP lain"))
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if running {
-                    Button { NSWorkspace.shared.open(stack.webURL) } label: { Label("Buka di browser", systemImage: "safari") }
+                    Button { NSWorkspace.shared.open(stack.webURL) } label: { Label(L("Buka di browser"), systemImage: "safari") }
                         .buttonStyle(SecondaryButtonStyle())
                 }
                 Menu {
-                    Button("Lihat log") { showLog = "web" }
-                    Button("Buka folder proyek") { NSWorkspace.shared.open(URL(fileURLWithPath: stack.settings.docRoot)) }
+                    Button(L("Lihat log")) { showLog = "web" }
+                    Button(L("Buka folder proyek")) { NSWorkspace.shared.open(URL(fileURLWithPath: stack.settings.docRoot)) }
                 } label: { Image(systemName: "ellipsis").frame(width: 26, height: 26) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                 PowerButton(running: running, busy: stack.busy.contains("web"), enabled: svc?.missing.isEmpty == true) {
@@ -323,32 +323,32 @@ private struct WebCard: View {
 
             HStack(alignment: .top, spacing: 18) {
                 VStack(alignment: .leading, spacing: 12) {
-                    field("Web server") {
+                    field(L("Web server")) {
                         Picker("", selection: $stack.settings.webServer) {
-                            Text("Apache").tag("apache")
-                            Text("Nginx").tag("nginx")
+                            Text(L("Apache")).tag("apache")
+                            Text(L("Nginx")).tag("nginx")
                         }
                         .pickerStyle(.segmented).labelsHidden().frame(width: 200)
                         .disabled(running)
                         .onChange(of: stack.settings.webServer) { stack.saveSettings() }
                     }
-                    field("Port") {
+                    field(L("Port")) {
                         PortField(port: $stack.settings.webPort, disabled: running) { stack.saveSettings() }
                     }
-                    field("Folder proyek") {
+                    field(L("Folder proyek")) {
                         HStack(spacing: 8) {
                             Text(stack.settings.docRoot.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
                                 .font(.system(size: 12, design: .monospaced)).lineLimit(1).truncationMode(.middle)
                                 .padding(.horizontal, 10).padding(.vertical, 6)
                                 .frame(maxWidth: 280, alignment: .leading)
                                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 8))
-                            Button("Pilih…") { chooseRoot() }.buttonStyle(SecondaryButtonStyle()).disabled(running)
+                            Button(L("Pilih…")) { chooseRoot() }.buttonStyle(SecondaryButtonStyle()).disabled(running)
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("KOMPONEN").font(.system(size: 10.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
+                    Text(L("KOMPONEN")).font(.system(size: 10.5, weight: .semibold)).tracking(1.1).foregroundStyle(.secondary)
                     ComponentRow(id: stack.settings.webServer)
                     ComponentRow(id: "php")
                 }
@@ -375,7 +375,7 @@ private struct WebCard: View {
         p.canChooseDirectories = true
         p.canChooseFiles = false
         p.canCreateDirectories = true
-        p.prompt = "Pilih"
+        p.prompt = L("Pilih")
         p.directoryURL = URL(fileURLWithPath: model.stack.settings.docRoot)
         if p.runModal() == .OK, let u = p.url {
             model.stack.settings.docRoot = u.path
@@ -389,7 +389,7 @@ private struct PortField: View {
     let disabled: Bool
     let onCommit: () -> Void
     var body: some View {
-        TextField("Port", value: $port, format: .number.grouping(.never))
+        TextField(L("Port"), value: $port, format: .number.grouping(.never))
             .djieField().frame(width: 90)
             .disabled(disabled)
             .onSubmit(onCommit)
@@ -417,15 +417,15 @@ private struct LocalDbCard: View {
                     .background(Color(hex: kind.color), in: RoundedRectangle(cornerRadius: 11, style: .continuous))
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kind.name).font(.system(size: 15, weight: .bold))
-                    Text(comp.map { "versi \($0.version)" } ?? "").font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(comp.map { L("versi {}", $0.version) } ?? "").font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if installed { ServiceDot(running: running) }
                 Menu {
-                    Button("Lihat log") { showLog = kind.id }
+                    Button(L("Lihat log")) { showLog = kind.id }
                     if installed {
                         Divider()
-                        Button("Hapus program…", role: .destructive) { confirmRemove = true }.disabled(running)
+                        Button(L("Hapus program…"), role: .destructive) { confirmRemove = true }.disabled(running)
                     }
                 } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
@@ -435,7 +435,7 @@ private struct LocalDbCard: View {
                 ComponentRow(id: kind.id)
             } else {
                 HStack(spacing: 10) {
-                    Text("Port").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(L("Port")).font(.system(size: 12)).foregroundStyle(.secondary)
                     PortField(port: portBinding(stack), disabled: running) { stack.saveSettings() }
                     Spacer()
                     PowerButton(running: running, busy: stack.busy.contains(kind.id), enabled: true) {
@@ -445,7 +445,7 @@ private struct LocalDbCard: View {
                 Text(verbatim: "127.0.0.1:\(String(svc?.port ?? 0)) · \(kind.note)").font(.system(size: 11)).foregroundStyle(.tertiary)
                 if running {
                     Button { Task { await openInDatabase(port: svc?.port ?? 0) } } label: {
-                        Label("Buka di Database", systemImage: "tablecells").frame(maxWidth: .infinity)
+                        Label(L("Buka di Database"), systemImage: "tablecells").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(SecondaryButtonStyle())
                 }
@@ -458,10 +458,10 @@ private struct LocalDbCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Theme.card))
         .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(running ? Color(hex: "#4ADE80").opacity(0.45) : Theme.cardStroke))
-        .confirmationDialog("Hapus program \(kind.name)?", isPresented: $confirmRemove) {
-            Button("Hapus program", role: .destructive) { stack.uninstall(kind.id) }
+        .confirmationDialog(L("Hapus program {}?", kind.name), isPresented: $confirmRemove) {
+            Button(L("Hapus program"), role: .destructive) { stack.uninstall(kind.id) }
         } message: {
-            Text("Program dihapus dari komputermu. Data database tetap disimpan dan dipakai lagi saat diunduh ulang.")
+            Text(L("Program dihapus dari komputermu. Data database tetap disimpan dan dipakai lagi saat diunduh ulang."))
         }
     }
 
@@ -475,7 +475,7 @@ private struct LocalDbCard: View {
 
     /// Simpan koneksi "Lokal · <DB>" (sekali) lalu buka di halaman Database.
     private func openInDatabase(port: UInt16) async {
-        let label = "Lokal · \(kind.name)"
+        let label = L("Lokal · {}", kind.name)
         var conn = model.databases.first { $0.label == label && $0.host == "127.0.0.1" } ??
             DbConnection(id: "", label: label, engine: kind.engine, host: "127.0.0.1", port: port, username: kind.user,
                          password: nil, database: "", filePath: "", tls: false, sshHostId: nil, color: kind.color, updatedAt: 0, deleted: false)
@@ -497,12 +497,12 @@ private struct LogSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Log \(service == "web" ? "web server" : service)").font(.title3.bold())
+                Text(L("Log {}", service == "web" ? "web server" : service)).font(.title3.bold())
                 Spacer()
                 Button { text = model.stack.log(service) } label: { Image(systemName: "arrow.clockwise") }.buttonStyle(SecondaryButtonStyle())
             }
             ScrollView {
-                Text(text.isEmpty ? "Belum ada log." : text)
+                Text(text.isEmpty ? L("Belum ada log.") : text)
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -512,7 +512,7 @@ private struct LogSheet: View {
             .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
             HStack {
                 Spacer()
-                Button("Tutup") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(L("Tutup")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
             }
         }
         .padding(22).frame(width: 640)

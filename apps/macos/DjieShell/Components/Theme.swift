@@ -62,9 +62,9 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .system: "Ikuti sistem"
-        case .light: "Terang"
-        case .dark: "Gelap"
+        case .system: L("Ikuti sistem")
+        case .light: L("Terang")
+        case .dark: L("Gelap")
         }
     }
     var icon: String {

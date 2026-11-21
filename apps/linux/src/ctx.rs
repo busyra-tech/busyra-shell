@@ -59,7 +59,7 @@ impl App {
     }
 
     pub fn error(&self, e: impl std::fmt::Display) {
-        self.toast(&e.to_string());
+        self.toast(&crate::i18n::msg(&e.to_string()));
     }
 
     /// Daftarkan fungsi yang dipanggil ulang setiap data vault berubah.

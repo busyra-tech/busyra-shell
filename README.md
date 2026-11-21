@@ -7,7 +7,7 @@
 **Semua servermu, satu terminal.**
 
 SSH client native untuk **macOS**, **Windows**, dan **Linux (beta)** — dashboard semua server, terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
-Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.<br />
+Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri. Tersedia dalam **bahasa Indonesia & English**.<br />
 Versi **Linux** masih beta — lihat [Linux (beta)](#linux-beta).
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)

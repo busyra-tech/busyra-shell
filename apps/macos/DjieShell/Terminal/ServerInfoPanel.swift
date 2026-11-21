@@ -99,14 +99,14 @@ struct ServerInfoPanel: View {
             case .connecting:
                 VStack(spacing: 12) {
                     ProgressView().controlSize(.small)
-                    Text("Membaca info server…").font(.callout).foregroundStyle(.secondary)
+                    Text(L("Membaca info server…")).font(.callout).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let msg):
                 VStack(spacing: 12) {
                     Image(systemName: "exclamationmark.triangle").font(.title2).foregroundStyle(.orange)
                     Text(msg).font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center).textSelection(.enabled)
-                    Button("Coba lagi") { model.retryServerStats() }.buttonStyle(SecondaryButtonStyle())
+                    Button(L("Coba lagi")) { model.retryServerStats() }.buttonStyle(SecondaryButtonStyle())
                 }
                 .padding(20)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -131,11 +131,11 @@ struct ServerInfoPanel: View {
                     .font(.system(size: 14, weight: .semibold)).lineLimit(1)
                 HStack(spacing: 5) {
                     if stats.state == .ready { PulseDot(color: Color(hex: "#4ADE80")) }
-                    Text(stats.state == .ready ? "Live · tiap 3 detik" : "Info server").font(.caption).foregroundStyle(.secondary)
+                    Text(stats.state == .ready ? L("Live · tiap 3 detik") : L("Info server")).font(.caption).foregroundStyle(.secondary)
                 }
             }
             Spacer()
-            IconButton(symbol: "xmark", help: "Tutup panel") { withAnimation(.djie) { model.showServerInfo = false } }
+            IconButton(symbol: "xmark", help: L("Tutup panel")) { withAnimation(.djie) { model.showServerInfo = false } }
         }
         .padding(.horizontal, 14).padding(.vertical, 11)
     }
@@ -167,7 +167,7 @@ struct ServerInfoPanel: View {
                 }
                 .chartYScale(domain: 0...100)
             }
-            chartCard("Jaringan", value: stats.points.last.map { "↓ \(rate($0.rx))  ↑ \(rate($0.tx))" } ?? "—", color: Color(hex: "#5B9CF5")) {
+            chartCard(L("Jaringan"), value: stats.points.last.map { "↓ \(rate($0.rx))  ↑ \(rate($0.tx))" } ?? "—", color: Color(hex: "#5B9CF5")) {
                 Chart(stats.points) { p in
                     LineMark(x: .value("t", p.id), y: .value("B/s", p.rx), series: .value("arah", "Masuk")).foregroundStyle(Color(hex: "#5B9CF5"))
                     LineMark(x: .value("t", p.id), y: .value("B/s", p.tx), series: .value("arah", "Keluar")).foregroundStyle(Color(hex: "#F2A65A"))
@@ -181,7 +181,7 @@ struct ServerInfoPanel: View {
                     usage("Swap", used: i.swapUsedBytes, total: i.swapTotalBytes, color: Color(hex: "#94A3B8"))
                 }
                 ForEach(i.disks, id: \.mount) { d in
-                    usage(d.mount == "/" ? "Storage (/)" : d.mount, used: d.usedBytes, total: d.totalBytes, color: Color(hex: "#F2A65A"))
+                    usage(d.mount == "/" ? L("Storage (/)") : d.mount, used: d.usedBytes, total: d.totalBytes, color: Color(hex: "#F2A65A"))
                 }
             }
             .padding(12)
@@ -248,19 +248,19 @@ struct ServerInfoPanel: View {
 
     private func cpuText(_ i: ServerInfo) -> String {
         let model = i.cpuModel.isEmpty ? i.arch : "\(i.cpuModel) · \(i.arch)"
-        return i.cpuCores > 0 ? "\(model) · \(i.cpuCores) core" : model
+        return i.cpuCores > 0 ? L("{} · {} core", model, i.cpuCores) : model
     }
 
     private func bytes(_ b: UInt64) -> String { ByteCountFormatter.string(fromByteCount: Int64(min(b, UInt64(Int64.max))), countStyle: .memory) }
 
     private func rate(_ bps: Double) -> String {
-        bps < 1 ? "0 B/s" : ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .file) + "/s"
+        bps < 1 ? L("0 B/s") : ByteCountFormatter.string(fromByteCount: Int64(bps), countStyle: .file) + "/s"
     }
 
     private func uptime(_ s: UInt64) -> String {
         let d = s / 86_400, h = (s % 86_400) / 3_600, m = (s % 3_600) / 60
-        if d > 0 { return "\(d) hari \(h) jam" }
-        if h > 0 { return "\(h) jam \(m) menit" }
-        return "\(m) menit"
+        if d > 0 { return L("{} hari {} jam", d, h) }
+        if h > 0 { return L("{} jam {} menit", h, m) }
+        return L("{} menit", m)
     }
 }

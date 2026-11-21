@@ -15,14 +15,14 @@ struct SnippetsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Snippets", subtitle: "Perintah favorit — jalankan ke satu atau banyak host sekaligus") {
-                    SearchField(text: $query, prompt: "Cari snippet…")
-                    Button { editing = .blank() } label: { Label("Snippet Baru", systemImage: "plus") }
+                PageHeader(title: "Snippets", subtitle: L("Perintah favorit — jalankan ke satu atau banyak host sekaligus")) {
+                    SearchField(text: $query, prompt: L("Cari snippet…"))
+                    Button { editing = .blank() } label: { Label(L("Snippet Baru"), systemImage: "plus") }
                         .buttonStyle(PrimaryButtonStyle())
                 }
                 if model.snippets.isEmpty {
-                    EmptyState(icon: "curlybraces", title: "Belum ada snippet",
-                               text: "Simpan perintah yang sering dipakai, misalnya cek disk atau restart service.")
+                    EmptyState(icon: "curlybraces", title: L("Belum ada snippet"),
+                               text: L("Simpan perintah yang sering dipakai, misalnya cek disk atau restart service."))
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 300), spacing: 12)], spacing: 12) {
                         ForEach(Array(filtered.enumerated()), id: \.element.id) { i, s in
@@ -56,8 +56,8 @@ struct SnippetCard: View {
                         .background(Theme.brandGradient, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
                     Text(snippet.label).font(.system(size: 14, weight: .semibold)).lineLimit(1)
                     Spacer()
-                    IconButton(symbol: "pencil", help: "Edit", action: onEdit)
-                    IconButton(symbol: "trash", help: "Hapus", tint: .red) { model.delete(snippet) }
+                    IconButton(symbol: "pencil", help: L("Edit"), action: onEdit)
+                    IconButton(symbol: "trash", help: L("Hapus"), tint: .red) { model.delete(snippet) }
                 }
                 Text(snippet.command)
                     .font(.system(size: 12, design: .monospaced))
@@ -69,12 +69,12 @@ struct SnippetCard: View {
                 HStack {
                     Spacer()
                     if model.activeSessionID != nil {
-                        Button { model.runInActiveSession(snippet); model.flash("Dikirim ke tab aktif") } label: {
-                            Label("Tab aktif", systemImage: "terminal")
+                        Button { model.runInActiveSession(snippet); model.flash(L("Dikirim ke tab aktif")) } label: {
+                            Label(L("Tab aktif"), systemImage: "terminal")
                         }
                         .buttonStyle(SecondaryButtonStyle())
                     }
-                    Button(action: onRun) { Label("Jalankan", systemImage: "play.fill") }
+                    Button(action: onRun) { Label(L("Jalankan"), systemImage: "play.fill") }
                         .buttonStyle(PrimaryButtonStyle())
                 }
             }
@@ -89,7 +89,7 @@ struct SnippetEditor: View {
     @State private var command = ""
 
     var body: some View {
-        FormSheet(title: original.id.isEmpty ? "Snippet Baru" : "Edit Snippet",
+        FormSheet(title: original.id.isEmpty ? L("Snippet Baru") : L("Edit Snippet"),
                   canSave: !command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                   onSave: {
                       var s = original
@@ -97,14 +97,14 @@ struct SnippetEditor: View {
                       s.command = command
                       model.save(s)
                   }) {
-            TextField("Nama (mis. Cek disk)", text: $label).djieField()
+            TextField(L("Nama (mis. Cek disk)"), text: $label).djieField()
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $command)
                     .font(.system(size: 12, design: .monospaced))
                     .scrollContentBackground(.hidden)
                     .padding(6)
                 if command.isEmpty {
-                    Text("df -h && free -m").font(.system(size: 12, design: .monospaced))
+                    Text(L("df -h && free -m")).font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.tertiary).padding(11).allowsHitTesting(false)
                 }
             }
@@ -125,7 +125,7 @@ struct RunSnippetSheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Jalankan “\(snippet.label)”").font(.title3.bold())
+            Text(L("Jalankan “{}”", snippet.label)).font(.title3.bold())
             Text(snippet.command).font(.system(size: 12, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2)
             ScrollView {
                 VStack(spacing: 6) {
@@ -149,16 +149,16 @@ struct RunSnippetSheet: View {
             }
             .frame(height: 240)
             HStack {
-                Button(picked.count == model.hosts.count ? "Batal pilih semua" : "Pilih semua") {
+                Button(picked.count == model.hosts.count ? L("Batal pilih semua") : L("Pilih semua")) {
                     withAnimation(.djieSnappy) { picked = picked.count == model.hosts.count ? [] : Set(model.hosts.map(\.id)) }
                 }
                 .buttonStyle(.borderless)
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle())
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle())
                 Button {
                     model.connect(model.hosts.map(\.id).filter(picked.contains), run: snippet.command)
                     dismiss()
-                } label: { Label("Jalankan di \(picked.count) host", systemImage: "play.fill") }
+                } label: { Label(L("Jalankan di {} host", picked.count), systemImage: "play.fill") }
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(picked.isEmpty)
             }

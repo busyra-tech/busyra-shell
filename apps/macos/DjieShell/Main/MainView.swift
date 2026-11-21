@@ -91,7 +91,7 @@ struct SidebarView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Djie Shell").font(.system(size: 15, weight: .bold, design: .rounded)).lineLimit(1)
                     HStack(spacing: 5) {
-                        Text("SSH Client").font(.system(size: 10.5)).foregroundStyle(.secondary)
+                        Text(L("SSH Client")).font(.system(size: 10.5)).foregroundStyle(.secondary)
                         Text(AppVersion.current)
                             .font(.system(size: 9, weight: .semibold, design: .monospaced))
                             .padding(.horizontal, 5).padding(.vertical, 1)
@@ -109,9 +109,9 @@ struct SidebarView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 3) {
-                    SidebarHeader(text: "Workspace")
+                    SidebarHeader(text: L("Workspace"))
                     ForEach(Section.main) { s in row(s) }
-                    SidebarHeader(text: "Komunitas").padding(.top, 14)
+                    SidebarHeader(text: L("Komunitas")).padding(.top, 14)
                     ForEach(Section.community) { s in row(s) }
                 }
                 .padding(.horizontal, 10)
@@ -253,12 +253,12 @@ struct AccountFooter: View {
 
     private var statusText: String {
         switch model.sync {
-        case .off: "Lokal saja"
-        case .idle: "Siap sync"
-        case .syncing: "Menyinkronkan…"
-        case .synced(let d): Date().timeIntervalSince(d) < 60 ? "Tersinkron" : "Sinkron \(d.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)))"
-        case .failed: "Sync gagal — klik untuk ulang"
-        case .needsLogin: "Masuk ulang Google"
+        case .off: L("Lokal saja")
+        case .idle: L("Siap sync")
+        case .syncing: L("Menyinkronkan…")
+        case .synced(let d): Date().timeIntervalSince(d) < 60 ? L("Tersinkron") : L("Sinkron {}", d.formatted(.relative(presentation: .named, unitsStyle: .abbreviated)))
+        case .failed: L("Sync gagal — klik untuk ulang")
+        case .needsLogin: L("Masuk ulang Google")
         }
     }
 
@@ -276,7 +276,7 @@ struct AccountFooter: View {
                     }
                 }
             VStack(alignment: .leading, spacing: 1) {
-                Text(model.profileName ?? model.accountEmail ?? "Tanpa akun")
+                Text(model.profileName ?? model.accountEmail ?? L("Tanpa akun"))
                     .font(.system(size: 12, weight: .medium))
                     .lineLimit(1)
                 TimelineView(.periodic(from: .now, by: 30)) { _ in
@@ -291,17 +291,17 @@ struct AccountFooter: View {
             Spacer(minLength: 0)
             Menu {
                 if model.accountEmail == nil {
-                    Button("Hubungkan Google Drive…") { Task { await connect() } }
+                    Button(L("Hubungkan Google Drive…")) { Task { await connect() } }
                 } else if model.sync == .needsLogin {
-                    Button("Masuk ulang Google…") { Task { await connect() } }
+                    Button(L("Masuk ulang Google…")) { Task { await connect() } }
                 } else {
-                    Button("Sinkronkan sekarang") { model.syncNow() }
+                    Button(L("Sinkronkan sekarang")) { model.syncNow() }
                     Divider()
-                    Button("Putuskan akun Google", role: .destructive) { model.disconnectGoogle() }
+                    Button(L("Putuskan akun Google"), role: .destructive) { model.disconnectGoogle() }
                 }
                 Divider()
-                Button("Lihat profil") { model.section = .account; model.showHome() }
-                Button("Kunci vault") { model.lock() }
+                Button(L("Lihat profil")) { model.section = .account; model.showHome() }
+                Button(L("Kunci vault")) { model.lock() }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -318,7 +318,7 @@ struct AccountFooter: View {
                 model.showHome()
             }
         }
-        .help(failureMessage ?? "Lihat profil akun")
+        .help(failureMessage ?? L("Lihat profil akun"))
         .padding(10)
         .onHover { h in withAnimation(.djieHover) { hover = h } }
     }
@@ -334,7 +334,7 @@ struct AccountFooter: View {
         defer { connecting = false }
         do { _ = try await model.signInGoogle() }
         catch GoogleAuth.AuthError.cancelled {}
-        catch { model.flash(error.localizedDescription) }
+        catch { model.flash(Lmsg(error.localizedDescription)) }
     }
 }
 
@@ -368,8 +368,12 @@ struct AppearanceMenu: View {
 
     var body: some View {
         Menu {
-            Picker("Tampilan", selection: $appearance) {
+            Picker(L("Tampilan"), selection: $appearance) {
                 ForEach(AppearanceMode.allCases) { m in Label(m.title, systemImage: m.icon).tag(m) }
+            }
+            .pickerStyle(.inline)
+            Picker(LanguageSwitch.title, selection: LanguageSwitch.binding) {
+                ForEach(AppLanguage.allCases) { Text($0.title).tag($0) }
             }
             .pickerStyle(.inline)
         } label: {
@@ -379,7 +383,7 @@ struct AppearanceMenu: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Tampilan: \(appearance.title)")
+        .help(L("Tampilan: {}", appearance.title))
     }
 }
 
@@ -400,7 +404,7 @@ struct TabStrip: View {
                     .font(.system(size: 12))
                     .frame(width: 18)
             }
-            .help("Daftar host (⌘0)")
+            .help(L("Daftar host (⌘0)"))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
@@ -421,13 +425,13 @@ struct TabStrip: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Terminal lokal (⇧⌘T)")
+            .help(L("Terminal lokal (⇧⌘T)"))
             Spacer(minLength: 0)
             if let s = model.activeSession, !s.isLocal {
                 Button {
                     withAnimation(.djie) { model.showServerInfo.toggle() }
                 } label: {
-                    Label("Info server", systemImage: "cpu")
+                    Label(L("Info server"), systemImage: "cpu")
                         .font(.system(size: 12, weight: model.showServerInfo ? .semibold : .regular))
                         .padding(.horizontal, 9).frame(height: 26)
                         .background(model.showServerInfo ? Theme.accent.opacity(0.16) : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -435,7 +439,7 @@ struct TabStrip: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Spesifikasi & grafik server (⇧⌘I)")
+                .help(L("Spesifikasi & grafik server (⇧⌘I)"))
                 .keyboardShortcut("i", modifiers: [.command, .shift])
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
@@ -445,7 +449,7 @@ struct TabStrip: View {
             }
             if model.splitVisible {
                 Button { model.toggleBroadcast() } label: {
-                    Label("Broadcast", systemImage: "dot.radiowaves.left.and.right")
+                    Label(L("Broadcast"), systemImage: "dot.radiowaves.left.and.right")
                         .font(.system(size: 12, weight: model.broadcast ? .semibold : .regular))
                         .padding(.horizontal, 9).frame(height: 26)
                         .background(model.broadcast ? Color.orange.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
@@ -453,7 +457,7 @@ struct TabStrip: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help("Ketik sekali, kirim ke semua panel split (⇧⌘B)")
+                .help(L("Ketik sekali, kirim ke semua panel split (⇧⌘B)"))
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
             if model.activeSessionID != nil {
@@ -466,11 +470,11 @@ struct TabStrip: View {
                         Button(sn.label) { model.runInActiveSession(sn) }
                     }
                 } label: {
-                    Label("Snippet", systemImage: "curlybraces")
+                    Label(L("Snippet"), systemImage: "curlybraces")
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
-                .help("Jalankan snippet di tab ini")
+                .help(L("Jalankan snippet di tab ini"))
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
         }
@@ -602,7 +606,7 @@ struct ComingSoon: View {
                 .animation(.easeInOut(duration: 2).repeatForever(), value: float)
             Text(section.title).font(.title2.bold())
             Text(text).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 340)
-            Text("Segera hadir")
+            Text(L("Segera hadir"))
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 10).padding(.vertical, 4)
                 .background(Theme.accent.opacity(0.15), in: Capsule())
@@ -624,18 +628,18 @@ struct UpdateCard: View {
             HStack(spacing: 6) {
                 Image(systemName: "sparkles").foregroundStyle(Theme.brandGradient)
                     .symbolEffect(.bounce, options: .repeat(.periodic(delay: 3)))
-                Text("Versi \(update.version) tersedia").font(.system(size: 12, weight: .semibold))
+                Text(L("Versi {} tersedia", update.version)).font(.system(size: 12, weight: .semibold))
                 Spacer()
                 Button { withAnimation(.djie) { model.updateDismissed = true } } label: {
                     Image(systemName: "xmark").font(.system(size: 9, weight: .bold))
                 }
                 .buttonStyle(.plain).foregroundStyle(.secondary)
             }
-            Text("Kamu memakai \(AppVersion.current).").font(.system(size: 11)).foregroundStyle(.secondary)
+            Text(L("Kamu memakai {}.", AppVersion.current)).font(.system(size: 11)).foregroundStyle(.secondary)
             HStack(spacing: 6) {
-                Button("Download") { NSWorkspace.shared.open(update.download ?? update.page) }
+                Button(L("Download")) { NSWorkspace.shared.open(update.download ?? update.page) }
                     .buttonStyle(PrimaryButtonStyle())
-                Button("Catatan") { NSWorkspace.shared.open(update.page) }
+                Button(L("Catatan")) { NSWorkspace.shared.open(update.page) }
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
@@ -652,20 +656,20 @@ struct AutocompleteMenu: View {
 
     var body: some View {
         Menu {
-            Toggle("Saran perintah saat mengetik", isOn: $enabled)
+            Toggle(L("Saran perintah saat mengetik"), isOn: $enabled)
             Divider()
-            Button("Hapus riwayat perintah (\(CommandHistory.count))", role: .destructive) { confirmClear = true }
+            Button(L("Hapus riwayat perintah ({})", CommandHistory.count), role: .destructive) { confirmClear = true }
         } label: {
-            Label("Autocomplete", systemImage: enabled ? "text.cursor" : "text.badge.xmark")
+            Label(L("Autocomplete"), systemImage: enabled ? "text.cursor" : "text.badge.xmark")
                 .foregroundStyle(enabled ? Theme.accent : .secondary)
         }
         .menuStyle(.borderlessButton)
         .fixedSize()
-        .help("Saran perintah dari riwayat, snippet, dan perintah umum")
-        .confirmationDialog("Hapus semua riwayat perintah?", isPresented: $confirmClear) {
-            Button("Hapus", role: .destructive) { CommandHistory.clear() }
+        .help(L("Saran perintah dari riwayat, snippet, dan perintah umum"))
+        .confirmationDialog(L("Hapus semua riwayat perintah?"), isPresented: $confirmClear) {
+            Button(L("Hapus"), role: .destructive) { CommandHistory.clear() }
         } message: {
-            Text("Riwayat hanya tersimpan di Mac ini dan dipakai untuk saran autocomplete.")
+            Text(L("Riwayat hanya tersimpan di Mac ini dan dipakai untuk saran autocomplete."))
         }
     }
 }

@@ -30,7 +30,7 @@ internal static class L10n
     private static readonly List<(Regex Re, string Out)> Patterns = Table
         .Where(kv => kv.Key.Contains("{}"))
         .Select(kv => (new Regex("^" + string.Join("(.+?)", kv.Key.Split("{}").Select(Regex.Escape)) + "$", RegexOptions.Singleline), kv.Value))
-        .OrderByDescending(p => p.Item1.ToString().Length)
+        .OrderByDescending(p => p.Item1.ToString().Replace("(.+?)", "").Length)
         .ToList();
 
     private static string Resolve()
@@ -61,7 +61,16 @@ internal static class L10n
     /// <summary>Terjemahkan pesan utuh (mis. error dari core) memakai entri persis atau berpola ({} = teks apa saja).</summary>
     public static string Message(string s)
     {
-        if (!English) return s;
+        if (!English || s.Length == 0) return s;
+        if (Match(s) is { } t) return t;
+        // App sering menaikkan huruf pertama pesan core ("server tidak…" → "Server tidak…")
+        if (char.IsUpper(s[0]) && Match(char.ToLowerInvariant(s[0]) + s[1..]) is { } t2 && t2.Length > 0)
+            return char.ToUpperInvariant(t2[0]) + t2[1..];
+        return s;
+    }
+
+    private static string? Match(string s)
+    {
         if (Table.TryGetValue(s, out var t)) return t;
         foreach (var (re, outText) in Patterns)
         {
@@ -76,7 +85,7 @@ internal static class L10n
             }
             return result;
         }
-        return s;
+        return null;
     }
 
     public static string Title(string choice) => choice switch

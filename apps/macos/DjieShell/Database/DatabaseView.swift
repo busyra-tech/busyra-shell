@@ -31,13 +31,13 @@ struct DbConnectionList: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 22) {
-                PageHeader(title: "Database", subtitle: "PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, Redis, MongoDB, ClickHouse & lainnya") {
-                    Button { picking = true } label: { Label("Koneksi Baru", systemImage: "plus") }
+                PageHeader(title: "Database", subtitle: L("PostgreSQL, MySQL, MariaDB, SQL Server, SQLite, Redis, MongoDB, ClickHouse & lainnya")) {
+                    Button { picking = true } label: { Label(L("Koneksi Baru"), systemImage: "plus") }
                         .buttonStyle(PrimaryButtonStyle())
                 }
                 if model.databases.isEmpty {
-                    EmptyState(icon: "cylinder.split.1x2", title: "Belum ada koneksi database",
-                               text: "Sambungkan langsung, atau lewat tunnel SSH ke database yang hanya bisa diakses dari dalam server.")
+                    EmptyState(icon: "cylinder.split.1x2", title: L("Belum ada koneksi database"),
+                               text: L("Sambungkan langsung, atau lewat tunnel SSH ke database yang hanya bisa diakses dari dalam server."))
                     EngineGrid { p in editing = .blank(p) }
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 14) {
@@ -52,9 +52,9 @@ struct DbConnectionList: View {
         }
         .sheet(isPresented: $picking) {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Pilih database").font(.title3.bold())
+                Text(L("Pilih database")).font(.title3.bold())
                 EngineGrid { p in picking = false; DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { editing = .blank(p) } }
-                HStack { Spacer(); Button("Batal") { picking = false }.buttonStyle(SecondaryButtonStyle()) }
+                HStack { Spacer(); Button(L("Batal")) { picking = false }.buttonStyle(SecondaryButtonStyle()) }
             }
             .padding(24)
             .frame(width: 640)
@@ -141,15 +141,15 @@ struct DbCard: View {
                         let job = model.backups.jobs[db.id]
                         let sched = model.backups.schedule(db.id)
                         if job != nil {
-                            ProgressView().controlSize(.small).frame(width: 28, height: 28).help("Backup berjalan…")
+                            ProgressView().controlSize(.small).frame(width: 28, height: 28).help(L("Backup berjalan…"))
                         } else {
                             IconButton(symbol: sched.frequency != .off ? "clock.badge.checkmark" : "externaldrive.badge.timemachine",
-                                       help: sched.frequency != .off ? "Backup terjadwal · \(sched.frequency.title.lowercased())" : "Backup & restore",
+                                       help: sched.frequency != .off ? L("Backup terjadwal · {}", sched.frequency.title.lowercased()) : L("Backup & restore"),
                                        tint: sched.lastError != nil ? Color(hex: "#F0616D") : sched.frequency != .off ? Theme.accent : .primary, action: onBackup)
                         }
                     }
-                    IconButton(symbol: "pencil", help: "Edit", action: onEdit)
-                    IconButton(symbol: "trash", help: "Hapus", tint: .red) { model.delete(db) }
+                    IconButton(symbol: "pencil", help: L("Edit"), action: onEdit)
+                    IconButton(symbol: "trash", help: L("Hapus"), tint: .red) { model.delete(db) }
                 }
                 VStack(alignment: .leading, spacing: 3) {
                     Text(db.title).font(.system(size: 15, weight: .semibold)).lineLimit(1)
@@ -164,7 +164,7 @@ struct DbCard: View {
                     Spacer(minLength: 0)
                 }
                 Button { Task { await model.openDatabase(db) } } label: {
-                    Label("Buka", systemImage: "bolt.fill").frame(maxWidth: .infinity)
+                    Label(L("Buka"), systemImage: "bolt.fill").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(PrimaryButtonStyle(wide: true))
             }
@@ -196,38 +196,38 @@ struct DbEditor: View {
             HStack(spacing: 12) {
                 EngineBadge(preset: preset, size: 40)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(original.id.isEmpty ? "Koneksi \(preset.name)" : "Edit koneksi").font(.title3.bold())
+                    Text(original.id.isEmpty ? L("Koneksi {}", preset.name) : L("Edit koneksi")).font(.title3.bold())
                     Text(preset.hint).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            TextField("Nama (mis. DB produksi)", text: $c.label).djieField()
+            TextField(L("Nama (mis. DB produksi)"), text: $c.label).djieField()
 
             if c.engine == .sqlite {
                 HStack {
-                    TextField("Path file .sqlite / .db", text: $c.filePath).djieField()
-                    Button("Pilih…") { pickFile() }.buttonStyle(SecondaryButtonStyle())
+                    TextField(L("Path file .sqlite / .db"), text: $c.filePath).djieField()
+                    Button(L("Pilih…")) { pickFile() }.buttonStyle(SecondaryButtonStyle())
                 }
             } else {
                 HStack(spacing: 8) {
-                    TextField(c.engine == .mongodb ? "Host atau URI mongodb+srv://…" : "Host", text: $c.host).djieField()
-                    TextField("Port", value: $c.port, format: .number.grouping(.never)).djieField().frame(width: 90)
+                    TextField(c.engine == .mongodb ? L("Host atau URI mongodb+srv://…") : L("Host"), text: $c.host).djieField()
+                    TextField(L("Port"), value: $c.port, format: .number.grouping(.never)).djieField().frame(width: 90)
                 }
                 HStack(spacing: 8) {
-                    TextField(c.engine == .redis ? "Username (opsional)" : "Username", text: $c.username).djieField()
-                    SecureField("Password", text: Binding(get: { c.password ?? "" }, set: { c.password = $0.isEmpty ? nil : $0 })).djieField()
+                    TextField(c.engine == .redis ? L("Username (opsional)") : L("Username"), text: $c.username).djieField()
+                    SecureField(L("Password"), text: Binding(get: { c.password ?? "" }, set: { c.password = $0.isEmpty ? nil : $0 })).djieField()
                 }
-                TextField(c.engine == .redis ? "Nomor database (0–15)" : "Database (opsional)", text: $c.database).djieField()
-                Toggle(c.engine == .postgres ? "Wajibkan SSL/TLS" : "Pakai SSL/TLS", isOn: $c.tls).toggleStyle(.switch).tint(Theme.accent)
+                TextField(c.engine == .redis ? L("Nomor database (0–15)") : L("Database (opsional)"), text: $c.database).djieField()
+                Toggle(c.engine == .postgres ? L("Wajibkan SSL/TLS") : L("Pakai SSL/TLS"), isOn: $c.tls).toggleStyle(.switch).tint(Theme.accent)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Tunnel SSH").font(.system(size: 12, weight: .semibold))
+                    Text(L("Tunnel SSH")).font(.system(size: 12, weight: .semibold))
                     Picker("", selection: $c.sshHostId) {
-                        Text("Tanpa tunnel — koneksi langsung").tag(String?.none)
-                        ForEach(model.hosts) { h in Text("Lewat \(h.title)").tag(Optional(h.id)) }
+                        Text(L("Tanpa tunnel — koneksi langsung")).tag(String?.none)
+                        ForEach(model.hosts) { h in Text(L("Lewat {}", h.title)).tag(Optional(h.id)) }
                     }
                     .labelsHidden()
                     if c.sshHostId != nil {
-                        Text("Host & port di atas dilihat dari sisi server SSH, biasanya 127.0.0.1.")
+                        Text(L("Host & port di atas dilihat dari sisi server SSH, biasanya 127.0.0.1."))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -249,15 +249,15 @@ struct DbEditor: View {
                 } label: {
                     HStack(spacing: 6) {
                         if testing { ProgressView().controlSize(.small) } else { Image(systemName: "bolt.horizontal") }
-                        Text("Tes koneksi")
+                        Text(L("Tes koneksi"))
                     }
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .disabled(testing)
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
-                Button("Simpan") { save(open: false) }.buttonStyle(SecondaryButtonStyle())
-                Button { save(open: true) } label: { Label("Simpan & Buka", systemImage: "bolt.fill") }
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(L("Simpan")) { save(open: false) }.buttonStyle(SecondaryButtonStyle())
+                Button { save(open: true) } label: { Label(L("Simpan & Buka"), systemImage: "bolt.fill") }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.defaultAction)
             }
@@ -285,7 +285,7 @@ struct DbEditor: View {
             let s = try await DbSession.connect(conn: c, ssh: model.sshTarget(forId: c.sshHostId))
             let n = (try? await s.tables().count) ?? 0
             testOK = true
-            testResult = "Berhasil tersambung — \(n) tabel/koleksi/key ditemukan"
+            testResult = L("Berhasil tersambung — {} tabel/koleksi/key ditemukan", n)
         } catch {
             testOK = false
             testResult = error.djieMessage
@@ -322,18 +322,18 @@ struct DbWorkspaceView: View {
                 VStack(spacing: 14) {
                     EngineBadge(preset: preset, size: 56).symbolEffect(.pulse)
                     ProgressView().controlSize(.small)
-                    Text("Menyambung ke \(ws.conn.title)…").foregroundStyle(.secondary)
+                    Text(L("Menyambung ke {}…", ws.conn.title)).foregroundStyle(.secondary)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             case .failed(let msg):
                 VStack(spacing: 12) {
                     Image(systemName: "bolt.horizontal.circle").font(.system(size: 40)).foregroundStyle(.orange)
-                    Text("Gagal tersambung").font(.title3.bold())
+                    Text(L("Gagal tersambung")).font(.title3.bold())
                     Text(msg).foregroundStyle(.secondary).multilineTextAlignment(.center).frame(maxWidth: 480).textSelection(.enabled)
                     HStack {
-                        Button("Coba lagi") { Task { await ws.connect(ssh: model.sshTarget(forId: ws.conn.sshHostId)) } }
+                        Button(L("Coba lagi")) { Task { await ws.connect(ssh: model.sshTarget(forId: ws.conn.sshHostId)) } }
                             .buttonStyle(PrimaryButtonStyle())
-                        Button("Kembali") { model.dbWorkspace = nil }.buttonStyle(SecondaryButtonStyle())
+                        Button(L("Kembali")) { model.dbWorkspace = nil }.buttonStyle(SecondaryButtonStyle())
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -362,10 +362,10 @@ struct DbWorkspaceView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            IconButton(symbol: "chevron.left", help: "Kembali ke daftar koneksi") { model.dbWorkspace = nil }
+            IconButton(symbol: "chevron.left", help: L("Kembali ke daftar koneksi")) { model.dbWorkspace = nil }
             if ws.status == .ready {
                 IconButton(symbol: showTree ? "sidebar.left" : "sidebar.squares.left",
-                           help: showTree ? "Sembunyikan daftar tabel (⌥⌘S)" : "Tampilkan daftar tabel (⌥⌘S)") { showTree.toggle() }
+                           help: showTree ? L("Sembunyikan daftar tabel (⌥⌘S)") : L("Tampilkan daftar tabel (⌥⌘S)")) { showTree.toggle() }
                     .keyboardShortcut("s", modifiers: [.command, .option])
             }
             EngineBadge(preset: preset, size: 30)
@@ -373,13 +373,13 @@ struct DbWorkspaceView: View {
                 Text(ws.conn.title).font(.system(size: 15, weight: .semibold))
                 HStack(spacing: 6) {
                     Text(preset.name).font(.caption).foregroundStyle(.secondary)
-                    if ws.conn.sshHostId != nil { Badge(text: "SSH TUNNEL", color: Theme.accent) }
+                    if ws.conn.sshHostId != nil { Badge(text: L("SSH TUNNEL"), color: Theme.accent) }
                     if ws.status == .ready { PulseDot(color: Color(hex: "#4ADE80")) }
                 }
             }
             Spacer()
             if ws.status == .ready {
-                IconButton(symbol: "arrow.clockwise", help: "Muat ulang") { Task { await ws.refresh() } }
+                IconButton(symbol: "arrow.clockwise", help: L("Muat ulang")) { Task { await ws.refresh() } }
             }
         }
         .padding(.horizontal, 18).padding(.vertical, 12)
@@ -388,7 +388,7 @@ struct DbWorkspaceView: View {
     private var breadcrumb: some View {
         HStack(spacing: 6) {
             Button { withAnimation(.djie) { ws.selectedDb = nil; ws.selectedTable = nil; ws.tab = .overview } } label: {
-                Label("Server", systemImage: "server.rack")
+                Label(L("Server"), systemImage: "server.rack")
             }
             .buttonStyle(.plain)
             if let db = ws.selectedDb {
@@ -428,7 +428,7 @@ struct DbWorkspaceView: View {
             }
             Spacer()
             if let r = ws.shownResult, !r.columns.isEmpty {
-                Button { ws.exportCSV() } label: { Label("Ekspor CSV", systemImage: "square.and.arrow.down") }
+                Button { ws.exportCSV() } label: { Label(L("Ekspor CSV"), systemImage: "square.and.arrow.down") }
                     .buttonStyle(SecondaryButtonStyle())
             }
         }
@@ -464,7 +464,7 @@ struct DbWorkspaceView: View {
             } else if ws.running {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if let r = ws.page {
-                Text(r.rows.isEmpty ? (ws.isFiltered ? "Tidak ada baris yang cocok" : "Tabel kosong") : "").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(r.rows.isEmpty ? (ws.isFiltered ? L("Tidak ada baris yang cocok") : L("Tabel kosong")) : "").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 Color.clear
             }
@@ -477,12 +477,12 @@ struct DbWorkspaceView: View {
         HStack(spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Cari di tabel ini (semua kolom)", text: $ws.quickSearch)
+                TextField(L("Cari di tabel ini (semua kolom)"), text: $ws.quickSearch)
                     .textFieldStyle(.plain)
                     .onSubmit { Task { await ws.submitQuickSearch() } }
                 if !ws.quickSearch.isEmpty {
                     Button { Task { await ws.clearFilters() } } label: { Image(systemName: "xmark.circle.fill") }
-                        .buttonStyle(.plain).foregroundStyle(.secondary).help("Hapus pencarian")
+                        .buttonStyle(.plain).foregroundStyle(.secondary).help(L("Hapus pencarian"))
                 }
             }
             .font(.system(size: 12.5))
@@ -494,7 +494,7 @@ struct DbWorkspaceView: View {
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal.decrease.circle.fill").foregroundStyle(Theme.accent)
                     Text(ws.filterSummary).lineLimit(1).truncationMode(.tail)
-                    Button("Hapus filter") { Task { await ws.clearFilters() } }
+                    Button(L("Hapus filter")) { Task { await ws.clearFilters() } }
                         .buttonStyle(.plain).foregroundStyle(Theme.accent)
                 }
                 .font(.system(size: 12))
@@ -504,7 +504,7 @@ struct DbWorkspaceView: View {
             Button {
                 withAnimation(.djieSnappy) { ws.tab = .search }
                 Task { await ws.loadTab() }
-            } label: { Label("Cari per kolom", systemImage: "slider.horizontal.3") }
+            } label: { Label(L("Cari per kolom"), systemImage: "slider.horizontal.3") }
             .buttonStyle(.plain).font(.system(size: 12)).foregroundStyle(.secondary)
         }
         .padding(.horizontal, 12).padding(.vertical, 7)
@@ -519,23 +519,23 @@ struct DbWorkspaceView: View {
             if ws.running { ProgressView().controlSize(.small) }
             Group {
                 if shown == 0 {
-                    Text("0 baris")
+                    Text(L("0 baris"))
                 } else {
-                    Text("Baris \((ws.offset + 1).formatted())–\((ws.offset + shown).formatted())")
-                        + Text(total.map { " dari \(ws.totalIsEstimate ? "~" : "")\($0.formatted())" } ?? "")
+                    Text(L("Baris {}–{}", (ws.offset + 1).formatted(), (ws.offset + shown).formatted()))
+                        + Text(total.map { L(" dari {}{}", ws.totalIsEstimate ? "~" : "", $0.formatted()) } ?? "")
                 }
             }
             .font(.system(size: 12, weight: .medium))
-            if let ms = ws.page?.elapsedMs { Text("· \(ms) ms").font(.system(size: 12)).foregroundStyle(.secondary) }
+            if let ms = ws.page?.elapsedMs { Text(L("· {} ms", ms)).font(.system(size: 12)).foregroundStyle(.secondary) }
             Spacer()
             Picker("", selection: Binding(get: { ws.pageSize }, set: { n in Task { await ws.setPageSize(n) } })) {
-                ForEach([25, 50, 100, 250, 500] as [UInt32], id: \.self) { Text("\($0) / halaman").tag($0) }
+                ForEach([25, 50, 100, 250, 500] as [UInt32], id: \.self) { Text(L("{} / halaman", $0)).tag($0) }
             }
             .labelsHidden().fixedSize()
             HStack(spacing: 2) {
-                IconButton(symbol: "chevron.left.2", help: "Halaman pertama") { Task { await ws.goToPage(offset: 0) } }
+                IconButton(symbol: "chevron.left.2", help: L("Halaman pertama")) { Task { await ws.goToPage(offset: 0) } }
                     .disabled(ws.offset == 0)
-                IconButton(symbol: "chevron.left", help: "Sebelumnya") {
+                IconButton(symbol: "chevron.left", help: L("Sebelumnya")) {
                     Task { await ws.goToPage(offset: ws.offset >= UInt64(ws.pageSize) ? ws.offset - UInt64(ws.pageSize) : 0) }
                 }
                 .disabled(ws.offset == 0)
@@ -545,9 +545,9 @@ struct DbWorkspaceView: View {
                         .frame(minWidth: 54)
                         .contentTransition(.numericText())
                 }
-                IconButton(symbol: "chevron.right", help: "Berikutnya") { Task { await ws.goToPage(offset: ws.offset + UInt64(ws.pageSize)) } }
+                IconButton(symbol: "chevron.right", help: L("Berikutnya")) { Task { await ws.goToPage(offset: ws.offset + UInt64(ws.pageSize)) } }
                     .disabled(!hasNext)
-                IconButton(symbol: "chevron.right.2", help: "Halaman terakhir") {
+                IconButton(symbol: "chevron.right.2", help: L("Halaman terakhir")) {
                     if let total, total > 0 { Task { await ws.goToPage(offset: (total - 1) / UInt64(ws.pageSize) * UInt64(ws.pageSize)) } }
                 }
                 .disabled(!hasNext || total == nil)
@@ -615,21 +615,21 @@ struct DbWorkspaceView: View {
                         ForEach(ws.history, id: \.self) { q in
                             Button(String(q.prefix(80))) { ws.query = q }
                         }
-                    } label: { Label("Riwayat", systemImage: "clock.arrow.circlepath") }
+                    } label: { Label(L("Riwayat"), systemImage: "clock.arrow.circlepath") }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
                 if let db = ws.activeDatabase {
                     Label(db, systemImage: "cylinder").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text(ws.conn.engine.isSQL ? "⌘⏎ untuk menjalankan" : "Satu perintah per baris")
+                Text(ws.conn.engine.isSQL ? L("⌘⏎ untuk menjalankan") : L("Satu perintah per baris"))
                     .font(.caption).foregroundStyle(.tertiary)
                 Button {
                     Task { await ws.run() }
                 } label: {
                     HStack(spacing: 6) {
                         if ws.running { ProgressView().controlSize(.small).tint(.black) } else { Image(systemName: "play.fill") }
-                        Text("Jalankan")
+                        Text(L("Jalankan"))
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -649,12 +649,12 @@ struct DbWorkspaceView: View {
                         .font(.system(size: 12)).foregroundStyle(.orange).lineLimit(2).textSelection(.enabled)
                 } else if let r = ws.result {
                     Text(r.columns.isEmpty
-                         ? (r.affected.map { "✓ \($0) baris terpengaruh" } ?? "✓ Selesai")
-                         : "\(r.rows.count) baris" + (r.truncated ? " (dipotong)" : ""))
+                         ? (r.affected.map { L("✓ {} baris terpengaruh", $0) } ?? L("✓ Selesai"))
+                         : (L10n.shared.english ? "\(r.rows.count) rows" : "\(r.rows.count) baris") + (r.truncated ? " " + L("(dipotong)") : ""))
                         .font(.system(size: 12, weight: .semibold))
-                    Text("· \(r.elapsedMs) ms").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(L("· {} ms", r.elapsedMs)).font(.system(size: 12)).foregroundStyle(.secondary)
                 } else {
-                    Text("Tulis query lalu tekan Jalankan").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(L("Tulis query lalu tekan Jalankan")).font(.system(size: 12)).foregroundStyle(.secondary)
                 }
                 Spacer()
             }
@@ -686,11 +686,11 @@ private struct DbSearchForm: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        Label("Kueri dengan contoh — isi kolom yang ingin dicari, kosongkan sisanya. Wildcard: %",
+                        Label(L("Kueri dengan contoh — isi kolom yang ingin dicari, kosongkan sisanya. Wildcard: %"),
                               systemImage: "magnifyingglass")
                             .font(.system(size: 12.5)).foregroundStyle(.secondary)
                         VStack(spacing: 0) {
-                            row(header: true, Text("Kolom"), Text("Jenis"), Text("Operator"), Text("Nilai"))
+                            row(header: true, Text(L("Kolom")), Text(L("Jenis")), Text(L("Operator")), Text(L("Nilai")))
                             ForEach($ws.searchForm) { $f in
                                 Divider().opacity(0.5)
                                 row(header: false,
@@ -712,12 +712,12 @@ private struct DbSearchForm: View {
                 }
                 HStack(spacing: 10) {
                     let n = ws.searchForm.filter(\.isActive).count
-                    Text(n == 0 ? "Belum ada syarat — Kirim menampilkan semua baris" : "\(n) syarat")
+                    Text(n == 0 ? L("Belum ada syarat — Kirim menampilkan semua baris") : L("{} syarat", n))
                         .font(.system(size: 12)).foregroundStyle(.secondary)
                     Spacer()
-                    Button("Reset") { for i in ws.searchForm.indices { ws.searchForm[i].value = "" } }
+                    Button(L("Reset")) { for i in ws.searchForm.indices { ws.searchForm[i].value = "" } }
                         .buttonStyle(SecondaryButtonStyle())
-                    Button { Task { await ws.submitSearch() } } label: { Label("Kirim", systemImage: "magnifyingglass") }
+                    Button { Task { await ws.submitSearch() } } label: { Label(L("Kirim"), systemImage: "magnifyingglass") }
                         .buttonStyle(PrimaryButtonStyle())
                         .keyboardShortcut(.return, modifiers: .command)
                 }
@@ -730,9 +730,9 @@ private struct DbSearchForm: View {
 
     private func placeholder(_ f: DbWorkspace.SearchField) -> String {
         switch f.op {
-        case "IN (...)", "NOT IN (...)": "nilai1, nilai2, …"
-        case "BETWEEN", "NOT BETWEEN": "awal, akhir"
-        case "LIKE", "NOT LIKE": "mis. abc%"
+        case "IN (...)", "NOT IN (...)": L("nilai1, nilai2, …")
+        case "BETWEEN", "NOT BETWEEN": L("awal, akhir")
+        case "LIKE", "NOT LIKE": L("mis. abc%")
         default: f.needsValue ? "" : "—"
         }
     }
@@ -763,7 +763,7 @@ private struct DbTree: View {
         VStack(spacing: 0) {
             HStack(spacing: 6) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
-                TextField(ws.conn.engine == .redis ? "Cari key…" : "Cari tabel…", text: $filter).textFieldStyle(.plain).font(.system(size: 12))
+                TextField(ws.conn.engine == .redis ? L("Cari key…") : L("Cari tabel…"), text: $filter).textFieldStyle(.plain).font(.system(size: 12))
                 if !filter.isEmpty {
                     Button { filter = "" } label: { Image(systemName: "xmark.circle.fill").foregroundStyle(.tertiary) }.buttonStyle(.plain)
                 }
@@ -774,7 +774,7 @@ private struct DbTree: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 1) {
-                    sectionLabel(ws.conn.engine == .redis ? "DATABASE REDIS" : "DATABASE", count: ws.userDatabases.count)
+                    sectionLabel(ws.conn.engine == .redis ? L("DATABASE REDIS") : "DATABASE", count: ws.userDatabases.count)
                     ForEach(ws.userDatabases, id: \.self) { db in node(db) }
 
                     if !ws.systemDatabases.isEmpty {
@@ -784,7 +784,7 @@ private struct DbTree: View {
                             HStack(spacing: 6) {
                                 Image(systemName: "chevron.right").font(.system(size: 9, weight: .bold))
                                     .rotationEffect(.degrees(ws.showSystem ? 90 : 0))
-                                Text("SISTEM").tracking(1.2)
+                                Text(L("SISTEM")).tracking(1.2)
                                 Text("\(ws.systemDatabases.count)").padding(.horizontal, 5).background(Theme.ink.opacity(0.08), in: Capsule())
                                 Spacer()
                             }
@@ -832,7 +832,7 @@ private struct DbTree: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
             if let all = ws.dbTables[db], all.isEmpty {
-                Text("Tidak ada tabel").font(.caption).foregroundStyle(.tertiary).padding(.leading, 40).padding(.vertical, 4)
+                Text(L("Tidak ada tabel")).font(.caption).foregroundStyle(.tertiary).padding(.leading, 40).padding(.vertical, 4)
             }
         }
     }
@@ -946,15 +946,15 @@ private struct DbOverview: View {
         let all = ws.dbTables[db] ?? []
         VStack(spacing: 0) {
             HStack(spacing: 16) {
-                stat("\(all.filter { !$0.isView }.count)", "tabel", "tablecells", Theme.accent2)
+                stat("\(all.filter { !$0.isView }.count)", L("tabel"), "tablecells", Theme.accent2)
                 stat("\(all.filter(\.isView).count)", "view", "eye", Theme.accent3)
-                stat(all.compactMap(\.rows).reduce(0, +).formatted(), "baris (perkiraan)", "list.number", Theme.accent)
+                stat(all.compactMap(\.rows).reduce(0, +).formatted(), L("baris (perkiraan)"), "list.number", Theme.accent)
                 stat(ByteCountFormatter.string(fromByteCount: Int64(all.compactMap(\.sizeBytes).reduce(0, +)), countStyle: .file),
-                     "ukuran", "internaldrive", Color(hex: "#F59E0B"))
+                     L("ukuran"), "internaldrive", Color(hex: "#F59E0B"))
                 Spacer()
                 HStack(spacing: 6) {
                     Image(systemName: "magnifyingglass").foregroundStyle(.secondary).font(.caption)
-                    TextField("Filter tabel", text: $filter).textFieldStyle(.plain).font(.system(size: 12))
+                    TextField(L("Filter tabel"), text: $filter).textFieldStyle(.plain).font(.system(size: 12))
                 }
                 .padding(.horizontal, 9).frame(width: 200, height: 28)
                 .background(Theme.field, in: RoundedRectangle(cornerRadius: 7))
@@ -962,10 +962,10 @@ private struct DbOverview: View {
             .padding(14)
 
             HStack(spacing: 0) {
-                Text("Tabel").frame(maxWidth: .infinity, alignment: .leading)
-                Text("Tipe").frame(width: 80, alignment: .leading)
-                Text("Baris").frame(width: 110, alignment: .trailing)
-                Text("Ukuran").frame(width: 100, alignment: .trailing)
+                Text(L("Tabel")).frame(maxWidth: .infinity, alignment: .leading)
+                Text(L("Tipe")).frame(width: 80, alignment: .leading)
+                Text(L("Baris")).frame(width: 110, alignment: .trailing)
+                Text(L("Ukuran")).frame(width: 100, alignment: .trailing)
             }
             .font(.system(size: 11, weight: .semibold)).foregroundStyle(.secondary)
             .padding(.horizontal, 18).padding(.vertical, 6)
@@ -975,7 +975,7 @@ private struct DbOverview: View {
             if ws.loadingDbs.contains(db) && all.isEmpty {
                 ProgressView().frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if all.isEmpty {
-                Text("Database ini belum punya tabel").foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
+                Text(L("Database ini belum punya tabel")).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 0) {
@@ -1013,7 +1013,7 @@ private struct OverviewRow: View {
                     Image(systemName: table.isView ? "eye" : "tablecells").foregroundStyle(table.isView ? Theme.accent3 : Theme.accent2)
                     Text(table.name).lineLimit(1)
                     if hover {
-                        Text("Telusuri →").font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.accent)
+                        Text(L("Telusuri →")).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(Theme.accent)
                             .transition(.opacity.combined(with: .move(edge: .leading)))
                     }
                 }
@@ -1041,8 +1041,8 @@ private struct ServerOverview: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Pilih database").font(.title3.bold())
-                Text("\(ws.userDatabases.count) database pengguna · \(ws.systemDatabases.count) database sistem")
+                Text(L("Pilih database")).font(.title3.bold())
+                Text(L("{} database pengguna · {} database sistem", ws.userDatabases.count, ws.systemDatabases.count))
                     .font(.callout).foregroundStyle(.secondary)
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 190), spacing: 12)], spacing: 12) {
                     ForEach(Array(ws.userDatabases.enumerated()), id: \.element) { i, db in
@@ -1052,7 +1052,7 @@ private struct ServerOverview: View {
                                     .foregroundStyle(Theme.brandGradient)
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(db).font(.system(size: 13.5, weight: .semibold)).lineLimit(1)
-                                    Text(ws.dbTables[db].map { "\($0.count) tabel" } ?? "Klik untuk membuka")
+                                    Text(ws.dbTables[db].map { L("{} tabel", $0.count) } ?? L("Klik untuk membuka"))
                                         .font(.caption).foregroundStyle(.secondary)
                                 }
                                 Spacer(minLength: 0)
@@ -1140,7 +1140,7 @@ struct ResultGrid: View {
         .background(Theme.bg)
         .overlay(alignment: .bottom) {
             if let copied {
-                Text("Disalin: \(copied.prefix(40))")
+                Text(L("Disalin: {}", copied.prefix(40)))
                     .font(.caption).padding(.horizontal, 12).padding(.vertical, 6)
                     .background(.ultraThickMaterial, in: Capsule()).padding(10)
                     .transition(.move(edge: .bottom).combined(with: .opacity))

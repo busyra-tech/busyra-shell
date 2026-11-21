@@ -33,15 +33,15 @@ enum BiometricUnlock {
 
     static func retrieve() async throws -> Data {
         let ctx = LAContext()
-        ctx.localizedFallbackTitle = "Pakai master password"
+        ctx.localizedFallbackTitle = L("Pakai master password")
         try await ctx.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics,
-                                     localizedReason: "membuka vault Djie Shell")
+                                     localizedReason: L("membuka vault Djie Shell"))
         var q = baseQuery
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
         var out: AnyObject?
         guard SecItemCopyMatching(q as CFDictionary, &out) == errSecSuccess, let data = out as? Data else {
-            throw NSError(domain: "Djie", code: 1, userInfo: [NSLocalizedDescriptionKey: "Kunci Touch ID tidak ditemukan"])
+            throw NSError(domain: "Djie", code: 1, userInfo: [NSLocalizedDescriptionKey: L("Kunci Touch ID tidak ditemukan")])
         }
         return data
     }

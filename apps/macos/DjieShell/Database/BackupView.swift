@@ -31,7 +31,7 @@ struct BackupSchedule: Codable, Equatable {
     enum Frequency: String, Codable, CaseIterable, Identifiable {
         case off, daily, weekly
         var id: String { rawValue }
-        var title: String { switch self { case .off: "Mati"; case .daily: "Tiap hari"; case .weekly: "Tiap minggu" } }
+        var title: String { switch self { case .off: L("Mati"); case .daily: L("Tiap hari"); case .weekly: L("Tiap minggu") } }
     }
     var frequency: Frequency = .off
     var hour = 2
@@ -115,22 +115,22 @@ final class BackupModel {
             Task { @MainActor in self?.jobs[c.id]?.bytes = done; self?.jobs[c.id]?.total = total }
         }
         progress[c.id] = p
-        jobs[c.id] = Job(restore: false, stage: "Membuat backup…")
+        jobs[c.id] = Job(restore: false, stage: L("Membuat backup…"))
         defer { jobs[c.id] = nil; progress[c.id] = nil; revision += 1 }
         var s = schedule(c.id)
         do {
             let r = try await backupDatabase(conn: c, ssh: app.sshTarget(forId: c.sshHostId), destPath: dest.path,
                                              toolDirs: [app.stack.rootPath], progress: p)
             prune(c, keep: s.keep)
-            var note = "Backup \(c.title) selesai · \(ByteCountFormatter.string(fromByteCount: Int64(r.bytes), countStyle: .file))"
+            var note = L("Backup {} selesai · {}", c.title, ByteCountFormatter.string(fromByteCount: Int64(r.bytes), countStyle: .file))
             if s.drive {
-                jobs[c.id]?.stage = "Mengunggah ke Google Drive…"
+                jobs[c.id]?.stage = L("Mengunggah ke Google Drive…")
                 jobs[c.id]?.bytes = 0
                 do {
                     _ = try await driveUploadBackup(token: try await app.driveToken(), path: r.path, progress: p)
-                    note += " · tersimpan juga di Google Drive"
+                    note += L(" · tersimpan juga di Google Drive")
                 } catch {
-                    note += " · gagal unggah ke Drive: \(error.djieMessage)"
+                    note += L(" · gagal unggah ke Drive: {}", error.djieMessage)
                 }
             }
             s.last = Date(); s.lastError = nil
@@ -138,13 +138,13 @@ final class BackupModel {
             app.flash(note)
             return true
         } catch CoreError.Cancelled {
-            app.flash("Backup dibatalkan")
+            app.flash(L("Backup dibatalkan"))
         } catch {
             s.lastError = error.djieMessage
             if scheduled { s.last = Date() }
             setSchedule(c.id, s)
-            app.flash("Backup \(c.title) gagal: \(error.djieMessage)")
-            if scheduled { Notifier.shared.send(title: "Backup \(c.title) gagal", body: error.djieMessage, key: "backup:\(c.id)") }
+            app.flash(L("Backup {} gagal: {}", c.title, error.djieMessage))
+            if scheduled { Notifier.shared.send(title: L("Backup {} gagal", c.title), body: error.djieMessage, key: "backup:\(c.id)") }
         }
         return false
     }
@@ -155,15 +155,15 @@ final class BackupModel {
             Task { @MainActor in self?.jobs[c.id]?.bytes = done; self?.jobs[c.id]?.total = total }
         }
         progress[c.id] = p
-        jobs[c.id] = Job(restore: true, stage: "Memulihkan \(item.name)…")
+        jobs[c.id] = Job(restore: true, stage: L("Memulihkan {}…", item.name))
         defer { jobs[c.id] = nil; progress[c.id] = nil }
         do {
             try await restoreDatabase(conn: c, ssh: app.sshTarget(forId: c.sshHostId), srcPath: item.path, toolDirs: [app.stack.rootPath], progress: p)
-            app.flash("\(c.title) dipulihkan dari \(item.name)")
+            app.flash(L("{} dipulihkan dari {}", c.title, item.name))
         } catch CoreError.Cancelled {
-            app.flash("Restore dibatalkan")
+            app.flash(L("Restore dibatalkan"))
         } catch {
-            app.flash("Restore gagal: \(error.djieMessage)")
+            app.flash(L("Restore gagal: {}", error.djieMessage))
         }
     }
 
@@ -238,8 +238,8 @@ struct BackupSheet: View {
             HStack(spacing: 12) {
                 EngineBadge(preset: DbPreset.find(db), size: 40)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Backup · \(db.title)").font(.title3.bold())
-                    Text(db.sshHostId != nil ? "Dump dijalankan di server lewat SSH, hasilnya disimpan di Mac ini" : "Memakai alat dump di Mac ini (termasuk komponen Server Lokal)")
+                    Text(L("Backup · {}", db.title)).font(.title3.bold())
+                    Text(db.sshHostId != nil ? L("Dump dijalankan di server lewat SSH, hasilnya disimpan di Mac ini") : L("Memakai alat dump di Mac ini (termasuk komponen Server Lokal)"))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -254,12 +254,12 @@ struct BackupSheet: View {
                         Text(progressText(job)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button("Batalkan") { backups.cancel(db.id) }.buttonStyle(SecondaryButtonStyle())
+                    Button(L("Batalkan")) { backups.cancel(db.id) }.buttonStyle(SecondaryButtonStyle())
                 } else {
-                    Button { Task { await backups.backup(db, app: model) } } label: { Label("Backup sekarang", systemImage: "externaldrive.badge.plus") }
+                    Button { Task { await backups.backup(db, app: model) } } label: { Label(L("Backup sekarang"), systemImage: "externaldrive.badge.plus") }
                         .buttonStyle(PrimaryButtonStyle())
                     Button { NSWorkspace.shared.open(BackupModel.folder(db).deletingLastPathComponent().appendingPathComponent(BackupModel.folder(db).lastPathComponent)) } label: {
-                        Label("Buka folder", systemImage: "folder")
+                        Label(L("Buka folder"), systemImage: "folder")
                     }
                     .buttonStyle(SecondaryButtonStyle())
                     .disabled(items.isEmpty)
@@ -271,42 +271,42 @@ struct BackupSheet: View {
 
             // Jadwal
             VStack(alignment: .leading, spacing: 10) {
-                Text("JADWAL OTOMATIS").font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
+                Text(L("JADWAL OTOMATIS")).font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
                 HStack(spacing: 12) {
                     Picker("", selection: Binding(get: { sched.frequency }, set: { sched.frequency = $0; backups.setSchedule(db.id, sched) })) {
                         ForEach(BackupSchedule.Frequency.allCases) { f in Text(f.title).tag(f) }
                     }
                     .pickerStyle(.segmented).labelsHidden().fixedSize()
                     if sched.frequency != .off {
-                        Picker("pukul", selection: Binding(get: { sched.hour }, set: { sched.hour = $0; backups.setSchedule(db.id, sched) })) {
+                        Picker(L("pukul"), selection: Binding(get: { sched.hour }, set: { sched.hour = $0; backups.setSchedule(db.id, sched) })) {
                             ForEach(0..<24, id: \.self) { h in Text(String(format: "%02d.00", h)).tag(h) }
                         }
                         .fixedSize()
-                        Stepper("Simpan \(sched.keep) terakhir", value: Binding(get: { sched.keep }, set: { sched.keep = $0; backups.setSchedule(db.id, sched) }), in: 1...60)
+                        Stepper(L("Simpan {} terakhir", sched.keep), value: Binding(get: { sched.keep }, set: { sched.keep = $0; backups.setSchedule(db.id, sched) }), in: 1...60)
                             .fixedSize()
                     }
                 }
                 Toggle(isOn: Binding(get: { sched.drive }, set: { sched.drive = $0; backups.setSchedule(db.id, sched) })) {
-                    Text("Unggah juga ke Google Drive (folder “Djie Shell Backups”)")
+                    Text(L("Unggah juga ke Google Drive (folder “Djie Shell Backups”)"))
                 }
                 .disabled(!model.teamReady)
-                .help(model.teamReady ? "" : "Masuk dengan Google dan izinkan akses Google Drive di menu Akun")
+                .help(model.teamReady ? "" : L("Masuk dengan Google dan izinkan akses Google Drive di menu Akun"))
                 if sched.frequency != .off {
-                    Text("Berjalan selama Djie Shell terbuka. Bila Mac mati saat jadwal tiba, backup dibuat begitu app dibuka lagi.")
+                    Text(L("Berjalan selama Djie Shell terbuka. Bila Mac mati saat jadwal tiba, backup dibuat begitu app dibuka lagi."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if let e = sched.lastError {
-                    Label("Backup terakhir gagal: \(e)", systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Color(hex: "#F0616D"))
+                    Label(L("Backup terakhir gagal: {}", e), systemImage: "exclamationmark.triangle").font(.caption).foregroundStyle(Color(hex: "#F0616D"))
                 } else if let last = sched.last {
-                    Text("Backup terakhir: \(last.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(.secondary)
+                    Text(L("Backup terakhir: {}", last.formatted(date: .abbreviated, time: .shortened))).font(.caption).foregroundStyle(.secondary)
                 }
             }
 
             // Daftar backup
             VStack(alignment: .leading, spacing: 8) {
-                Text("BACKUP TERSIMPAN · \(items.count)").font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
+                Text(L("BACKUP TERSIMPAN · {}", items.count)).font(.system(size: 11, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
                 if items.isEmpty {
-                    Text("Belum ada backup.").font(.callout).foregroundStyle(.secondary).padding(.vertical, 12)
+                    Text(L("Belum ada backup.")).font(.callout).foregroundStyle(.secondary).padding(.vertical, 12)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 6) {
@@ -319,18 +319,18 @@ struct BackupSheet: View {
 
             HStack {
                 Spacer()
-                Button("Selesai") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
+                Button(L("Selesai")) { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
             }
         }
         .padding(24)
         .frame(width: 600)
-        .confirmationDialog("Pulihkan \(db.title) dari backup ini?", isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } })) {
+        .confirmationDialog(L("Pulihkan {} dari backup ini?", db.title), isPresented: Binding(get: { restoring != nil }, set: { if !$0 { restoring = nil } })) {
             if let item = restoring {
-                Button("Pulihkan (timpa data)", role: .destructive) { Task { await backups.restore(db, item: item, app: model) } }
+                Button(L("Pulihkan (timpa data)"), role: .destructive) { Task { await backups.restore(db, item: item, app: model) } }
             }
         } message: {
             if let item = restoring {
-                Text("\(item.name)\n\nTabel di database akan dihapus & dibuat ulang sesuai isi backup. Data yang belum ada di backup akan hilang. Sebaiknya buat backup baru dulu.")
+                Text(L("{}\n\nTabel di database akan dihapus & dibuat ulang sesuai isi backup. Data yang belum ada di backup akan hilang. Sebaiknya buat backup baru dulu.", item.name))
             }
         }
     }
@@ -344,9 +344,9 @@ struct BackupSheet: View {
             }
             Spacer()
             Text(ByteCountFormatter.string(fromByteCount: item.size, countStyle: .file)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-            Button("Pulihkan") { restoring = item }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
-            IconButton(symbol: "magnifyingglass", help: "Tampilkan di Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
-            IconButton(symbol: "trash", help: "Pindahkan ke Trash", tint: Color(hex: "#F0616D")) { model.backups.delete(item) }
+            Button(L("Pulihkan")) { restoring = item }.buttonStyle(SecondaryButtonStyle()).disabled(busy)
+            IconButton(symbol: "magnifyingglass", help: L("Tampilkan di Finder")) { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: item.path)]) }
+            IconButton(symbol: "trash", help: L("Pindahkan ke Trash"), tint: Color(hex: "#F0616D")) { model.backups.delete(item) }
         }
         .padding(10)
         .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
@@ -355,6 +355,6 @@ struct BackupSheet: View {
     private func progressText(_ j: BackupModel.Job) -> String {
         let done = ByteCountFormatter.string(fromByteCount: Int64(j.bytes), countStyle: .file)
         if j.total > 0 { return "\(done) / \(ByteCountFormatter.string(fromByteCount: Int64(j.total), countStyle: .file))" }
-        return j.restore ? "\(done) dikirim" : "\(done) data"
+        return j.restore ? L("{} dikirim", done) : L("{} data", done)
     }
 }

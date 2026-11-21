@@ -84,7 +84,7 @@ final class TerminalSession: Identifiable {
     static func localHost() -> Host {
         var h = Host.blank()
         h.id = "local"
-        h.label = "Lokal"
+        h.label = L("Lokal")
         h.hostname = "localhost"
         h.username = NSUserName()
         h.color = "#94A3B8"
@@ -137,7 +137,7 @@ final class TerminalSession: Identifiable {
         model?.logEnd(logID, code: code)
         logID = nil
         withAnimation(.djie) { status = .disconnected(code) }
-        view.feed(text: "\r\n\u{1b}[2m— sesi berakhir —\u{1b}[0m\r\n")
+        view.feed(text: "\r\n\u{1b}[2m— " + L("sesi berakhir") + " —\u{1b}[0m\r\n")
     }
 
     private func cleanup() {
@@ -216,13 +216,13 @@ final class DjieTerminalView: LocalProcessTerminalView {
     /// Menu klik kanan.
     override func menu(for event: NSEvent) -> NSMenu? {
         let m = NSMenu()
-        let copyItem = NSMenuItem(title: "Salin", action: #selector(menuCopy), keyEquivalent: "c")
+        let copyItem = NSMenuItem(title: L("Salin"), action: #selector(menuCopy), keyEquivalent: "c")
         copyItem.isEnabled = hasSelection
         m.addItem(copyItem)
-        m.addItem(NSMenuItem(title: "Tempel", action: #selector(menuPaste), keyEquivalent: "v"))
-        m.addItem(NSMenuItem(title: "Pilih Semua", action: #selector(menuSelectAll), keyEquivalent: "a"))
+        m.addItem(NSMenuItem(title: L("Tempel"), action: #selector(menuPaste), keyEquivalent: "v"))
+        m.addItem(NSMenuItem(title: L("Pilih Semua"), action: #selector(menuSelectAll), keyEquivalent: "a"))
         m.addItem(.separator())
-        m.addItem(NSMenuItem(title: "Bersihkan layar", action: #selector(menuClear), keyEquivalent: ""))
+        m.addItem(NSMenuItem(title: L("Bersihkan layar"), action: #selector(menuClear), keyEquivalent: ""))
         m.items.forEach { $0.target = self }
         m.autoenablesItems = false
         return m

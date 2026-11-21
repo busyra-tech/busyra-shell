@@ -294,9 +294,9 @@ struct AutocompletePopup: View {
                     .onHover { if $0 { ac.index = i } }
             }
             HStack(spacing: 10) {
-                hint("⇥", "terima")
-                hint("↑↓", "pilih")
-                hint("esc", "tutup")
+                hint("⇥", L("terima"))
+                hint("↑↓", L("pilih"))
+                hint("esc", L("tutup"))
                 Spacer()
             }
             .padding(.horizontal, 10)
@@ -330,7 +330,7 @@ struct AutocompletePopup: View {
             if let label = s.label {
                 Text(label).font(.system(size: 10.5, weight: .medium)).foregroundStyle(.secondary).lineLimit(1)
             } else if s.kind == .history {
-                Text("riwayat").font(.system(size: 10)).foregroundStyle(.tertiary)
+                Text(L("riwayat")).font(.system(size: 10)).foregroundStyle(.tertiary)
             }
         }
         .padding(.horizontal, 8)

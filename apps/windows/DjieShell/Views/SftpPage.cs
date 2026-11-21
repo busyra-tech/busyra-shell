@@ -28,7 +28,7 @@ internal sealed class SftpPage : PageBase
     private TextBlock? _edDirty, _edLines;
     private Button? _edSave;
     private ListView? _localList, _remoteList;
-    private static readonly CultureInfo Id = new("id-ID");
+    private static readonly CultureInfo Id = new(L10n.English ? "en-US" : "id-ID");
     private const string DragFormat = "djie-sftp";
 
     public SftpPage() : base("sftp", "transfers", "data")
@@ -88,7 +88,7 @@ internal sealed class SftpPage : PageBase
             var n = box.Text.Split('\r').Length;
             if (box.Text.EndsWith('\r')) n--;
             lines.Text = string.Join("\n", Enumerable.Range(1, Math.Max(1, n)));
-            if (_edLines != null) _edLines.Text = $"{Math.Max(1, n)} baris";
+            if (_edLines != null) _edLines.Text = L.T("{} baris", Math.Max(1, n));
         }
         box.TextChanged += (_, _) => { doc.Text = FromBox(box.Text, doc.LineEnding); Numbers(); UpdateEditorState(doc); };
         var gutter = new Border { Child = lines, Background = Theme.Panel, MinWidth = 48 };
@@ -96,17 +96,17 @@ internal sealed class SftpPage : PageBase
         var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = ScrollBarVisibility.Auto, HorizontalScrollMode = ScrollMode.Enabled, ZoomMode = ZoomMode.Disabled };
 
         _edDirty = Ui.Text("●", 12, fg: Theme.Brush(Theme.Orange));
-        _edSave = Ui.Primary("Simpan", G.Save, () => _ = Save(doc, false));
-        var openWith = new DropDownButton { Content = Ui.Row(6, Ui.Icon(G.Export, 12), Ui.Text("Buka dengan", 12.5)) };
+        _edSave = Ui.Primary(L.T("Simpan"), G.Save, () => _ = Save(doc, false));
+        var openWith = new DropDownButton { Content = Ui.Row(6, Ui.Icon(G.Export, 12), Ui.Text(L.T("Buka dengan"), 12.5)) };
         openWith.Flyout = OpenWithFlyout(new FileItem(doc.Name, doc.Path, false, 0, null, 0), () => S.CloseEditor());
         var title = Ui.Col(1, Ui.Row(8, Ui.Text(doc.Name, 15, FontWeights.SemiBold), _edDirty),
             Ui.Text(doc.Path, 11, fg: Theme.Text2, mono: true).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis));
         var head = Ui.Columns("Auto,*,Auto,Auto,Auto", 10, Ui.TintIcon(G.Document, Theme.Accent, 32, 13, 9), title, openWith, _edSave,
-            Ui.IconBtn(G.Close, "Tutup (Esc)", () => _ = CloseEditor(doc)));
+            Ui.IconBtn(G.Close, L.T("Tutup (Esc)"), () => _ = CloseEditor(doc)));
         head.Padding = new Thickness(16, 12, 14, 12);
         _edLines = Ui.Text("", 11.5, fg: Theme.Text2);
         var foot = Ui.Columns("Auto,Auto,Auto,*,Auto", 16, _edLines, Ui.Text(doc.LineEnding == "\r\n" ? "UTF-8 · CRLF" : "UTF-8 · LF", 11.5, fg: Theme.Text2),
-            Ui.Text(S.Host is { } h ? $"SFTP · {h.Title()}" : "SFTP", 11.5, fg: Theme.Text2), null, Ui.Text("Ctrl+S simpan · Esc tutup", 11.5, fg: Theme.Text3));
+            Ui.Text(S.Host is { } h ? $"SFTP · {h.Title()}" : "SFTP", 11.5, fg: Theme.Text2), null, Ui.Text(L.T("Ctrl+S simpan · Esc tutup"), 11.5, fg: Theme.Text3));
         foot.Padding = new Thickness(16, 7, 16, 8);
         var sep1 = new Border { Height = 1, Background = Theme.Ink(0.08) };
         var sep2 = new Border { Height = 1, Background = Theme.Ink(0.08) };
@@ -143,9 +143,9 @@ internal sealed class SftpPage : PageBase
     private async Task Save(RemoteEditorDoc doc, bool force)
     {
         var r = await S.SaveEditor(doc, force);
-        if (r == "conflict" && await Ui.Confirm("File di server sudah berubah", $"{doc.Name} diubah di server setelah kamu membukanya. Simpan akan menimpa perubahan itu.", "Timpa"))
+        if (r == "conflict" && await Ui.Confirm(L.T("File di server sudah berubah"), L.T("{} diubah di server setelah kamu membukanya. Simpan akan menimpa perubahan itu.", doc.Name), L.T("Timpa")))
             await S.SaveEditor(doc, true);
-        else if (r != null && r != "conflict") await Ui.Confirm("Gagal menyimpan", r, "OK", false);
+        else if (r != null && r != "conflict") await Ui.Confirm(L.T("Gagal menyimpan"), r, "OK", false);
         UpdateEditorState(doc);
     }
 
@@ -154,8 +154,8 @@ internal sealed class SftpPage : PageBase
         if (!doc.Dirty) { S.CloseEditor(); return; }
         var d = new ContentDialog
         {
-            Title = $"Simpan perubahan di {doc.Name}?", Content = "Perubahan belum disimpan ke server.", PrimaryButtonText = "Simpan & tutup",
-            SecondaryButtonText = "Buang perubahan", CloseButtonText = "Batal", DefaultButton = ContentDialogButton.Primary, XamlRoot = Ui.Root,
+            Title = L.T("Simpan perubahan di {}?", doc.Name), Content = L.T("Perubahan belum disimpan ke server."), PrimaryButtonText = L.T("Simpan & tutup"),
+            SecondaryButtonText = L.T("Buang perubahan"), CloseButtonText = L.T("Batal"), DefaultButton = ContentDialogButton.Primary, XamlRoot = Ui.Root,
         };
         var res = await d.ShowAsync();
         if (res == ContentDialogResult.Primary) { if (await S.SaveEditor(doc) == null) S.CloseEditor(); }
@@ -172,12 +172,12 @@ internal sealed class SftpPage : PageBase
             i.Click += (_, _) => { before?.Invoke(); _ = S.OpenWith(item, app); };
             f.Items.Add(i);
         }
-        Add("Aplikasi bawaan", null);
+        Add(L.T("Aplikasi bawaan"), null);
         var apps = RemoteFiles.CommonApps();
         if (apps.Count > 0) f.Items.Add(new MenuFlyoutSeparator());
         foreach (var (name, exe) in apps) Add(name, exe);
         f.Items.Add(new MenuFlyoutSeparator());
-        Add("Pilih aplikasi lain…", "choose");
+        Add(L.T("Pilih aplikasi lain…"), "choose");
         return f;
     }
 
@@ -185,13 +185,13 @@ internal sealed class SftpPage : PageBase
 
     private void RenderPicker()
     {
-        var header = Ui.Header("SFTP", "Kelola file di server: upload, download, ganti nama, atur izin.");
+        var header = Ui.Header("SFTP", L.T("Kelola file di server: upload, download, ganti nama, atur izin."));
         var col = Ui.Col(22, header);
         if (M.Hosts.Length == 0)
-            col.Children.Add(Ui.EmptyState(G.Folder, "Belum ada host", "Tambahkan host dulu di menu Hosts, lalu buka SFTP-nya di sini."));
+            col.Children.Add(Ui.EmptyState(G.Folder, L.T("Belum ada host"), L.T("Tambahkan host dulu di menu Hosts, lalu buka SFTP-nya di sini.")));
         else
         {
-            col.Children.Add(Ui.Caps("Pilih server"));
+            col.Children.Add(Ui.Caps(L.T("Pilih server")));
             var rep = new ItemsRepeater
             {
                 Layout = new UniformGridLayout { MinItemWidth = 240, MinItemHeight = 72, MinColumnSpacing = 12, MinRowSpacing = 12, ItemsStretch = UniformGridLayoutItemsStretch.Fill },
@@ -219,16 +219,16 @@ internal sealed class SftpPage : PageBase
         var h = S.Host;
         UIElement status = S.State switch
         {
-            SftpModel.Status.Connecting => Ui.Row(6, new ProgressRing { Width = 14, Height = 14, IsActive = true }, Ui.Text("Menyambung…", 12, fg: Theme.Text2)),
-            SftpModel.Status.Failed => Ui.Row(6, Ui.Icon(G.Warning, 12, Theme.Brush(Theme.Orange)), Ui.Text(S.FailMessage ?? "Gagal", 12, fg: Theme.Brush(Theme.Orange)).With(t => t.MaxWidth = 520)),
-            _ => Ui.Row(6, new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(Theme.Green) }, Ui.Text("Tersambung", 12, fg: Theme.Brush(Theme.Green))),
+            SftpModel.Status.Connecting => Ui.Row(6, new ProgressRing { Width = 14, Height = 14, IsActive = true }, Ui.Text(L.T("Menyambung…"), 12, fg: Theme.Text2)),
+            SftpModel.Status.Failed => Ui.Row(6, Ui.Icon(G.Warning, 12, Theme.Brush(Theme.Orange)), Ui.Text(S.FailMessage ?? L.T("Gagal"), 12, fg: Theme.Brush(Theme.Orange)).With(t => t.MaxWidth = 520)),
+            _ => Ui.Row(6, new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(Theme.Green) }, Ui.Text(L.T("Tersambung"), 12, fg: Theme.Brush(Theme.Green))),
         };
         var title = Ui.Row(10, Ui.TintIcon(G.Folder, h?.Color ?? Theme.Accent, 30, 13, 8), Ui.Col(1, Ui.Text(h?.Title() ?? "SFTP", 15, FontWeights.Bold), status));
-        var hidden = new ToggleSwitch { IsOn = S.ShowHidden, OnContent = "File tersembunyi", OffContent = "File tersembunyi", MinWidth = 0 };
+        var hidden = new ToggleSwitch { IsOn = S.ShowHidden, OnContent = L.T("File tersembunyi"), OffContent = L.T("File tersembunyi"), MinWidth = 0 };
         hidden.Toggled += (_, _) => { if (hidden.IsOn != S.ShowHidden) S.SetShowHidden(hidden.IsOn); };
         var actions = Ui.Row(8, hidden,
-            S.State == SftpModel.Status.Failed && h != null ? Ui.Secondary("Coba lagi", G.Refresh, () => _ = M.OpenSftp(h)) : null,
-            Ui.Secondary("Ganti server", G.Server, () => _ = S.Disconnect()),
+            S.State == SftpModel.Status.Failed && h != null ? Ui.Secondary(L.T("Coba lagi"), G.Refresh, () => _ = M.OpenSftp(h)) : null,
+            Ui.Secondary(L.T("Ganti server"), G.Server, () => _ = S.Disconnect()),
             h != null ? Ui.Secondary("Terminal", G.Terminal, () => M.Connect([h.Id])) : null);
         var row = Ui.Columns("*,Auto", 12, title, actions);
         var err = S.Error is { } e ? new InfoBar { Severity = InfoBarSeverity.Warning, Message = e, IsOpen = true, IsClosable = false } : null;
@@ -241,11 +241,11 @@ internal sealed class SftpPage : PageBase
     {
         var pathBox = new TextBox { Text = path, FontFamily = Theme.MonoFont, FontSize = 12 };
         pathBox.KeyDown += (_, e) => { if (e.Key == Windows.System.VirtualKey.Enter) go(pathBox.Text.Trim()); };
-        var tools = Ui.Row(2, Ui.IconBtn(G.Up, "Folder induk", up), Ui.IconBtn(G.Home, "Folder rumah", home),
-            Ui.IconBtn(G.Refresh, "Muat ulang", refresh), Ui.IconBtn(G.NewFolder, "Folder baru", newFolder));
-        var head = Ui.Columns("Auto,*,Auto", 8, Ui.Row(7, Ui.Icon(glyph, 13, Theme.AccentBrush), Ui.Text(title, 13, FontWeights.SemiBold)), new Border(), extra);
+        var tools = Ui.Row(2, Ui.IconBtn(G.Up, L.T("Folder induk"), up), Ui.IconBtn(G.Home, L.T("Folder rumah"), home),
+            Ui.IconBtn(G.Refresh, L.T("Muat ulang"), refresh), Ui.IconBtn(G.NewFolder, L.T("Folder baru"), newFolder));
+        var head = Ui.Columns("Auto,*,Auto", 8, Ui.Row(7, Ui.Icon(glyph, 13, Theme.AccentBrush), Ui.Text(L.T(title), 13, FontWeights.SemiBold)), new Border(), extra);
         var bar = Ui.Columns("*,Auto", 6, pathBox, tools);
-        var cols = Ui.Columns("26,*,90,130,90", 8, new Border(), Ui.Caps("Nama"), Ui.Caps("Ukuran").With(t => t.HorizontalAlignment = HorizontalAlignment.Right), Ui.Caps("Diubah"), Ui.Caps(title == "Server" ? "Izin" : ""));
+        var cols = Ui.Columns("26,*,90,130,90", 8, new Border(), Ui.Caps(L.T("Nama")), Ui.Caps(L.T("Ukuran")).With(t => t.HorizontalAlignment = HorizontalAlignment.Right), Ui.Caps(L.T("Diubah")), Ui.Caps(title == "Server" ? L.T("Izin") : ""));
         cols.Padding = new Thickness(12, 0, 12, 0);
         var root = Ui.Rows("Auto,Auto,Auto,*", 8, head, bar, cols, list);
         return new Border { Child = root, Padding = new Thickness(12), CornerRadius = new CornerRadius(14), Background = Theme.Card, BorderBrush = Theme.CardStroke, BorderThickness = new Thickness(1) };
@@ -256,7 +256,7 @@ internal sealed class SftpPage : PageBase
         var lv = new ListView { SelectionMode = ListViewSelectionMode.Extended, CanDragItems = true, AllowDrop = true, IsDoubleTapEnabled = true };
         foreach (var it in items) lv.Items.Add(new ListViewItem { Content = Row(it, remote), Tag = it, Padding = new Thickness(4, 0, 4, 0), MinHeight = 32 });
         if (items.Count == 0)
-            lv.Header = Ui.Secondary(remote && S.RemoteLoading ? "Memuat…" : "Folder kosong", 12).With(t => { t.Margin = new Thickness(14, 10, 0, 0); });
+            lv.Header = Ui.Secondary(remote && S.RemoteLoading ? L.T("Memuat…") : L.T("Folder kosong"), 12).With(t => { t.Margin = new Thickness(14, 10, 0, 0); });
         lv.DoubleTapped += (_, e) =>
         {
             if ((e.OriginalSource as FrameworkElement)?.DataContext is not null) { }
@@ -277,7 +277,7 @@ internal sealed class SftpPage : PageBase
         {
             var ok = e.DataView.Contains(DragFormat) || (remote && e.DataView.Contains(StandardDataFormats.StorageItems));
             e.AcceptedOperation = ok ? DataPackageOperation.Copy : DataPackageOperation.None;
-            if (ok) e.DragUIOverride.Caption = remote ? "Upload ke server" : "Download ke sini";
+            if (ok) e.DragUIOverride.Caption = remote ? L.T("Upload ke server") : L.T("Download ke sini");
         };
         lv.Drop += async (_, e) =>
         {
@@ -333,33 +333,33 @@ internal sealed class SftpPage : PageBase
         var f = new MenuFlyout();
         void Item(string t, string g, Action<List<FileItem>> a, bool single = false)
         {
-            var i = new MenuFlyoutItem { Text = t, Icon = new FontIcon { Glyph = g } };
+            var i = new MenuFlyoutItem { Text = L.T(t), Icon = new FontIcon { Glyph = g } };
             i.Click += (_, _) => { var sel = Selected(lv); if (sel.Count > 0 && (!single || sel.Count == 1)) a(sel); };
             f.Items.Add(i);
         }
         Item("Edit di Djie Shell", G.Edit, sel => { if (!sel[0].IsDir) _ = S.OpenEditor(sel[0]); }, true);
-        var openWith = new MenuFlyoutSubItem { Text = "Buka dengan", Icon = new FontIcon { Glyph = G.Export } };
+        var openWith = new MenuFlyoutSubItem { Text = L.T("Buka dengan"), Icon = new FontIcon { Glyph = G.Export } };
         void OW(string text, string? app)
         {
             var i = new MenuFlyoutItem { Text = text };
             i.Click += (_, _) => { var sel = Selected(lv); if (sel.Count == 1 && !sel[0].IsDir) _ = S.OpenWith(sel[0], app); };
             openWith.Items.Add(i);
         }
-        OW("Aplikasi bawaan", null);
+        OW(L.T("Aplikasi bawaan"), null);
         foreach (var (name, exe) in RemoteFiles.CommonApps()) OW(name, exe);
         openWith.Items.Add(new MenuFlyoutSeparator());
-        OW("Pilih aplikasi lain…", "choose");
+        OW(L.T("Pilih aplikasi lain…"), "choose");
         f.Items.Add(openWith);
         f.Items.Add(new MenuFlyoutSeparator());
         Item("Download", G.Download, sel => S.Download(sel));
-        Item("Buka", G.Folder, sel => { if (sel[0].IsDir) _ = S.OpenRemote(sel[0].Path); }, true);
+        Item(L10n.English ? "Open" : "Buka", G.Folder, sel => { if (sel[0].IsDir) _ = S.OpenRemote(sel[0].Path); }, true);
         Item("Ganti nama…", G.Rename, sel => _ = Rename(sel[0], true), true);
         Item("Izin (chmod)…", G.Permissions, sel => _ = Chmod(sel[0]), true);
         Item("Salin path", G.Copy, sel => Ui.CopyText(string.Join("\n", sel.Select(x => x.Path))));
         f.Items.Add(new MenuFlyoutSeparator());
         Item("Hapus", G.Delete, async sel =>
         {
-            if (await Ui.Confirm(sel.Count == 1 ? $"Hapus “{sel[0].Name}”?" : $"Hapus {sel.Count} item?", "File di server akan dihapus permanen (folder beserta isinya)."))
+            if (await Ui.Confirm(sel.Count == 1 ? L.T("Hapus “{}”?", sel[0].Name) : L.T("Hapus {} item?", sel.Count), L.T("File di server akan dihapus permanen (folder beserta isinya).")))
                 await S.DeleteRemote(sel);
         });
         return f;
@@ -370,7 +370,7 @@ internal sealed class SftpPage : PageBase
         var f = new MenuFlyout();
         void Item(string t, string g, Action<List<FileItem>> a, bool single = false)
         {
-            var i = new MenuFlyoutItem { Text = t, Icon = new FontIcon { Glyph = g } };
+            var i = new MenuFlyoutItem { Text = L.T(t), Icon = new FontIcon { Glyph = g } };
             i.Click += (_, _) => { var sel = Selected(lv); if (sel.Count > 0 && (!single || sel.Count == 1)) a(sel); };
             f.Items.Add(i);
         }
@@ -383,7 +383,7 @@ internal sealed class SftpPage : PageBase
         f.Items.Add(new MenuFlyoutSeparator());
         Item("Hapus", G.Delete, async sel =>
         {
-            if (await Ui.Confirm(sel.Count == 1 ? $"Hapus “{sel[0].Name}”?" : $"Hapus {sel.Count} item?", "File di PC ini akan dihapus permanen."))
+            if (await Ui.Confirm(sel.Count == 1 ? L.T("Hapus “{}”?", sel[0].Name) : L.T("Hapus {} item?", sel.Count), L.T("File di PC ini akan dihapus permanen.")))
                 S.DeleteLocal(sel);
         });
         return f;
@@ -391,8 +391,8 @@ internal sealed class SftpPage : PageBase
 
     private async Task NewFolder(bool remote)
     {
-        var name = Ui.Field("Nama folder");
-        var d = Ui.Dialog("Folder baru", name, "Buat");
+        var name = Ui.Field(L.T("Nama folder"));
+        var d = Ui.Dialog(L.T("Folder baru"), name, L.T("Buat"));
         name.Loaded += (_, _) => name.Focus(FocusState.Programmatic);
         if (await d.ShowAsync() != ContentDialogResult.Primary || name.Text.Trim().Length == 0) return;
         if (remote) await S.MkdirRemote(name.Text.Trim()); else S.MkdirLocal(name.Text.Trim());
@@ -400,8 +400,8 @@ internal sealed class SftpPage : PageBase
 
     private async Task Rename(FileItem item, bool remote)
     {
-        var name = Ui.Field("Nama baru", item.Name);
-        var d = Ui.Dialog("Ganti nama", name, "Simpan");
+        var name = Ui.Field(L.T("Nama baru"), item.Name);
+        var d = Ui.Dialog(L.T("Ganti nama"), name, L.T("Simpan"));
         name.Loaded += (_, _) => { name.Focus(FocusState.Programmatic); name.SelectAll(); };
         if (await d.ShowAsync() != ContentDialogResult.Primary) return;
         if (remote) await S.RenameRemote(item, name.Text.Trim()); else S.RenameLocal(item, name.Text.Trim());
@@ -412,8 +412,9 @@ internal sealed class SftpPage : PageBase
         var mode = item.Permissions & 0x1FF;
         var boxes = new List<CheckBox>();
         var grid = new Grid { ColumnSpacing = 8, RowSpacing = 4 };
-        string[] who = ["Pemilik", "Grup", "Lainnya"];
-        string[] what = ["Baca", "Tulis", "Jalankan"];
+        // "Lainnya"/"Jalankan" punya arti lain di kamus (More/Run), jadi label chmod dipilih langsung.
+        string[] who = L10n.English ? ["Owner", "Group", "Others"] : ["Pemilik", "Grup", "Lainnya"];
+        string[] what = L10n.English ? ["Read", "Write", "Execute"] : ["Baca", "Tulis", "Jalankan"];
         for (int c = 0; c < 4; c++) grid.ColumnDefinitions.Add(new ColumnDefinition { Width = c == 0 ? new GridLength(80) : GridLength.Auto });
         for (int r = 0; r < 4; r++) grid.RowDefinitions.Add(new RowDefinition());
         var octal = Ui.Field("", Convert.ToString(mode, 8).PadLeft(3, '0'), mono: true, width: 90);
@@ -437,11 +438,11 @@ internal sealed class SftpPage : PageBase
                 boxes.Add(cb);
             }
         }
-        var content = Ui.Col(12, Ui.Text(item.Name, 13, FontWeights.SemiBold, mono: true), grid, Ui.Row(8, Ui.Text("Oktal", 12.5), octal));
-        var d = Ui.Dialog("Izin file", content, "Terapkan");
+        var content = Ui.Col(12, Ui.Text(item.Name, 13, FontWeights.SemiBold, mono: true), grid, Ui.Row(8, Ui.Text(L.T("Oktal"), 12.5), octal));
+        var d = Ui.Dialog(L.T("Izin file"), content, L.T("Terapkan"));
         if (await d.ShowAsync() != ContentDialogResult.Primary) return;
         try { await S.ChmodRemote(item, Convert.ToUInt32(octal.Text.Trim(), 8)); }
-        catch { M.Flash("Format oktal tidak valid (mis. 755)"); }
+        catch { M.Flash(L.T("Format oktal tidak valid (mis. 755)")); }
     }
 
     // MARK: Transfer
@@ -453,32 +454,32 @@ internal sealed class SftpPage : PageBase
         var watched = Ui.Col(6);
         if (S.Watched.Count > 0)
         {
-            watched.Children.Add(Ui.Row(8, Ui.Icon(G.Sync, 13, Theme.AccentBrush), Ui.Text("Dibuka di aplikasi lain — disimpan otomatis ke server", 13, FontWeights.SemiBold)));
+            watched.Children.Add(Ui.Row(8, Ui.Icon(G.Sync, 13, Theme.AccentBrush), Ui.Text(L.T("Dibuka di aplikasi lain — disimpan otomatis ke server"), 13, FontWeights.SemiBold)));
             foreach (var w in S.Watched)
             {
-                var state = w.Uploading ? Ui.Text("Mengunggah…", 11.5, fg: Theme.AccentBrush)
-                    : w.LastUpload is { } t ? Ui.Text($"✓ Tersimpan {t:HH.mm}", 11.5, fg: Theme.Brush(Theme.Green)) : Ui.Text("Menunggu perubahan", 11.5, fg: Theme.Text3);
+                var state = w.Uploading ? Ui.Text(L.T("Mengunggah…"), 11.5, fg: Theme.AccentBrush)
+                    : w.LastUpload is { } t ? Ui.Text(L.T("✓ Tersimpan {}", t.ToString("HH.mm")), 11.5, fg: Theme.Brush(Theme.Green)) : Ui.Text(L.T("Menunggu perubahan"), 11.5, fg: Theme.Text3);
                 watched.Children.Add(Ui.Columns("Auto,Auto,*,Auto,Auto", 10, Ui.Icon(G.Document, 13, Theme.Text2),
-                    Ui.Text(System.IO.Path.GetFileName(w.LocalPath), 12.5, FontWeights.Medium), Ui.Text($"di {w.AppName}", 11.5, fg: Theme.Text2), state,
-                    Ui.Secondary("Berhenti", null, () => S.StopWatching(w))));
+                    Ui.Text(System.IO.Path.GetFileName(w.LocalPath), 12.5, FontWeights.Medium), Ui.Text(L.T("di {}", w.AppName), 11.5, fg: Theme.Text2), state,
+                    Ui.Secondary(L.T("Berhenti"), null, () => S.StopWatching(w))));
             }
         }
         if (S.Transfers.Count == 0) { _transfers.Child = Ui.Card(watched, 12, 12); return; }
-        var head = Ui.Columns("*,Auto", 8, Ui.Row(8, Ui.Text("Transfer", 13, FontWeights.SemiBold), Ui.Pill(S.Transfers.Count(t => t.Status == Transfer.State.Running) + " berjalan")),
-            Ui.Secondary("Bersihkan", null, S.ClearFinished));
+        var head = Ui.Columns("*,Auto", 8, Ui.Row(8, Ui.Text("Transfer", 13, FontWeights.SemiBold), Ui.Pill(L.T("{} berjalan", S.Transfers.Count(t => t.Status == Transfer.State.Running)))),
+            Ui.Secondary(L.T("Bersihkan"), null, S.ClearFinished));
         var list = Ui.Col(6);
         foreach (var t in S.Transfers.Take(30))
         {
             var bar = new ProgressBar { Maximum = 1, Value = t.Fraction, Height = 4 };
             var (text, color) = t.Status switch
             {
-                Transfer.State.Running => (t.Total > 0 ? $"{Ui.Bytes(t.Done)} / {Ui.Bytes(t.Total)}" : "Menyiapkan…", Theme.Accent2),
-                Transfer.State.Done => ("Selesai", Theme.Green),
-                Transfer.State.Cancelled => ("Dibatalkan", "#94A3B8"),
-                _ => (t.Error ?? "Gagal", Theme.Orange),
+                Transfer.State.Running => (t.Total > 0 ? $"{Ui.Bytes(t.Done)} / {Ui.Bytes(t.Total)}" : L.T("Menyiapkan…"), Theme.Accent2),
+                Transfer.State.Done => (L.T("Selesai"), Theme.Green),
+                Transfer.State.Cancelled => (L.T("Dibatalkan"), "#94A3B8"),
+                _ => (t.Error ?? L.T("Gagal"), Theme.Orange),
             };
             if (t.Status != Transfer.State.Running) bar.Foreground = Theme.Brush(color);
-            var cancel = t.Status == Transfer.State.Running ? Ui.IconBtn(G.Close, "Batalkan", () => S.Cancel(t), size: 10) : null;
+            var cancel = t.Status == Transfer.State.Running ? Ui.IconBtn(G.Close, L.T("Batalkan"), () => S.Cancel(t), size: 10) : null;
             var row = Ui.Columns("Auto,180,*,220,Auto", 10,
                 Ui.Icon(t.Direction == Transfer.Kind.Upload ? G.Upload : G.Download, 13, Theme.AccentBrush),
                 Ui.Text(t.Name, 12.5, FontWeights.Medium), bar, Ui.Text(text, 11.5, fg: Theme.Brush(color)).With(x => x.HorizontalAlignment = HorizontalAlignment.Right), cancel);

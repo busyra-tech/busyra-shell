@@ -13,8 +13,8 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         var errorDescription: String? {
             switch self {
             case .notConfigured:
-                "Login Google belum dikonfigurasi. Isi Config.googleClientID dengan OAuth Client ID dari Google Cloud Console."
-            case .cancelled: "Login dibatalkan"
+                L("Login Google belum dikonfigurasi. Isi Config.googleClientID dengan OAuth Client ID dari Google Cloud Console.")
+            case .cancelled: L("Login dibatalkan")
             case .failed(let m): m
             }
         }
@@ -50,7 +50,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
             let s = ASWebAuthenticationSession(url: c.url!, callbackURLScheme: scheme) { url, error in
                 if let url { cont.resume(returning: url) }
                 else if (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin { cont.resume(throwing: AuthError.cancelled) }
-                else { cont.resume(throwing: AuthError.failed(error?.localizedDescription ?? "Login gagal")) }
+                else { cont.resume(throwing: AuthError.failed(error?.localizedDescription ?? L("Login gagal"))) }
             }
             s.presentationContextProvider = self
             s.prefersEphemeralWebBrowserSession = false
@@ -60,7 +60,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
 
         guard let code = URLComponents(url: callback, resolvingAgainstBaseURL: false)?
             .queryItems?.first(where: { $0.name == "code" })?.value
-        else { throw AuthError.failed("Kode otorisasi tidak diterima") }
+        else { throw AuthError.failed(L("Kode otorisasi tidak diterima")) }
 
         // Tukar kode dengan token
         var req = URLRequest(url: URL(string: "https://oauth2.googleapis.com/token")!)
@@ -74,7 +74,7 @@ final class GoogleAuth: NSObject, ASWebAuthenticationPresentationContextProvidin
         let token = try JSONDecoder().decode(TokenResponse.self, from: data)
         guard let idToken = token.id_token, let claims = Self.claims(fromIDToken: idToken),
               let email = claims["email"] as? String else {
-            throw AuthError.failed("Tidak bisa membaca email akun Google")
+            throw AuthError.failed(L("Tidak bisa membaca email akun Google"))
         }
         GoogleTokens.store(refreshToken: token.refresh_token, accessToken: token.access_token,
                            expiresIn: token.expires_in)

@@ -20,7 +20,7 @@ pub fn build(ctx: &Ctx) -> gtk::Widget {
     header.set_margin_bottom(12);
     let titles = gtk::Box::new(gtk::Orientation::Vertical, 2);
     titles.set_hexpand(true);
-    let title = gtk::Label::builder().label("Hosts").xalign(0.0).build();
+    let title = gtk::Label::builder().label(tr!("Hosts")).xalign(0.0).build();
     title.add_css_class("djie-title");
     let subtitle = gtk::Label::builder().xalign(0.0).build();
     subtitle.add_css_class("djie-muted");
@@ -28,17 +28,17 @@ pub fn build(ctx: &Ctx) -> gtk::Widget {
     titles.append(&subtitle);
     header.append(&titles);
 
-    let search = gtk::SearchEntry::builder().placeholder_text("Cari host, IP, tag…").width_chars(22).valign(gtk::Align::Center).build();
+    let search = gtk::SearchEntry::builder().placeholder_text(tr!("Cari host, IP, tag…")).width_chars(22).valign(gtk::Align::Center).build();
     header.append(&search);
 
-    let hide = gtk::ToggleButton::builder().icon_name("view-reveal-symbolic").tooltip_text("Sembunyikan alamat host").valign(gtk::Align::Center).build();
+    let hide = gtk::ToggleButton::builder().icon_name("view-reveal-symbolic").tooltip_text(tr!("Sembunyikan alamat host")).valign(gtk::Align::Center).build();
     hide.add_css_class("flat");
     header.append(&hide);
 
     let add = gtk::Button::builder().valign(gtk::Align::Center).build();
-    add.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label("Host Baru").build()));
+    add.set_child(Some(&adw::ButtonContent::builder().icon_name("list-add-symbolic").label(tr!("Host Baru")).build()));
     add.add_css_class("suggested-action");
-    add.set_tooltip_text(Some("Host Baru (Ctrl+Shift+N)"));
+    add.set_tooltip_text(Some(&tr!("Host Baru (Ctrl+Shift+N)")));
     let c = ctx.clone();
     add.connect_clicked(move |_| editor::open(&c, None));
     header.append(&add);
@@ -62,7 +62,7 @@ pub fn build(ctx: &Ctx) -> gtk::Widget {
     hide.connect_toggled(move |b| {
         c.hide_addresses.set(b.is_active());
         b.set_icon_name(if b.is_active() { "view-conceal-symbolic" } else { "view-reveal-symbolic" });
-        b.set_tooltip_text(Some(if b.is_active() { "Tampilkan alamat host" } else { "Sembunyikan alamat host" }));
+        b.set_tooltip_text(Some(&if b.is_active() { tr!("Tampilkan alamat host") } else { tr!("Sembunyikan alamat host") }));
         r();
     });
     ctx.on_change(refresh);
@@ -86,19 +86,19 @@ fn render(ctx: &Ctx, body: &gtk::Box, subtitle: &gtk::Label, query: &str) {
     let all = ctx.hosts();
     let online: usize = all.iter().filter(|h| ctx.connected_count(&h.id) > 0).count();
     subtitle.set_label(&if online > 0 {
-        format!("{} server · {online} terhubung", all.len())
+        tr!("{} server · {} terhubung", all.len(), online)
     } else {
-        format!("{} server · klik dua kali kartu untuk connect", all.len())
+        tr!("{} server · klik dua kali kartu untuk connect", all.len())
     });
 
     if all.is_empty() {
         let status = adw::StatusPage::builder()
             .icon_name("network-server-symbolic")
-            .title("Belum ada host")
-            .description("Tambahkan server pertamamu, lalu connect dengan satu klik.")
+            .title(tr!("Belum ada host"))
+            .description(tr!("Tambahkan server pertamamu, lalu connect dengan satu klik."))
             .vexpand(true)
             .build();
-        let b = gtk::Button::with_label("Tambah host");
+        let b = gtk::Button::with_label(&tr!("Tambah host"));
         b.add_css_class("suggested-action");
         b.add_css_class("pill");
         b.set_halign(gtk::Align::Center);
@@ -113,7 +113,7 @@ fn render(ctx: &Ctx, body: &gtk::Box, subtitle: &gtk::Label, query: &str) {
     if hosts.is_empty() {
         let status = adw::StatusPage::builder()
             .icon_name("system-search-symbolic")
-            .title(format!("Tidak ada host yang cocok dengan “{query}”"))
+            .title(tr!("Tidak ada host yang cocok dengan “{}”", query))
             .vexpand(true)
             .build();
         body.append(&status);
@@ -125,7 +125,7 @@ fn render(ctx: &Ctx, body: &gtk::Box, subtitle: &gtk::Label, query: &str) {
     for h in hosts {
         let key = match h.group.as_deref().map(str::trim).filter(|g| !g.is_empty()) {
             Some(g) => (1, g.to_string()),
-            None => (0, "Hosts".to_string()),
+            None => (0, tr!("Hosts")),
         };
         groups.entry(key).or_default().push(h);
     }
@@ -189,7 +189,7 @@ fn card(ctx: &Ctx, h: &Host) -> gtk::Widget {
     }
     let n = ctx.connected_count(&h.id);
     if n > 0 {
-        let c = gtk::Label::new(Some(if n > 1 { format!("Terhubung ×{n}") } else { "Terhubung".into() }.as_str()));
+        let c = gtk::Label::new(Some(if n > 1 { tr!("Terhubung ×{}", n) } else { tr!("Terhubung") }.as_str()));
         c.add_css_class("djie-chip");
         c.add_css_class("online");
         c.set_valign(gtk::Align::Center);
@@ -198,8 +198,8 @@ fn card(ctx: &Ctx, h: &Host) -> gtk::Widget {
     let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     spacer.set_hexpand(true);
     bottom.append(&spacer);
-    let connect = gtk::Button::builder().tooltip_text("Connect (klik dua kali kartu)").build();
-    connect.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label("Connect").build()));
+    let connect = gtk::Button::builder().tooltip_text(tr!("Connect (klik dua kali kartu)")).build();
+    connect.set_child(Some(&adw::ButtonContent::builder().icon_name("media-playback-start-symbolic").label(tr!("Connect")).build()));
     connect.add_css_class("suggested-action");
     connect.add_css_class("pill");
     connect.add_css_class("small");
@@ -235,7 +235,7 @@ fn menu_button(ctx: &Ctx, h: &Host) -> gtk::MenuButton {
     add("duplicate", Box::new(move || {
         let mut copy = host.clone();
         copy.id = String::new();
-        copy.label = format!("{} (salinan)", ctx::host_title(&host));
+        copy.label = tr!("{} (salinan)", ctx::host_title(&host));
         if let Some(v) = c.vault() {
             match v.upsert_host(copy) {
                 Ok(_) => c.changed(),
@@ -246,20 +246,20 @@ fn menu_button(ctx: &Ctx, h: &Host) -> gtk::MenuButton {
     let (c, host) = (ctx.clone(), h.clone());
     add("copy", Box::new(move || {
         ctx::copy_text(&ctx::host_address(&host, false));
-        c.toast("Alamat disalin");
+        c.toast(&tr!("Alamat disalin"));
     }));
     let (c, host) = (ctx.clone(), h.clone());
     add("delete", Box::new(move || confirm_delete(&c, &host)));
 
     let menu = gio::Menu::new();
     let s1 = gio::Menu::new();
-    s1.append(Some("Connect"), Some("host.connect"));
-    s1.append(Some("Edit"), Some("host.edit"));
-    s1.append(Some("Duplikat"), Some("host.duplicate"));
-    s1.append(Some("Salin alamat"), Some("host.copy"));
+    s1.append(Some(&tr!("Connect")), Some("host.connect"));
+    s1.append(Some(&tr!("Edit")), Some("host.edit"));
+    s1.append(Some(&tr!("Duplikat")), Some("host.duplicate"));
+    s1.append(Some(&tr!("Salin alamat")), Some("host.copy"));
     menu.append_section(None, &s1);
     let s2 = gio::Menu::new();
-    s2.append(Some("Hapus"), Some("host.delete"));
+    s2.append(Some(&tr!("Hapus")), Some("host.delete"));
     menu.append_section(None, &s2);
 
     let b = gtk::MenuButton::builder().icon_name("view-more-symbolic").menu_model(&menu).valign(gtk::Align::Start).build();
@@ -271,10 +271,10 @@ fn menu_button(ctx: &Ctx, h: &Host) -> gtk::MenuButton {
 
 pub fn confirm_delete(ctx: &Ctx, h: &Host) {
     let d = adw::AlertDialog::new(
-        Some(&format!("Hapus host “{}”?", ctx::host_title(h))),
-        Some("Tindakan ini tidak bisa dibatalkan."),
+        Some(&tr!("Hapus host “{}”?", ctx::host_title(h))),
+        Some(&tr!("Tindakan ini tidak bisa dibatalkan.")),
     );
-    d.add_responses(&[("cancel", "Batal"), ("delete", "Hapus")]);
+    d.add_responses(&[("cancel", &tr!("Batal")), ("delete", &tr!("Hapus"))]);
     d.set_response_appearance("delete", adw::ResponseAppearance::Destructive);
     d.set_default_response(Some("cancel"));
     let (c, id) = (ctx.clone(), h.id.clone());
@@ -283,7 +283,7 @@ pub fn confirm_delete(ctx: &Ctx, h: &Host) {
             if let Some(v) = c.vault() {
                 match v.delete_host(id.clone()) {
                     Ok(()) => {
-                        c.toast("Host dihapus");
+                        c.toast(&tr!("Host dihapus"));
                         c.changed();
                     }
                     Err(e) => c.error(e),

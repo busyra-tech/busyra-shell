@@ -102,28 +102,30 @@ internal static class Errors
     public static string Text(Exception e) => e switch
     {
         AggregateException a when a.InnerException != null => Text(a.InnerException),
-        CoreException.WrongPassword => "Master password salah",
-        CoreException.AlreadyExists => "Vault sudah ada",
-        CoreException.NotFound => "Data tidak ditemukan",
-        CoreException.WeakPassword => "Password minimal 8 karakter",
-        CoreException.KeyMismatch => "Vault di Google Drive memakai master password lain",
-        CoreException.InvalidKey k => $"SSH key tidak valid: {k.msg}",
-        CoreException.Corrupt c => $"File vault rusak: {c.msg}",
-        CoreException.Ssh s => $"Koneksi SSH gagal: {s.msg}",
-        CoreException.Proxy px => $"Proxy: {px.msg}",
-        CoreException.AuthFailed => "Login ditolak server — periksa username, password, atau key",
-        CoreException.HostKeyChanged => "Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti.",
-        CoreException.Db d => $"Database: {d.msg}",
-        CoreException.Cancelled => "Transfer dibatalkan",
-        CoreException.Io io => $"Gagal membaca/menulis file: {io.msg}",
-        CoreException.GoogleAuth => "Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan.",
-        CoreException.GoogleScope => "Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive.",
-        CoreException.Team t => $"Tim: {t.msg}",
-        CoreException.Docker dk => dk.msg.Length > 0 ? char.ToUpper(dk.msg[0]) + dk.msg[1..] : dk.msg,
-        CoreException.Stack st => st.msg.Length > 0 ? char.ToUpper(st.msg[0]) + st.msg[1..] : st.msg,
-        CoreException.Server sv => sv.msg.Length > 0 ? char.ToUpper(sv.msg[0]) + sv.msg[1..] : sv.msg,
-        _ => e.Message
+        CoreException.WrongPassword => L.T("Master password salah"),
+        CoreException.AlreadyExists => L.T("Vault sudah ada"),
+        CoreException.NotFound => L.T("Data tidak ditemukan"),
+        CoreException.WeakPassword => L.T("Password minimal 8 karakter"),
+        CoreException.KeyMismatch => L.T("Vault di Google Drive memakai master password lain"),
+        CoreException.InvalidKey k => L.T("SSH key tidak valid: {}", L.Msg(k.msg)),
+        CoreException.Corrupt c => L.T("File vault rusak: {}", L.Msg(c.msg)),
+        CoreException.Ssh s => L.T("Koneksi SSH gagal: {}", L.Msg(s.msg)),
+        CoreException.Proxy px => "Proxy: " + L.Msg(px.msg),
+        CoreException.AuthFailed => L.T("Login ditolak server — periksa username, password, atau key"),
+        CoreException.HostKeyChanged => L.T("Kunci server berubah! Bisa jadi server diganti atau ada serangan man-in-the-middle. Hapus host ini di Known Hosts jika memang server berganti."),
+        CoreException.Db d => "Database: " + L.Msg(d.msg),
+        CoreException.Cancelled => L.T("Transfer dibatalkan"),
+        CoreException.Io io => L.T("Gagal membaca/menulis file: {}", L.Msg(io.msg)),
+        CoreException.GoogleAuth => L.T("Sesi Google berakhir. Masuk lagi dengan Google untuk melanjutkan."),
+        CoreException.GoogleScope => L.T("Djie Shell belum diberi izin mengelola file Tim di Google Drive. Masuk ulang dengan Google dan izinkan akses Drive."),
+        CoreException.Team t => L.T("Tim: {}", L.Msg(t.msg)),
+        CoreException.Docker dk => L.Msg(Cap(dk.msg)),
+        CoreException.Stack st => L.Msg(Cap(st.msg)),
+        CoreException.Server sv => L.Msg(Cap(sv.msg)),
+        _ => L.Msg(e.Message)
     };
+
+    private static string Cap(string m) => m.Length > 0 ? char.ToUpper(m[0]) + m[1..] : m;
 }
 
 /// <summary>Riwayat perintah per host — hanya di perangkat ini, tidak ikut sync.</summary>
@@ -179,7 +181,7 @@ internal sealed record KnownHost(int Line, string Hosts, string KeyType, string 
 {
     public bool IsHashed => Hosts.StartsWith("|1|");
     public string ShortType => KeyType.Replace("ssh-", "").Replace("ecdsa-sha2-", "").ToUpperInvariant();
-    public string Display(bool hidden) => IsHashed ? "Host ter-hash" : hidden ? string.Join(", ", Hosts.Split(',').Select(_ => "••••••")) : Hosts;
+    public string Display(bool hidden) => IsHashed ? L.T("Host ter-hash") : hidden ? string.Join(", ", Hosts.Split(',').Select(_ => "••••••")) : Hosts;
 }
 
 internal static class KnownHostsFile
@@ -313,8 +315,8 @@ internal static class HostExt
 
     public static string Explanation(this ForwardKind k) => k switch
     {
-        ForwardKind.Local => "Port di PC ini diteruskan ke tujuan yang bisa dijangkau server. Contoh: 127.0.0.1:5433 → localhost:5432 (database di server).",
-        ForwardKind.Remote => "Port di server diteruskan ke tujuan di sisi PC ini. Contoh: membuka web lokal ke server.",
-        _ => "Proxy SOCKS di PC ini; semua lalu lintas keluar lewat server. Atur browser ke proxy SOCKS tersebut.",
+        ForwardKind.Local => L.T("Port di PC ini diteruskan ke tujuan yang bisa dijangkau server. Contoh: 127.0.0.1:5433 → localhost:5432 (database di server)."),
+        ForwardKind.Remote => L.T("Port di server diteruskan ke tujuan di sisi PC ini. Contoh: membuka web lokal ke server."),
+        _ => L.T("Proxy SOCKS di PC ini; semua lalu lintas keluar lewat server. Atur browser ke proxy SOCKS tersebut."),
     };
 }

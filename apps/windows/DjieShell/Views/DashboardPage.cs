@@ -24,9 +24,9 @@ internal sealed class DashboardPage : PageBase
 
     public DashboardPage() : base("dashboard", "data")
     {
-        var header = Ui.Header("Dashboard", "Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik");
+        var header = Ui.Header(L.T("Dashboard"), L.T("Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik"));
         _actions = (StackPanel)header.Children[1];
-        var search = Ui.Search("Cari server, OS, grup…", D.Query, q => { D.Query = q; RenderGrid(); }, 240);
+        var search = Ui.Search(L.T("Cari server, OS, grup…"), D.Query, q => { D.Query = q; RenderGrid(); }, 240);
         search.HorizontalAlignment = HorizontalAlignment.Right;
         _filters = Ui.Columns("Auto,*", 12, new Border(), search);
         _body = Ui.Col(20, header, _summary, _filters, _grid);
@@ -53,17 +53,17 @@ internal sealed class DashboardPage : PageBase
     {
         _actions.Children.Clear();
         if (D.Tiles.Values.Any(t => t.State == ServerTile.Status.Offline))
-            _actions.Children.Add(Ui.IconBtn(G.Refresh, "Coba lagi semua server yang offline", D.RetryOffline));
-        var bell = Ui.Secondary(D.Alerts ? "Notifikasi aktif" : "Notifikasi", D.Alerts ? "\uEA8F" : "\uE7ED", () => M.SetDashboardAlerts(!D.Alerts),
+            _actions.Children.Add(Ui.IconBtn(G.Refresh, L.T("Coba lagi semua server yang offline"), D.RetryOffline));
+        var bell = Ui.Secondary(D.Alerts ? L.T("Notifikasi aktif") : L.T("Notifikasi"), D.Alerts ? "\uEA8F" : "\uE7ED", () => M.SetDashboardAlerts(!D.Alerts),
             D.Alerts ? Theme.Brush(Theme.Accent) : null);
         ToolTipService.SetToolTip(bell, D.Alerts
-            ? "Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan."
-            : "Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%");
+            ? L.T("Dashboard terus memantau di latar belakang dan memberi notifikasi saat server mati atau CPU/RAM/disk di atas 90%. Klik untuk mematikan.")
+            : L.T("Nyalakan notifikasi: pantau terus di latar belakang, beri tahu saat server mati atau CPU/RAM/disk di atas 90%"));
         _actions.Children.Add(bell);
         if (M.Hosts.Length > 0)
         {
-            var run = Ui.Primary("Jalankan perintah", G.Play, () => new RunManyDialog(M.NewRunMany(D.SelectedIds)).Show());
-            ToolTipService.SetToolTip(run, "Jalankan satu perintah di banyak server sekaligus, hasilnya per server");
+            var run = Ui.Primary(L.T("Jalankan perintah"), G.Play, () => new RunManyDialog(M.NewRunMany(D.SelectedIds)).Show());
+            ToolTipService.SetToolTip(run, L.T("Jalankan satu perintah di banyak server sekaligus, hasilnya per server"));
             _actions.Children.Add(run);
         }
 
@@ -71,7 +71,7 @@ internal sealed class DashboardPage : PageBase
         _summary.Visibility = _filters.Visibility = empty ? Visibility.Collapsed : Visibility.Visible;
         _summary.Children.Clear();
         if (!empty) _summary.Children.Add(Summary());
-        var seg = Ui.Segmented(["Semua", "Perlu perhatian", "Offline"], (int)D.Current, i => { D.Current = (DashboardModel.Filter)i; Render(); });
+        var seg = Ui.Segmented([L.T("Semua"), L.T("Perlu perhatian"), L.T("Offline")], (int)D.Current, i => { D.Current = (DashboardModel.Filter)i; Render(); });
         seg.Width = 330;
         _filters.Children[0] = seg;
         RenderGrid();
@@ -83,14 +83,14 @@ internal sealed class DashboardPage : PageBase
         _grid.Children.Clear();
         if (M.Hosts.Length == 0)
         {
-            _grid.Children.Add(Ui.EmptyState(G.Gauge, "Belum ada server",
-                "Tambahkan host di menu Hosts — semua server langsung tampil di sini lengkap dengan pemakaian CPU, RAM, dan disk."));
+            _grid.Children.Add(Ui.EmptyState(G.Gauge, L.T("Belum ada server"),
+                L.T("Tambahkan host di menu Hosts — semua server langsung tampil di sini lengkap dengan pemakaian CPU, RAM, dan disk.")));
             return;
         }
         var tiles = D.Ordered;
         if (tiles.Count == 0)
         {
-            _grid.Children.Add(Ui.Secondary(D.Current == DashboardModel.Filter.All ? "Tidak ada server yang cocok." : "Semua server sehat 🎉")
+            _grid.Children.Add(Ui.Secondary(D.Current == DashboardModel.Filter.All ? L.T("Tidak ada server yang cocok.") : L.T("Semua server sehat 🎉"))
                 .With(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.Margin = new Thickness(0, 40, 0, 0); }));
             return;
         }
@@ -111,10 +111,10 @@ internal sealed class DashboardPage : PageBase
         ulong used = 0, total = 0;
         foreach (var t in live) if (t.Sample is { } s) { used += s.MemUsedBytes; total += s.MemTotalBytes; }
         return Ui.Columns("*,*,*,*", 14,
-            Stat("Online", $"{D.Online}/{D.Tiles.Count}", G.Server, Theme.Green),
-            Stat("Perlu perhatian", D.Attention.ToString(), G.Warning, D.Attention > 0 ? Theme.Red : "#94A3B8"),
-            Stat("CPU rata-rata", live.Count == 0 ? "—" : $"{cpu:0}%", G.Gauge, Theme.Accent),
-            Stat("RAM terpakai", total == 0 ? "—" : $"{Ui.Bytes(used)} / {Ui.Bytes(total)}", G.Stack, Theme.Accent3));
+            Stat(L.T("Online"), $"{D.Online}/{D.Tiles.Count}", G.Server, Theme.Green),
+            Stat(L.T("Perlu perhatian"), D.Attention.ToString(), G.Warning, D.Attention > 0 ? Theme.Red : "#94A3B8"),
+            Stat(L.T("CPU rata-rata"), live.Count == 0 ? "—" : $"{cpu:0}%", G.Gauge, Theme.Accent),
+            Stat(L.T("RAM terpakai"), total == 0 ? "—" : $"{Ui.Bytes(used)} / {Ui.Bytes(total)}", G.Stack, Theme.Accent3));
     }
 
     private static Border Stat(string title, string value, string glyph, string hex)
@@ -142,22 +142,22 @@ internal sealed class DashboardPage : PageBase
                     .With(x => { x.HorizontalAlignment = HorizontalAlignment.Center; x.VerticalAlignment = VerticalAlignment.Center; }),
         };
         var pick = Ui.Plain(avatar, () => D.Toggle(t.Id), new Thickness(0));
-        ToolTipService.SetToolTip(pick, selected ? "Batal pilih" : "Pilih untuk dibuka bersama (split & broadcast)");
+        ToolTipService.SetToolTip(pick, selected ? L.T("Batal pilih") : L.T("Pilih untuk dibuka bersama (split & broadcast)"));
         var subtitle = t.Info?.Os is { Length: > 0 } os ? os : t.Host.Address();
         var head = Ui.Columns("Auto,*,Auto,Auto,Auto", 8, pick,
             Ui.Col(1, Ui.Text(t.Host.Title(), 13.5, FontWeights.SemiBold).With(x => x.TextTrimming = TextTrimming.CharacterEllipsis),
                 Ui.Text(subtitle, 11.5, fg: Theme.Text2).With(x => x.TextTrimming = TextTrimming.CharacterEllipsis)),
             Status(t),
-            Ui.IconBtn(G.Terminal, "Buka terminal", () => M.Connect([t.Id]), size: 12),
-            Ui.IconBtn(G.Folder, "Buka SFTP", () => _ = M.OpenSftp(t.Host), size: 12));
+            Ui.IconBtn(G.Terminal, L.T("Buka terminal"), () => M.Connect([t.Id]), size: 12),
+            Ui.IconBtn(G.Folder, L.T("Buka SFTP"), () => _ = M.OpenSftp(t.Host), size: 12));
 
         UIElement content = t.State switch
         {
             ServerTile.Status.Offline => Ui.Col(8,
-                Ui.Row(6, Ui.Icon(G.Warning, 13, Theme.Brush(Theme.Red)), Ui.Text("Tidak bisa dihubungi", 13, FontWeights.SemiBold, Theme.Brush(Theme.Red))),
+                Ui.Row(6, Ui.Icon(G.Warning, 13, Theme.Brush(Theme.Red)), Ui.Text(L.T("Tidak bisa dihubungi"), 13, FontWeights.SemiBold, Theme.Brush(Theme.Red))),
                 Ui.Text(t.Error ?? "", 11.5, fg: Theme.Text2, wrap: true).With(x => { x.MaxLines = 3; x.IsTextSelectionEnabled = true; }),
-                Ui.Secondary("Coba lagi", null, () => D.Retry(t)).With(b => b.Margin = new Thickness(0, 6, 0, 0))),
-            _ when t.Sample == null => Ui.Row(8, new ProgressRing { Width = 16, Height = 16, IsActive = true }, Ui.Text("Menghubungkan…", 12.5, fg: Theme.Text2))
+                Ui.Secondary(L.T("Coba lagi"), null, () => D.Retry(t)).With(b => b.Margin = new Thickness(0, 6, 0, 0))),
+            _ when t.Sample == null => Ui.Row(8, new ProgressRing { Width = 16, Height = 16, IsActive = true }, Ui.Text(L.T("Menghubungkan…"), 12.5, fg: Theme.Text2))
                 .With(x => { x.HorizontalAlignment = HorizontalAlignment.Center; x.Margin = new Thickness(0, 46, 0, 46); }),
             _ => Metrics(t),
         };
@@ -174,11 +174,11 @@ internal sealed class DashboardPage : PageBase
         card.PointerExited += (_, _) => card.Background = Theme.Card;
         var menu = new MenuFlyout();
         void Item(string text, Action a) { var it = new MenuFlyoutItem { Text = text }; it.Click += (_, _) => a(); menu.Items.Add(it); }
-        Item("Buka terminal", () => M.Connect([t.Id]));
-        Item("Buka SFTP", () => _ = M.OpenSftp(t.Host));
+        Item(L.T("Buka terminal"), () => M.Connect([t.Id]));
+        Item(L.T("Buka SFTP"), () => _ = M.OpenSftp(t.Host));
         menu.Items.Add(new MenuFlyoutSeparator());
-        Item(selected ? "Batal pilih" : "Pilih", () => D.Toggle(t.Id));
-        Item("Sambung ulang", () => D.Retry(t));
+        Item(selected ? L.T("Batal pilih") : L.T("Pilih"), () => D.Toggle(t.Id));
+        Item(L.T("Sambung ulang"), () => D.Retry(t));
         card.ContextFlyout = menu;
         return card;
     }
@@ -191,9 +191,9 @@ internal sealed class DashboardPage : PageBase
                 var issues = t.Issues;
                 if (issues.Count > 0) return Ui.Badge(issues.Count > 1 ? $"{issues[0]} +{issues.Count - 1}" : issues[0], Theme.Red);
                 return Ui.Row(5, new Ellipse { Width = 7, Height = 7, Fill = Theme.Brush(Theme.Green), VerticalAlignment = VerticalAlignment.Center },
-                    Ui.Text("Online", 11.5, fg: Theme.Text2)).With(x => x.VerticalAlignment = VerticalAlignment.Center);
+                    Ui.Text(L.T("Online"), 11.5, fg: Theme.Text2)).With(x => x.VerticalAlignment = VerticalAlignment.Center);
             case ServerTile.Status.Offline:
-                return Ui.Badge("Offline", Theme.Red);
+                return Ui.Badge(L.T("Offline"), Theme.Red);
             default:
                 return new ProgressRing { Width = 14, Height = 14, IsActive = true };
         }
@@ -268,7 +268,7 @@ internal sealed class DashboardPage : PageBase
     private static string Uptime(ulong s)
     {
         ulong d = s / 86400, h = s % 86400 / 3600, m = s % 3600 / 60;
-        return d > 0 ? $"{d} hari" : h > 0 ? $"{h} jam" : $"{m} mnt";
+        return d > 0 ? L.T("{} hari", d) : h > 0 ? L.T("{} jam", h) : L.T("{} mnt", m);
     }
 
     private static string Rate(double bps) => bps switch
@@ -293,18 +293,18 @@ internal sealed class DashboardPage : PageBase
             Child = Ui.Text(ids.Count.ToString(), 13, FontWeights.Bold, new SolidColorBrush(Microsoft.UI.Colors.Black))
                 .With(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }),
         };
-        var cancel = Ui.Plain(Ui.Text("Batal", 13, fg: Theme.Text2), () => { D.Selection.Clear(); Render(); }, new Thickness(8, 4, 8, 4));
-        var open = Ui.Secondary("Buka tab", G.Terminal, () => { M.Connect(ids); D.Selection.Clear(); });
-        var runMany = Ui.Secondary("Jalankan perintah", G.Play, () => new RunManyDialog(M.NewRunMany(ids)).Show());
+        var cancel = Ui.Plain(Ui.Text(L.T("Batal"), 13, fg: Theme.Text2), () => { D.Selection.Clear(); Render(); }, new Thickness(8, 4, 8, 4));
+        var open = Ui.Secondary(L.T("Buka tab"), G.Terminal, () => { M.Connect(ids); D.Selection.Clear(); });
+        var runMany = Ui.Secondary(L.T("Jalankan perintah"), G.Play, () => new RunManyDialog(M.NewRunMany(ids)).Show());
         var split = Ui.Primary("Split & broadcast", "", () => { M.OpenSplit(ids, true); D.Selection.Clear(); });
         split.IsEnabled = ids.Count >= 2 && ids.Count <= AppModel.MaxSplit;
-        ToolTipService.SetToolTip(split, ids.Count > AppModel.MaxSplit ? $"Maksimal {AppModel.MaxSplit} server dalam satu split" : "Buka berdampingan, ketikan dikirim ke semua");
+        ToolTipService.SetToolTip(split, ids.Count > AppModel.MaxSplit ? L.T("Maksimal {} server dalam satu split", AppModel.MaxSplit) : L.T("Buka berdampingan, ketikan dikirim ke semua"));
         _bar.Children.Add(new Border
         {
             CornerRadius = new CornerRadius(24), Padding = new Thickness(14, 8, 8, 8), BorderThickness = new Thickness(1), BorderBrush = Theme.Ink(0.1),
             Background = Theme.Dark ? Theme.Brush("#1A1F27") : new SolidColorBrush(Microsoft.UI.Colors.White),
             Shadow = new ThemeShadow(), Translation = new System.Numerics.Vector3(0, 0, 24),
-            Child = Ui.Row(12, count, Ui.Text("server dipilih", 13).With(t => t.VerticalAlignment = VerticalAlignment.Center), cancel, open, runMany, split),
+            Child = Ui.Row(12, count, Ui.Text(L.T("server dipilih"), 13).With(t => t.VerticalAlignment = VerticalAlignment.Center), cancel, open, runMany, split),
         });
     }
 }

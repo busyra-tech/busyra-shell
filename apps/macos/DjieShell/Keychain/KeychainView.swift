@@ -16,13 +16,13 @@ struct KeychainView: View {
                 HStack(spacing: 10) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Keychain").font(.system(size: 26, weight: .bold, design: .rounded))
-                        Text("SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key.")
+                        Text(L("SSH key tersimpan terenkripsi di vault. Pakai di host lewat Credentials → SSH Key."))
                             .font(.callout).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Button { sheet = .importKey } label: { Label("Import", systemImage: "square.and.arrow.down") }
+                    Button { sheet = .importKey } label: { Label(L("Import"), systemImage: "square.and.arrow.down") }
                         .buttonStyle(SecondaryButtonStyle())
-                    Button { sheet = .generate } label: { Label("Generate Key", systemImage: "sparkles") }
+                    Button { sheet = .generate } label: { Label(L("Generate Key"), systemImage: "sparkles") }
                         .buttonStyle(PrimaryButtonStyle())
                 }
 
@@ -32,8 +32,8 @@ struct KeychainView: View {
                             .font(.system(size: 40, weight: .light))
                             .foregroundStyle(Theme.brandGradient)
                             .symbolEffect(.wiggle, options: .repeat(.periodic(delay: 2.5)))
-                        Text("Belum ada SSH key").font(.title3.bold())
-                        Text("Generate key Ed25519 baru atau import dari ~/.ssh.").foregroundStyle(.secondary)
+                        Text(L("Belum ada SSH key")).font(.title3.bold())
+                        Text(L("Generate key Ed25519 baru atau import dari ~/.ssh.")).foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity).padding(.top, 70)
                 } else {
@@ -76,7 +76,7 @@ struct KeyCard: View {
                 .frame(width: 40, height: 40)
                 VStack(alignment: .leading, spacing: 3) {
                     if renaming {
-                        TextField("Label", text: $newLabel, onCommit: {
+                        TextField(L("Label"), text: $newLabel, onCommit: {
                             model.renameKey(key, to: newLabel)
                             renaming = false
                         })
@@ -93,7 +93,7 @@ struct KeyCard: View {
                         if key.passphrase != nil {
                             Image(systemName: "lock.fill").font(.system(size: 10)).foregroundStyle(.secondary)
                         }
-                        Text(usedBy == 0 ? "Belum dipakai" : "Dipakai \(usedBy) host")
+                        Text(usedBy == 0 ? L("Belum dipakai") : L("Dipakai {} host", usedBy))
                             .font(.caption).foregroundStyle(.secondary)
                     }
                 }
@@ -113,14 +113,14 @@ struct KeyCard: View {
                     withAnimation(.djieSnappy) { copied = true }
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) { withAnimation(.djie) { copied = false } }
                 } label: {
-                    Label(copied ? "Tersalin!" : "Salin public key", systemImage: copied ? "checkmark" : "doc.on.doc")
+                    Label(copied ? L("Tersalin!") : L("Salin public key"), systemImage: copied ? "checkmark" : "doc.on.doc")
                         .contentTransition(.symbolEffect(.replace))
                 }
                 .buttonStyle(SecondaryButtonStyle())
                 .tint(copied ? Theme.accent : nil)
                 Spacer()
-                IconButton(symbol: "pencil", help: "Ganti nama") { newLabel = key.label; renaming = true }
-                IconButton(symbol: "trash", help: "Hapus", tint: .red) { confirmDelete = true }
+                IconButton(symbol: "pencil", help: L("Ganti nama")) { newLabel = key.label; renaming = true }
+                IconButton(symbol: "trash", help: L("Hapus"), tint: .red) { confirmDelete = true }
             }
         }
         .padding(14)
@@ -130,10 +130,10 @@ struct KeyCard: View {
         .shadow(color: Theme.shadow.opacity(hover ? 1 : 0), radius: 12, y: 6)
         .animation(.djieHover, value: hover)
         .onHover { hover = $0 }
-        .confirmationDialog("Hapus key “\(key.label)”?", isPresented: $confirmDelete) {
-            Button("Hapus", role: .destructive) { model.deleteKey(key) }
+        .confirmationDialog(L("Hapus key “{}”?", key.label), isPresented: $confirmDelete) {
+            Button(L("Hapus"), role: .destructive) { model.deleteKey(key) }
         } message: {
-            Text(usedBy > 0 ? "\(usedBy) host yang memakai key ini akan kehilangan key-nya." : "Tindakan ini tidak bisa dibatalkan.")
+            Text(usedBy > 0 ? L("{} host yang memakai key ini akan kehilangan key-nya.", usedBy) : L("Tindakan ini tidak bisa dibatalkan."))
         }
     }
 }
@@ -148,11 +148,11 @@ struct GenerateKeySheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             if let k = result {
-                Label("Key berhasil dibuat", systemImage: "checkmark.seal.fill")
+                Label(L("Key berhasil dibuat"), systemImage: "checkmark.seal.fill")
                     .font(.title3.bold())
                     .foregroundStyle(Theme.accent)
                     .symbolEffect(.bounce, value: result?.id)
-                Text("Tambahkan public key ini ke `~/.ssh/authorized_keys` di server.")
+                Text(LocalizedStringKey(L("Tambahkan public key ini ke `~/.ssh/authorized_keys` di server.")))
                     .font(.callout).foregroundStyle(.secondary)
                 Text(k.publicKey)
                     .font(.system(size: 11, design: .monospaced))
@@ -162,27 +162,27 @@ struct GenerateKeySheet: View {
                     .background(Theme.field, in: RoundedRectangle(cornerRadius: 8))
                 HStack {
                     Spacer()
-                    Button("Salin & tutup") {
+                    Button(L("Salin & tutup")) {
                         NSPasteboard.general.clearContents()
                         NSPasteboard.general.setString(k.publicKey, forType: .string)
-                        model.flash("Public key disalin")
+                        model.flash(L("Public key disalin"))
                         dismiss()
                     }
                     .buttonStyle(PrimaryButtonStyle())
                 }
                 .transition(.opacity)
             } else {
-                Text("Generate SSH key").font(.title3.bold())
-                Text("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern.")
+                Text(L("Generate SSH key")).font(.title3.bold())
+                Text(L("Membuat pasangan key Ed25519 baru — cepat, aman, dan didukung semua server modern."))
                     .font(.callout).foregroundStyle(.secondary)
-                TextField("Label (mis. MacBook kantor)", text: $label).djieField()
+                TextField(L("Label (mis. MacBook kantor)"), text: $label).djieField()
                 if let error { Text(error).font(.caption).foregroundStyle(.red) }
                 HStack {
                     Spacer()
-                    Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle())
-                    Button("Generate") {
+                    Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle())
+                    Button(L("Generate")) {
                         do { withAnimation(.djie) { result = try? model.generateKey(label: label) } }
-                        if result == nil { error = "Gagal membuat key" }
+                        if result == nil { error = L("Gagal membuat key") }
                     }
                     .buttonStyle(PrimaryButtonStyle())
                     .keyboardShortcut(.return)
@@ -205,39 +205,39 @@ struct ImportKeySheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Import SSH key").font(.title3.bold())
-            Text("Pilih file private key (mis. `~/.ssh/id_ed25519`) atau tempel isinya. Format OpenSSH.")
+            Text(L("Import SSH key")).font(.title3.bold())
+            Text(LocalizedStringKey(L("Pilih file private key (mis. `~/.ssh/id_ed25519`) atau tempel isinya. Format OpenSSH.")))
                 .font(.callout).foregroundStyle(.secondary)
-            TextField("Label", text: $label).djieField()
+            TextField(L("Label"), text: $label).djieField()
             ZStack(alignment: .topLeading) {
                 TextEditor(text: $pem)
                     .font(.system(size: 11, design: .monospaced))
                     .scrollContentBackground(.hidden)
                     .padding(6)
                 if pem.isEmpty {
-                    Text("-----BEGIN OPENSSH PRIVATE KEY-----").font(.system(size: 11, design: .monospaced))
+                    Text(L("-----BEGIN OPENSSH PRIVATE KEY-----")).font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(.tertiary).padding(11).allowsHitTesting(false)
                 }
             }
             .frame(height: 140)
             .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
             .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.ink.opacity(0.1)))
-            SecureField("Passphrase (jika ada)", text: $passphrase).djieField()
+            SecureField(L("Passphrase (jika ada)"), text: $passphrase).djieField()
             if let error {
                 Text(error).font(.caption).foregroundStyle(.red).transition(.opacity)
             }
             HStack {
-                Button { pickFile() } label: { Label("Pilih file…", systemImage: "folder") }
+                Button { pickFile() } label: { Label(L("Pilih file…"), systemImage: "folder") }
                     .buttonStyle(SecondaryButtonStyle())
                 Spacer()
-                Button("Batal") { dismiss() }.buttonStyle(SecondaryButtonStyle())
-                Button("Import") {
+                Button(L("Batal")) { dismiss() }.buttonStyle(SecondaryButtonStyle())
+                Button(L("Import")) {
                     do {
                         try model.importKey(label: label, privateKey: pem, passphrase: passphrase.isEmpty ? nil : passphrase)
-                        model.flash("Key “\(label.isEmpty ? "SSH key" : label)” diimport")
+                        model.flash(L("Key “{}” diimport", label.isEmpty ? "SSH key" : label))
                         dismiss()
                     } catch {
-                        withAnimation(.djie) { self.error = error.localizedDescription }
+                        withAnimation(.djie) { self.error = Lmsg(error.localizedDescription) }
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle())
@@ -253,7 +253,7 @@ struct ImportKeySheet: View {
         panel.showsHiddenFiles = true
         panel.directoryURL = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".ssh")
         panel.allowsMultipleSelection = false
-        panel.message = "Pilih private key (bukan file .pub)"
+        panel.message = L("Pilih private key (bukan file .pub)")
         if panel.runModal() == .OK, let url = panel.url, let text = try? String(contentsOf: url, encoding: .utf8) {
             pem = text
             if label.isEmpty { label = url.lastPathComponent }

@@ -22,7 +22,7 @@ internal sealed class ResultGrid : Grid
 {
     private const double RowHeight = 28;
 
-    public ResultGrid(QueryResult r, ulong rowOffset = 0, string? highlightColumn = null)
+    public ResultGrid(QueryResult r, ulong rowOffset = 0, string? highlightColumn = null, bool translateHeaders = false)
     {
         var cols = r.Columns;
         var widths = new double[cols.Length];
@@ -38,7 +38,7 @@ internal sealed class ResultGrid : Grid
 
         var header = new StackPanel { Orientation = Orientation.Horizontal, Height = 32, Background = Theme.Ink(0.05) };
         header.Children.Add(Cell("#", numWidth, Theme.Text3, FontWeights.SemiBold, right: true));
-        for (int c = 0; c < cols.Length; c++) header.Children.Add(Cell(cols[c], widths[c], Theme.Text, FontWeights.SemiBold));
+        for (int c = 0; c < cols.Length; c++) header.Children.Add(Cell(translateHeaders ? L.T(cols[c]) : cols[c], widths[c], Theme.Text, FontWeights.SemiBold));
 
         var copied = new Border
         {
@@ -71,7 +71,7 @@ internal sealed class ResultGrid : Grid
                 {
                     if (value == null) return;
                     Ui.CopyText(value);
-                    copied.Child = Ui.Text("Disalin: " + (value.Length > 40 ? value[..40] + "…" : value), 12);
+                    copied.Child = Ui.Text(L.T("Disalin: {}", value.Length > 40 ? value[..40] + "…" : value), 12);
                     copied.Visibility = Visibility.Visible;
                     Ui.StaggerIn(copied, 0);
                     var stamp = value;
@@ -106,11 +106,11 @@ internal sealed class ResultGrid : Grid
         Children.Add(frame);
         if (cols.Length == 0)
         {
-            frame.Child = Ui.Secondary(r.Affected is { } a ? $"Berhasil — {a} baris terpengaruh" : "Perintah berhasil dijalankan").With(t => { t.Margin = new Thickness(16); });
+            frame.Child = Ui.Secondary(r.Affected is { } a ? L.T("Berhasil — {} baris terpengaruh", a) : L.T("Perintah berhasil dijalankan")).With(t => { t.Margin = new Thickness(16); });
         }
         else if (r.Rows.Length == 0)
         {
-            Children.Add(Ui.Secondary("0 baris").With(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }));
+            Children.Add(Ui.Secondary(L.T("0 baris")).With(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }));
         }
         Children.Add(copied);
     }

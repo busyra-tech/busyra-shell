@@ -59,16 +59,16 @@ struct AccountView: View {
             .frame(maxWidth: 920)
             .frame(maxWidth: .infinity)
         }
-        .confirmationDialog(confirm == .wipe ? "Keluar & hapus data dari Mac ini?" : "Keluar dari akun?",
+        .confirmationDialog(confirm == .wipe ? L("Keluar & hapus data dari Mac ini?") : L("Keluar dari akun?"),
                             isPresented: Binding(get: { confirm != nil }, set: { if !$0 { confirm = nil } }),
                             presenting: confirm) { kind in
-            Button(kind == .wipe ? "Keluar & hapus" : "Keluar", role: .destructive) {
+            Button(kind == .wipe ? L("Keluar & hapus") : L("Keluar"), role: .destructive) {
                 model.signOut(deleteLocal: kind == .wipe)
             }
         } message: { kind in
             Text(kind == .wipe
-                 ? "Vault, kunci Touch ID, dan login Google dihapus dari Mac ini. Salinan terenkripsi di Google Drive tetap ada — login lagi dan masukkan master password untuk memulihkannya. Pastikan status sync sudah \"Tersinkron\"."
-                 : "Login Google diputus dan vault dikunci. Data tetap terenkripsi di Mac ini; buka lagi dengan master password.")
+                 ? L("Vault, kunci Touch ID, dan login Google dihapus dari Mac ini. Salinan terenkripsi di Google Drive tetap ada — login lagi dan masukkan master password untuk memulihkannya. Pastikan status sync sudah \"Tersinkron\".")
+                 : L("Login Google diputus dan vault dikunci. Data tetap terenkripsi di Mac ini; buka lagi dengan master password."))
         }
     }
 
@@ -87,17 +87,17 @@ struct AccountView: View {
             .onAppear { ring = true }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(model.profileName ?? (model.accountEmail == nil ? "Tanpa akun" : model.accountEmail!.components(separatedBy: "@")[0]))
+                Text(model.profileName ?? (model.accountEmail == nil ? L("Tanpa akun") : model.accountEmail!.components(separatedBy: "@")[0]))
                     .font(.system(size: 26, weight: .bold, design: .rounded))
                     .lineLimit(1)
                 if let email = model.accountEmail {
                     Label(email, systemImage: "envelope.fill").font(.callout).foregroundStyle(.secondary).textSelection(.enabled)
                     HStack(spacing: 6) {
                         Badge(text: "GOOGLE", color: Theme.accent2)
-                        Badge(text: "SYNC DRIVE", color: Theme.accent)
+                        Badge(text: L("SYNC DRIVE"), color: Theme.accent)
                     }
                 } else {
-                    Text("Data hanya tersimpan di Mac ini. Hubungkan Google untuk sync antar perangkat.")
+                    Text(L("Data hanya tersimpan di Mac ini. Hubungkan Google untuk sync antar perangkat."))
                         .font(.callout).foregroundStyle(.secondary)
                 }
             }
@@ -108,7 +108,7 @@ struct AccountView: View {
                 } label: {
                     HStack(spacing: 8) {
                         if connecting { ProgressView().controlSize(.small).tint(.black) } else { GoogleMark().frame(width: 16, height: 16) }
-                        Text(model.accountEmail == nil ? "Masuk dengan Google" : "Masuk ulang Google")
+                        Text(model.accountEmail == nil ? L("Masuk dengan Google") : L("Masuk ulang Google"))
                     }
                 }
                 .buttonStyle(PrimaryButtonStyle(size: .large))
@@ -130,7 +130,7 @@ struct AccountView: View {
     // MARK: Sync
 
     private var syncCard: some View {
-        AccountCard(title: "Sinkronisasi", icon: "arrow.triangle.2.circlepath", tint: Theme.accent) {
+        AccountCard(title: L("Sinkronisasi"), icon: "arrow.triangle.2.circlepath", tint: Theme.accent) {
             HStack(spacing: 12) {
                 SyncIcon(state: model.sync)
                     .frame(width: 34, height: 34)
@@ -142,66 +142,66 @@ struct AccountView: View {
                 Spacer()
             }
             if model.accountEmail != nil {
-                Button { model.syncNow() } label: { Label("Sinkronkan sekarang", systemImage: "arrow.clockwise") }
+                Button { model.syncNow() } label: { Label(L("Sinkronkan sekarang"), systemImage: "arrow.clockwise") }
                     .buttonStyle(SecondaryButtonStyle(wide: true))
                     .disabled(model.sync == .syncing)
             }
-            InfoLine(label: "Lokasi", value: "Google Drive · folder app tersembunyi")
-            InfoLine(label: "Enkripsi", value: "XChaCha20-Poly1305 (end-to-end)")
+            InfoLine(label: L("Lokasi"), value: L("Google Drive · folder app tersembunyi"))
+            InfoLine(label: L("Enkripsi"), value: "XChaCha20-Poly1305 (end-to-end)")
         }
     }
 
     private var syncTitle: String {
         switch model.sync {
-        case .off: "Sync mati"
-        case .idle: "Siap sync"
-        case .syncing: "Menyinkronkan…"
-        case .synced: "Tersinkron"
-        case .failed: "Sync gagal"
-        case .needsLogin: "Perlu login ulang"
+        case .off: L("Sync mati")
+        case .idle: L("Siap sync")
+        case .syncing: L("Menyinkronkan…")
+        case .synced: L("Tersinkron")
+        case .failed: L("Sync gagal")
+        case .needsLogin: L("Perlu login ulang")
         }
     }
 
     private var syncSubtitle: String {
         switch model.sync {
-        case .off: "Hubungkan akun Google untuk menyimpan vault di Drive."
-        case .synced(let d): "Terakhir \(d.formatted(.relative(presentation: .named)))"
+        case .off: L("Hubungkan akun Google untuk menyimpan vault di Drive.")
+        case .synced(let d): L("Terakhir {}", d.formatted(.relative(presentation: .named)))
         case .failed(let m): m
-        case .needsLogin: "Token Google sudah tidak berlaku."
-        default: "Perubahan disinkronkan otomatis."
+        case .needsLogin: L("Token Google sudah tidak berlaku.")
+        default: L("Perubahan disinkronkan otomatis.")
         }
     }
 
     // MARK: Data
 
     private var dataCard: some View {
-        AccountCard(title: "Data di vault", icon: "shippingbox.fill", tint: Theme.accent2) {
+        AccountCard(title: L("Data di vault"), icon: "shippingbox.fill", tint: Theme.accent2) {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                Stat(value: model.hosts.count, label: "Host", icon: "server.rack", tint: Section.hosts.tint)
-                Stat(value: model.keys.count, label: "SSH key", icon: "key.horizontal.fill", tint: Section.keychain.tint)
-                Stat(value: model.snippets.count, label: "Snippet", icon: "curlybraces", tint: Section.snippets.tint)
-                Stat(value: model.forwards.count, label: "Forwarding", icon: "arrow.right.arrow.left", tint: Section.forwarding.tint)
+                Stat(value: model.hosts.count, label: L("Host"), icon: "server.rack", tint: Section.hosts.tint)
+                Stat(value: model.keys.count, label: L("SSH key"), icon: "key.horizontal.fill", tint: Section.keychain.tint)
+                Stat(value: model.snippets.count, label: L("Snippet"), icon: "curlybraces", tint: Section.snippets.tint)
+                Stat(value: model.forwards.count, label: L("Forwarding"), icon: "arrow.right.arrow.left", tint: Section.forwarding.tint)
             }
-            InfoLine(label: "Riwayat sesi", value: "\(model.logs.count) catatan")
+            InfoLine(label: L("Riwayat sesi"), value: L("{} catatan", model.logs.count))
         }
     }
 
     // MARK: Keamanan
 
     private var securityCard: some View {
-        AccountCard(title: "Keamanan", icon: "lock.shield.fill", tint: Color(hex: "#F59E0B")) {
+        AccountCard(title: L("Keamanan"), icon: "lock.shield.fill", tint: Color(hex: "#F59E0B")) {
             Toggle(isOn: Binding(get: { biometric }, set: { on in
                 if on { model.enableBiometric() } else { BiometricUnlock.forget() }
                 biometric = BiometricUnlock.hasStoredKey
             })) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Buka dengan Touch ID").font(.system(size: 13, weight: .medium))
-                    Text("Kunci vault disimpan di Keychain Mac ini").font(.caption).foregroundStyle(.secondary)
+                    Text(L("Buka dengan Touch ID")).font(.system(size: 13, weight: .medium))
+                    Text(L("Kunci vault disimpan di Keychain Mac ini")).font(.caption).foregroundStyle(.secondary)
                 }
             }
             .toggleStyle(.switch)
             .tint(Theme.accent)
-            Button { model.lock() } label: { Label("Kunci vault sekarang  ⇧⌘L", systemImage: "lock.fill") }
+            Button { model.lock() } label: { Label(L("Kunci vault sekarang  ⇧⌘L"), systemImage: "lock.fill") }
                 .buttonStyle(SecondaryButtonStyle(wide: true))
         }
     }
@@ -209,13 +209,13 @@ struct AccountView: View {
     // MARK: Keluar
 
     private var signOutCard: some View {
-        AccountCard(title: "Keluar", icon: "rectangle.portrait.and.arrow.right", tint: Color(hex: "#EF4444")) {
-            Text("Keluar memutus login Google dan mengunci vault. Pilih hapus jika Mac ini bukan milikmu.")
+        AccountCard(title: L("Keluar"), icon: "rectangle.portrait.and.arrow.right", tint: Color(hex: "#EF4444")) {
+            Text(L("Keluar memutus login Google dan mengunci vault. Pilih hapus jika Mac ini bukan milikmu."))
                 .font(.caption).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button { confirm = .keep } label: { Label("Keluar", systemImage: "rectangle.portrait.and.arrow.right") }
+            Button { confirm = .keep } label: { Label(L("Keluar"), systemImage: "rectangle.portrait.and.arrow.right") }
                 .buttonStyle(SecondaryButtonStyle(wide: true))
-            Button { confirm = .wipe } label: { Label("Keluar & hapus data dari Mac ini", systemImage: "trash") }
+            Button { confirm = .wipe } label: { Label(L("Keluar & hapus data dari Mac ini"), systemImage: "trash") }
                 .buttonStyle(SecondaryButtonStyle(wide: true))
                 .foregroundStyle(.red)
         }
@@ -226,7 +226,7 @@ struct AccountView: View {
         defer { connecting = false }
         do { _ = try await model.signInGoogle() }
         catch GoogleAuth.AuthError.cancelled {}
-        catch { model.flash(error.localizedDescription) }
+        catch { model.flash(Lmsg(error.localizedDescription)) }
     }
 }
 

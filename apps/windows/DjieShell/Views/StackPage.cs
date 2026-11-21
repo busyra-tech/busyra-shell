@@ -26,7 +26,7 @@ internal sealed class StackPage : PageBase
 
     public StackPage() : base("stack")
     {
-        var header = Ui.Header("Server Lokal", "Web server & database di PC ini — seperti MAMP / XAMPP, tanpa install manual");
+        var header = Ui.Header(L.T("Server Lokal"), L.T("Web server & database di PC ini — seperti MAMP / XAMPP, tanpa install manual"));
         _actions = (StackPanel)header.Children[1];
         Children.Add(Ui.Scroll(Ui.Col(22, header, _body)));
         Loaded += (s, e) => { S.Refresh(); S.StartPolling(); Render(); };
@@ -37,11 +37,11 @@ internal sealed class StackPage : PageBase
     protected override void Render()
     {
         _actions.Children.Clear();
-        _actions.Children.Add(Ui.IconBtn(G.Folder, "Buka folder data & log", () => Ui.Open(S.RootPath)));
-        if (S.AnyRunning) _actions.Children.Add(Ui.Secondary("Stop semua", G.Stop, () => _ = S.StopAll()));
+        _actions.Children.Add(Ui.IconBtn(G.Folder, L.T("Buka folder data & log"), () => Ui.Open(S.RootPath)));
+        if (S.AnyRunning) _actions.Children.Add(Ui.Secondary(L.T("Stop semua"), G.Stop, () => _ = S.StopAll()));
         else
         {
-            var all = Ui.Primary("Start semua", G.Play, () => _ = S.StartAll());
+            var all = Ui.Primary(L.T("Start semua"), G.Play, () => _ = S.StartAll());
             all.IsEnabled = S.Services.Any(x => x.Missing.Length == 0);
             _actions.Children.Add(all);
         }
@@ -51,10 +51,10 @@ internal sealed class StackPage : PageBase
             _body.Children.Add(Banner(err, Theme.Red, () => { S.Error = null; Render(); }));
         if (S.NeedsVcRuntime)
         {
-            var install = Ui.Primary("Pasang", G.Download, () => _ = S.InstallVcRuntime());
+            var install = Ui.Primary(L.T("Pasang"), G.Download, () => _ = S.InstallVcRuntime());
             _body.Children.Add(Ui.Card(Ui.Columns("Auto,*,Auto", 12, Ui.Icon(G.Warning, 16, Theme.Brush(Theme.Orange)),
-                Ui.Col(2, Ui.Text("Butuh Microsoft Visual C++ Runtime", 13, FontWeights.SemiBold),
-                    Ui.Secondary("Apache, PHP, dan MySQL memerlukannya. Pasang sekali (±25 MB, perlu izin admin).", 12, wrap: true)), install), 14));
+                Ui.Col(2, Ui.Text(L.T("Butuh Microsoft Visual C++ Runtime"), 13, FontWeights.SemiBold),
+                    Ui.Secondary(L.T("Apache, PHP, dan MySQL memerlukannya. Pasang sekali (±25 MB, perlu izin admin)."), 12, wrap: true)), install), 14));
         }
         _body.Children.Add(WebCard());
         _body.Children.Add(Ui.Caps("Database"));
@@ -68,19 +68,19 @@ internal sealed class StackPage : PageBase
         {
             Background = Theme.Brush(hex, 0.12), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10, 12, 10),
             Child = Ui.Columns("Auto,*,Auto", 8, Ui.Icon(G.Warning, 14, Theme.Brush(hex)), Ui.Text(text, 13, fg: Theme.Brush(hex), wrap: true),
-                Ui.IconBtn(G.Close, "Tutup", dismiss, size: 11))
+                Ui.IconBtn(G.Close, L.T("Tutup"), dismiss, size: 11))
         };
         return b;
     }
 
     private static UIElement Dot(bool running) => Ui.Row(6,
         new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = running ? Theme.Brush(Theme.Green) : Theme.Ink(0.3), VerticalAlignment = VerticalAlignment.Center },
-        Ui.Text(running ? "Berjalan" : "Berhenti", 11.5, FontWeights.Medium, running ? Theme.Brush(Theme.Green) : Theme.Text2));
+        Ui.Text(running ? L.T("Berjalan") : L.T("Berhenti"), 11.5, FontWeights.Medium, running ? Theme.Brush(Theme.Green) : Theme.Text2));
 
     private Button Power(string service, bool running, bool enabled)
     {
         var busy = S.Busy.Contains(service);
-        var text = busy ? (running ? "Menghentikan…" : "Menyalakan…") : running ? "Stop" : "Start";
+        var text = busy ? (running ? L.T("Menghentikan…") : L.T("Menyalakan…")) : running ? "Stop" : "Start";
         var b = running ? Ui.Secondary(text, G.Stop, () => _ = S.Toggle(service)) : Ui.Primary(text, G.Play, () => _ = S.Toggle(service));
         b.MinWidth = 104;
         b.IsEnabled = enabled && !busy;
@@ -99,15 +99,15 @@ internal sealed class StackPage : PageBase
             info = Ui.Col(3, Ui.Text($"{c.Name} {c.Version}", 12.5, FontWeights.Medium),
                 new ProgressBar { Value = d.Fraction * 100, Maximum = 100, MaxWidth = 260, HorizontalAlignment = HorizontalAlignment.Left },
                 Ui.Text(d.Label, 10.5, fg: Theme.Text2));
-            action = Ui.Secondary("Batal", null, () => S.CancelInstall(id));
+            action = Ui.Secondary(L.T("Batal"), null, () => S.CancelInstall(id));
         }
         else
         {
             info = Ui.Col(2, Ui.Text($"{c.Name} {c.Version}", 12.5, FontWeights.Medium),
-                Ui.Text(c.System ? "Bawaan sistem" : installed ? "Terpasang" : $"Belum diunduh · ±{c.SizeMb} MB", 11, fg: Theme.Text2));
+                Ui.Text(c.System ? L.T("Bawaan sistem") : installed ? L.T("Terpasang") : L.T("Belum diunduh · ±{} MB", c.SizeMb), 11, fg: Theme.Text2));
             if (!installed && !c.System)
             {
-                var dl = Ui.Secondary("Unduh", G.Download, () => S.Install(id));
+                var dl = Ui.Secondary(L.T("Unduh"), G.Download, () => S.Install(id));
                 dl.IsEnabled = c.Available;
                 action = dl;
             }
@@ -148,15 +148,15 @@ internal sealed class StackPage : PageBase
             Child = new FontIcon { Glyph = G.Globe, FontSize = 22, Foreground = Theme.Brush("#000000", 0.72) }
         };
         var title = Ui.Col(3, Ui.Row(10, Ui.Text("Web server", 18, FontWeights.Bold), Dot(running)),
-            Ui.Text(running ? $"{serverName} + PHP di localhost:{st.WebPort}" : "Apache atau Nginx dengan PHP — untuk Laravel, WordPress, dan proyek PHP lain", 12, fg: Theme.Text2));
+            Ui.Text(running ? L.T("{} + PHP di localhost:{}", serverName, st.WebPort) : L.T("Apache atau Nginx dengan PHP — untuk Laravel, WordPress, dan proyek PHP lain"), 12, fg: Theme.Text2));
         var more = new MenuFlyout();
-        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = t }; i.Click += (s, e) => a(); more.Items.Add(i); }
+        void Item(string t, Action a) { var i = new MenuFlyoutItem { Text = L.T(t) }; i.Click += (s, e) => a(); more.Items.Add(i); }
         Item("Lihat log", () => _ = ShowLog("web"));
         Item("Buka folder proyek", () => { System.IO.Directory.CreateDirectory(st.DocRoot); Ui.Open(st.DocRoot); });
-        var moreBtn = Ui.IconBtn(G.More, "Lainnya", () => { });
+        var moreBtn = Ui.IconBtn(G.More, L.T("Lainnya"), () => { });
         moreBtn.Flyout = more;
         var head = Ui.Columns("Auto,*,Auto,Auto,Auto", 12, icon, title,
-            running ? Ui.Secondary("Buka di browser", G.Globe, () => Ui.Open(S.WebUrl)) : null,
+            running ? Ui.Secondary(L.T("Buka di browser"), G.Globe, () => Ui.Open(S.WebUrl)) : null,
             moreBtn, Power("web", running, svc?.Missing.Length == 0));
 
         var seg = Ui.Segmented(["Apache", "Nginx"], st.WebServer == "nginx" ? 1 : 0, i => S.SaveSettings(S.Settings with { WebServer = i == 1 ? "nginx" : "apache" }));
@@ -164,16 +164,16 @@ internal sealed class StackPage : PageBase
         seg.Opacity = running ? 0.5 : 1;
         var root = Ui.Text(st.DocRoot, 12, mono: true).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis);
         var rootBox = new Border { Background = Theme.Field, CornerRadius = new CornerRadius(8), Padding = new Thickness(10, 6, 10, 6), MaxWidth = 300, Child = root };
-        var pick = Ui.Secondary("Pilih…", null, () => _ = PickRoot());
+        var pick = Ui.Secondary(L.T("Pilih…"), null, () => _ = PickRoot());
         pick.IsEnabled = !running;
 
         UIElement Field(string label, UIElement content) => Ui.Columns("110,*", 12,
-            Ui.Text(label, 12.5, fg: Theme.Text2).With(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.VerticalAlignment = VerticalAlignment.Center; }), content);
+            Ui.Text(L.T(label), 12.5, fg: Theme.Text2).With(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.VerticalAlignment = VerticalAlignment.Center; }), content);
         var left = Ui.Col(12,
             Field("Web server", seg.With(g => { g.Width = 200; g.HorizontalAlignment = HorizontalAlignment.Left; })),
             Field("Port", PortBox(st.WebPort, running, p => S.SaveSettings(S.Settings with { WebPort = p })).With(n => n.HorizontalAlignment = HorizontalAlignment.Left)),
             Field("Folder proyek", Ui.Row(8, rootBox, pick)));
-        var right = Ui.Col(8, Ui.Caps("Komponen"), ComponentRow(st.WebServer), ComponentRow("php"));
+        var right = Ui.Col(8, Ui.Caps(L.T("Komponen")), ComponentRow(st.WebServer), ComponentRow("php"));
         var body = Ui.Col(16, head, Ui.Columns("*,*", 18, left, right));
         if (svc?.Error is { } e && !running) body.Children.Add(Ui.Text("⚠ " + e, 11.5, fg: Theme.Brush(Theme.Orange), wrap: true));
         return Card(body, running);
@@ -196,24 +196,24 @@ internal sealed class StackPage : PageBase
         var running = svc?.Running == true;
         var installed = c != null && c.State != StackState.NotInstalled && c.State != StackState.Installing;
         var more = new MenuFlyout();
-        var log = new MenuFlyoutItem { Text = "Lihat log" };
+        var log = new MenuFlyoutItem { Text = L.T("Lihat log") };
         log.Click += (s, e) => _ = ShowLog(k.Id);
         more.Items.Add(log);
         if (installed)
         {
             more.Items.Add(new MenuFlyoutSeparator());
-            var rm = new MenuFlyoutItem { Text = "Hapus program…", Foreground = Theme.Brush("#E5484D"), IsEnabled = !running };
+            var rm = new MenuFlyoutItem { Text = L.T("Hapus program…"), Foreground = Theme.Brush("#E5484D"), IsEnabled = !running };
             rm.Click += async (s, e) =>
             {
-                if (await Ui.Confirm($"Hapus program {k.Name}?", "Program dihapus dari PC ini. Data database tetap disimpan dan dipakai lagi saat diunduh ulang.", "Hapus program"))
+                if (await Ui.Confirm(L.T("Hapus program {}?", k.Name), L.T("Program dihapus dari PC ini. Data database tetap disimpan dan dipakai lagi saat diunduh ulang."), L.T("Hapus program")))
                     S.Uninstall(k.Id);
             };
             more.Items.Add(rm);
         }
-        var moreBtn = Ui.IconBtn(G.More, "Lainnya", () => { });
+        var moreBtn = Ui.IconBtn(G.More, L.T("Lainnya"), () => { });
         moreBtn.Flyout = more;
         var head = Ui.Columns("Auto,*,Auto,Auto", 12, Ui.TintIcon(k.Glyph, k.Color, 40, 17, 11),
-            Ui.Col(2, Ui.Text(k.Name, 15, FontWeights.Bold), Ui.Text(c != null ? $"versi {c.Version}" : "", 11, fg: Theme.Text2)),
+            Ui.Col(2, Ui.Text(k.Name, 15, FontWeights.Bold), Ui.Text(c != null ? L.T("versi {}", c.Version) : "", 11, fg: Theme.Text2)),
             installed ? Dot(running) : null, moreBtn);
         var body = Ui.Col(14, head);
         if (!installed) body.Children.Add(ComponentRow(k.Id));
@@ -227,10 +227,10 @@ internal sealed class StackPage : PageBase
                 _ => S.Settings with { MongodbPort = p },
             }));
             body.Children.Add(Ui.Columns("Auto,Auto,*,Auto", 10, Ui.Text("Port", 12, fg: Theme.Text2).With(t => t.VerticalAlignment = VerticalAlignment.Center), box, null, Power(k.Id, running, true)));
-            body.Children.Add(Ui.Text($"127.0.0.1:{port} · {k.Note}", 11, fg: Theme.Text3));
+            body.Children.Add(Ui.Text($"127.0.0.1:{port} · {L.T(k.Note)}", 11, fg: Theme.Text3));
             if (running)
             {
-                var open = Ui.Secondary("Buka di Database", G.Table, () => _ = OpenInDatabase(k, port));
+                var open = Ui.Secondary(L.T("Buka di Database"), G.Table, () => _ = OpenInDatabase(k, port));
                 open.HorizontalAlignment = HorizontalAlignment.Stretch;
                 body.Children.Add(open);
             }
@@ -254,9 +254,9 @@ internal sealed class StackPage : PageBase
 
     private async Task ShowLog(string service)
     {
-        var text = new TextBlock { Text = S.Log(service) is { Length: > 0 } t ? t : "Belum ada log.", FontFamily = Theme.MonoFont, FontSize = 11, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
+        var text = new TextBlock { Text = S.Log(service) is { Length: > 0 } t ? t : L.T("Belum ada log."), FontFamily = Theme.MonoFont, FontSize = 11, IsTextSelectionEnabled = true, TextWrapping = TextWrapping.Wrap };
         var scroll = new ScrollViewer { Content = text, Height = 380, Width = 620 };
-        var d = Ui.Dialog(service == "web" ? "Log web server" : $"Log {service}", scroll, null, "Tutup");
+        var d = Ui.Dialog(service == "web" ? L.T("Log web server") : L.T("Log {}", service), scroll, null, L.T("Tutup"));
         await d.ShowAsync();
     }
 }

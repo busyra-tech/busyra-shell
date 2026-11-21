@@ -63,7 +63,7 @@ internal sealed class TerminalSession
         }
         catch (Exception e)
         {
-            _model.Flash("WebView2 Runtime tidak tersedia: " + e.Message);
+            _model.Flash(L.T("WebView2 Runtime tidak tersedia: {}", e.Message));
             return;
         }
         var core = View.CoreWebView2;
@@ -161,19 +161,19 @@ internal sealed class TerminalSession
     private void ShowMenu(double x, double y, bool hasSelection)
     {
         var f = new MenuFlyout();
-        var copy = new MenuFlyoutItem { Text = "Salin", IsEnabled = hasSelection, Icon = new FontIcon { Glyph = G.Copy } };
+        var copy = new MenuFlyoutItem { Text = L.T("Salin"), IsEnabled = hasSelection, Icon = new FontIcon { Glyph = G.Copy } };
         copy.Click += (_, _) => Post(new { t = "copySel" });
-        var paste = new MenuFlyoutItem { Text = "Tempel", Icon = new FontIcon { Glyph = "" } };
+        var paste = new MenuFlyoutItem { Text = L.T("Tempel"), Icon = new FontIcon { Glyph = "" } };
         paste.Click += (_, _) => _ = PasteAsync();
-        var all = new MenuFlyoutItem { Text = "Pilih Semua" };
+        var all = new MenuFlyoutItem { Text = L.T("Pilih Semua") };
         all.Click += (_, _) => Post(new { t = "selectAll" });
-        var clear = new MenuFlyoutItem { Text = "Bersihkan layar" };
+        var clear = new MenuFlyoutItem { Text = L.T("Bersihkan layar") };
         clear.Click += (_, _) => Send("\u000C");
         f.Items.Add(copy); f.Items.Add(paste); f.Items.Add(all);
         f.Items.Add(new MenuFlyoutSeparator()); f.Items.Add(clear);
         if (State == Status.Disconnected)
         {
-            var re = new MenuFlyoutItem { Text = "Sambung ulang", Icon = new FontIcon { Glyph = G.Refresh } };
+            var re = new MenuFlyoutItem { Text = L.T("Sambung ulang"), Icon = new FontIcon { Glyph = G.Refresh } };
             re.Click += (_, _) => Reconnect();
             f.Items.Add(re);
         }
@@ -229,14 +229,14 @@ internal sealed class TerminalSession
             }
             catch (Exception e)
             {
-                Write($"\r\n\x1b[31mGagal menjalankan {shell.Name}: {e.Message}\x1b[0m\r\n");
+                Write("\r\n\x1b[31m" + L.T("Gagal menjalankan {}: {}", shell.Name, e.Message) + "\x1b[0m\r\n");
                 Ended(255);
             }
             return;
         }
         if (!SshCommand.SshAvailable)
         {
-            Write("\r\n\x1b[33mOpenSSH Client belum terpasang di Windows ini.\x1b[0m\r\nPasang lewat Settings → System → Optional features → OpenSSH Client.\r\n");
+            Write("\r\n\x1b[33m" + L.T("OpenSSH Client belum terpasang di Windows ini.") + "\x1b[0m\r\n" + L.T("Pasang lewat Settings → System → Optional features → OpenSSH Client.") + "\r\n");
             State = Status.Disconnected; Changed?.Invoke();
             return;
         }
@@ -254,7 +254,7 @@ internal sealed class TerminalSession
         }
         catch (Exception e)
         {
-            Write($"\r\n\x1b[31mGagal menjalankan ssh: {e.Message}\x1b[0m\r\n");
+            Write("\r\n\x1b[31m" + L.T("Gagal menjalankan {}: {}", "ssh", e.Message) + "\x1b[0m\r\n");
             Ended(255);
         }
     }
@@ -314,7 +314,7 @@ internal sealed class TerminalSession
         _pty = null;
         ExitCode = code;
         State = Status.Disconnected;
-        Write("\r\n\x1b[2m— sesi berakhir —\x1b[0m\r\n");
+        Write("\r\n\x1b[2m" + L.T("— sesi berakhir —") + "\x1b[0m\r\n");
         Changed?.Invoke();
         _model.SessionStatusChanged();
     }

@@ -271,7 +271,7 @@ final class SftpModel {
             try await client.download(remote: item.path, localDir: dir.path, progress: bridge)
             withAnimation(.djie) { t.state = .done; if t.total > 0 { t.done = t.total } }
         } catch {
-            withAnimation(.djie) { t.state = .failed(error.localizedDescription) }
+            withAnimation(.djie) { t.state = .failed(Lmsg(error.localizedDescription)) }
             throw error
         }
         return dir.appendingPathComponent(item.name)
@@ -306,7 +306,7 @@ final class SftpModel {
             } catch CoreError.Cancelled {
                 withAnimation(.djie) { t.state = .cancelled }
             } catch {
-                withAnimation(.djie) { t.state = .failed(error.localizedDescription) }
+                withAnimation(.djie) { t.state = .failed(Lmsg(error.localizedDescription)) }
             }
             bridges[t.id] = nil
             await onDone()
@@ -319,13 +319,13 @@ final class SftpModel {
     func openEditor(_ item: FileItem) async {
         guard let client else { return }
         if item.size > RemoteFiles.editorLimit {
-            flashError(CoreError.Io(msg: "\(item.name) terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”"))
+            flashError(CoreError.Io(msg: L("{} terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”", item.name)))
             return
         }
         do {
             let data = try await client.readFile(path: item.path, maxBytes: RemoteFiles.editorLimit)
             guard let text = String(data: data, encoding: .utf8) else {
-                flashError(CoreError.Io(msg: "\(item.name) bukan file teks UTF-8 — pakai “Buka dengan”"))
+                flashError(CoreError.Io(msg: L("{} bukan file teks UTF-8 — pakai “Buka dengan”", item.name)))
                 return
             }
             let st = try? await client.stat(path: item.path)
@@ -351,7 +351,7 @@ final class SftpModel {
             try await client.writeFile(path: doc.path, data: Data(snapshot.utf8))
             doc.original = snapshot
             doc.remoteModified = (try? await client.stat(path: doc.path))?.modified ?? doc.remoteModified
-            showNotice("✓ \(doc.name) tersimpan ke server")
+            showNotice(L("✓ {} tersimpan ke server", doc.name))
             await refreshRemote()
             return true
         } catch {
@@ -374,7 +374,7 @@ final class SftpModel {
             return
         }
         let appURL = app ?? NSWorkspace.shared.urlForApplication(toOpen: local)
-        let w = WatchedFile(remotePath: item.path, localURL: local, appName: appURL.map(RemoteFiles.appName) ?? "aplikasi bawaan")
+        let w = WatchedFile(remotePath: item.path, localURL: local, appName: appURL.map(RemoteFiles.appName) ?? L("aplikasi bawaan"))
         withAnimation(.djie) {
             watched.removeAll { $0.remotePath == item.path }
             watched.append(w)
@@ -396,8 +396,8 @@ final class SftpModel {
         let panel = NSOpenPanel()
         panel.directoryURL = URL(fileURLWithPath: "/Applications")
         panel.allowedContentTypes = [.application]
-        panel.prompt = "Buka"
-        panel.message = "Pilih aplikasi untuk membuka \(item.name)"
+        panel.prompt = L("Buka")
+        panel.message = L("Pilih aplikasi untuk membuka {}", item.name)
         guard panel.runModal() == .OK, let app = panel.url else { return }
         Task { await openWith(item, app: app) }
     }
@@ -426,7 +426,7 @@ final class SftpModel {
             do {
                 try await client.uploadFileTo(localPath: w.localURL.path, remote: w.remotePath)
                 withAnimation(.djie) { w.lastUpload = Date() }
-                showNotice("✓ \(w.localURL.lastPathComponent) tersimpan ke server")
+                showNotice(L("✓ {} tersimpan ke server", w.localURL.lastPathComponent))
                 if (w.remotePath as NSString).deletingLastPathComponent == remotePath { await refreshRemote() }
             } catch {
                 flashError(error)

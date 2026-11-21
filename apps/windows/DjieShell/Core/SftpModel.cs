@@ -391,13 +391,13 @@ internal sealed class SftpModel
     public async Task OpenEditor(FileItem item)
     {
         if (_client == null) return;
-        if (item.Size > RemoteFiles.EditorLimit) { FlashText($"{item.Name} terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”"); return; }
+        if (item.Size > RemoteFiles.EditorLimit) { FlashText(L.T("{} terlalu besar untuk editor (maks 5 MB) — pakai “Buka dengan”", item.Name)); return; }
         try
         {
             var data = await _client.ReadFile(item.Path, RemoteFiles.EditorLimit);
             string text;
             try { text = new System.Text.UTF8Encoding(false, true).GetString(data); }
-            catch (System.Text.DecoderFallbackException) { FlashText($"{item.Name} bukan file teks UTF-8 — pakai “Buka dengan”"); return; }
+            catch (System.Text.DecoderFallbackException) { FlashText(L.T("{} bukan file teks UTF-8 — pakai “Buka dengan”", item.Name)); return; }
             long mod = 0;
             try { mod = (await _client.Stat(item.Path)).Modified; } catch { }
             // TextBox Windows memakai \r; simpan ulang dengan akhir baris asli (\n atau \r\n)
@@ -412,7 +412,7 @@ internal sealed class SftpModel
     /// <summary>Simpan isi editor. Hasil: null = berhasil, "conflict" = file di server berubah, selain itu pesan error.</summary>
     public async Task<string?> SaveEditor(RemoteEditorDoc doc, bool force = false)
     {
-        if (_client == null || doc.Saving) return "Tidak tersambung";
+        if (_client == null || doc.Saving) return L.T("Tidak tersambung");
         doc.Saving = true; doc.Error = null; Raise();
         try
         {
@@ -424,7 +424,7 @@ internal sealed class SftpModel
             await _client.WriteFile(doc.Path, System.Text.Encoding.UTF8.GetBytes(snapshot));
             doc.Original = snapshot;
             try { doc.RemoteModified = (await _client.Stat(doc.Path)).Modified; } catch { }
-            _model.Flash($"✓ {doc.Name} tersimpan ke server");
+            _model.Flash(L.T("✓ {} tersimpan ke server", doc.Name));
             _ = RefreshRemote();
             return null;
         }
@@ -442,7 +442,7 @@ internal sealed class SftpModel
         var local = System.IO.Path.Combine(dir, item.Name);
         try { await _client.DownloadFileTo(item.Path, local); }
         catch (Exception e) { FlashError(e); return; }
-        var appName = app switch { null => "aplikasi bawaan", "choose" => "aplikasi pilihan", _ => RemoteFiles.CommonApps().FirstOrDefault(a => a.Exe == app).Name ?? System.IO.Path.GetFileNameWithoutExtension(app) };
+        var appName = app switch { null => L.T("aplikasi bawaan"), "choose" => L.T("aplikasi pilihan"), _ => RemoteFiles.CommonApps().FirstOrDefault(a => a.Exe == app).Name ?? System.IO.Path.GetFileNameWithoutExtension(app) };
         Watched.RemoveAll(w => w.RemotePath == item.Path);
         Watched.Add(new WatchedFile { RemotePath = item.Path, LocalPath = local, AppName = appName, LastWrite = File.GetLastWriteTimeUtc(local) });
         StartWatchTimer();
@@ -489,7 +489,7 @@ internal sealed class SftpModel
             {
                 await _client.UploadFileTo(w.LocalPath, w.RemotePath);
                 w.LastUpload = DateTime.Now;
-                _model.Flash($"✓ {System.IO.Path.GetFileName(w.LocalPath)} tersimpan ke server");
+                _model.Flash(L.T("✓ {} tersimpan ke server", System.IO.Path.GetFileName(w.LocalPath)));
                 if (w.RemotePath.StartsWith(RemotePath)) _ = RefreshRemote();
             }
             catch (Exception e) { FlashError(e); }

@@ -76,7 +76,7 @@ internal sealed class ServerTile
                     var msg = Errors.Text(e);
                     Post(cts, () =>
                     {
-                        if (State == Status.Online) OnAlert?.Invoke($"{Host.Title()} tidak bisa dihubungi", msg, "down:" + Id);
+                        if (State == Status.Online) OnAlert?.Invoke(L.T("{} tidak bisa dihubungi", Host.Title()), msg, "down:" + Id);
                         _alerting.Clear();
                         State = Status.Offline; Error = msg;
                     });
@@ -122,7 +122,7 @@ internal sealed class ServerTile
             tx = (s.NetTxBytes - p.s.NetTxBytes) / dt;
         }
         _prev = (s, now);
-        if (State == Status.Offline && _wasOnline) OnAlert?.Invoke($"{Host.Title()} kembali online", "Server bisa dihubungi lagi.", "down:" + Id);
+        if (State == Status.Offline && _wasOnline) OnAlert?.Invoke(L.T("{} kembali online", Host.Title()), L.T("Server bisa dihubungi lagi."), "down:" + Id);
         _wasOnline = true;
         Sample = s; State = Status.Online; Error = null; Rx = rx; Tx = tx;
         Cpu.Add(s.CpuPercent);
@@ -135,9 +135,9 @@ internal sealed class ServerTile
     {
         var metrics = new (string Name, double F, string Detail)[]
         {
-            ("CPU", Cpu.Count >= 3 ? CpuNow / 100 : 0, "rata-rata 15 detik terakhir"),
-            ("RAM", MemFraction, $"{Ui.Bytes(s.MemUsedBytes)} dari {Ui.Bytes(s.MemTotalBytes)} terpakai"),
-            ("Disk", DiskFraction, $"{Ui.Bytes(s.DiskUsedBytes)} dari {Ui.Bytes(s.DiskTotalBytes)} terpakai"),
+            ("CPU", Cpu.Count >= 3 ? CpuNow / 100 : 0, L.T("rata-rata 15 detik terakhir")),
+            ("RAM", MemFraction, L.T("{} dari {} terpakai", Ui.Bytes(s.MemUsedBytes), Ui.Bytes(s.MemTotalBytes))),
+            ("Disk", DiskFraction, L.T("{} dari {} terpakai", Ui.Bytes(s.DiskUsedBytes), Ui.Bytes(s.DiskTotalBytes))),
         };
         foreach (var (name, f, detail) in metrics)
         {
