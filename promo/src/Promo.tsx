@@ -13,13 +13,13 @@ const BASE: [string, number][] = [
   ["hosts", 210],
   ["dashboard", 210],
   ["terminal", 180],
-  ["multi", 210],
-  ["admin", 230],
-  ["docker", 190],
+  ["multi", 190],
+  ["admin", 200],
+  ["docker", 165],
   ["sftp", 170],
   ["database", 240],
   ["backup", 200],
-  ["extras", 210],
+  ["extras", 170],
   ["tools", 190],
   ["security", 160],
   ["platforms3", 180],
@@ -56,10 +56,12 @@ export const Promo: React.FC = () => {
         return (
           <Sequence key={name} from={from} durationInFrames={d} name={name}>
             <Comp d={d} />
-            <Sequence from={VO_DELAY} name={`vo-${name}`}>
-              <Audio src={staticFile(`vo/${name}.mp3`)} volume={0.8} />
-              <Captions name={name} />
-            </Sequence>
+            {name in VO && (
+              <Sequence from={VO_DELAY} name={`vo-${name}`}>
+                <Audio src={staticFile(`vo/${name}.mp3`)} volume={0.8} />
+                <Captions name={name} />
+              </Sequence>
+            )}
             {(SFX[name]?.(d) ?? []).map(([f, sfx, vol], i) => (
               <Sequence key={i} from={Math.max(0, Math.round(f))} name={`sfx-${sfx}`}>
                 <Audio src={staticFile(`sfx/${sfx}.mp3`)} volume={Math.min(1, vol * (SFX_GAIN[sfx] ?? 1))} />
@@ -930,7 +932,7 @@ const Platforms3: React.FC<P> = ({ d }) => {
           </div>
         ))}
       </div>
-      <Fade delay={40} style={{ position: "absolute", left: 0, right: 0, bottom: v ? 330 : 60, textAlign: "center" }}>
+      <Fade delay={40} style={{ position: "absolute", left: 0, right: 0, bottom: v ? 430 : 170, textAlign: "center" }}>
         <div style={{ fontFamily: MONO, fontSize: v ? 28 : 26, color: C.ink2 }}>Satu inti Rust untuk semua platform</div>
       </Fade>
     </Wrap>
@@ -959,10 +961,11 @@ const Cta: React.FC<P> = ({ d }) => {
           <div style={{ padding: "26px 44px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: C.ink, fontSize: 32, fontWeight: 700, display: "flex", gap: 14, alignItems: "center" }}>
             <WindowsIcon size={30} /> Download untuk Windows
           </div>
+          <div style={{ padding: "26px 44px", borderRadius: 20, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", color: C.ink, fontSize: 32, fontWeight: 700, display: "flex", gap: 14, alignItems: "center" }}>
+            <span style={{ fontSize: 32 }}>🐧</span> Download untuk Linux
+          </div>
         </div>
-        <Fade delay={46} style={{ marginTop: 26 }}>
-          <div style={{ fontSize: v ? 30 : 26, color: C.ink2 }}>🐧 Linux (beta) · build dari source di GitHub</div>
-        </Fade>
+
         <Fade delay={56} style={{ marginTop: 48 }}>
           <div style={{ fontFamily: MONO, fontSize: 30, color: C.teal }}>masadjie.github.io/djie-shell</div>
         </Fade>

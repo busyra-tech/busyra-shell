@@ -9,5 +9,8 @@
  "tools": 6.27,
  "security": 5.15,
  "platforms": 3.97,
- "cta": 3.32
+ "cta": 3.32,
+ "dashboard": 3.84,
+ "backup": 4.4,
+ "platforms3": 3.28
 }

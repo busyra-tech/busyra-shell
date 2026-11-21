@@ -17,7 +17,7 @@
   ],
   [
     "dashboard",
-    "Semua server kelihatan dalam satu layar. CPU, RAM, sampai disk. Ada yang tumbang? Kamu langsung dapat notifikasi."
+    "Semua server terpantau di satu layar, lengkap dengan notifikasi."
   ],
   [
     "terminal",
@@ -45,7 +45,7 @@
   ],
   [
     "backup",
-    "Databasenya juga aman. Backup sekali klik, atau otomatis tiap malam, bahkan langsung ke Google Drive."
+    "Backup database? Sekali klik, atau otomatis tiap malam."
   ],
   [
     "extras",

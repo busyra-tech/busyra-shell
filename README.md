@@ -34,7 +34,7 @@ Versi **Linux** masih beta — lihat [Linux (beta)](#linux-beta).
 
 ## ✨ Yang baru di v0.5
 
-<a href="https://masadjie.github.io/djie-shell/#video"><img src="site/assets/video/poster-0.4.jpg" alt="Video pengenalan Djie Shell 0.4" width="420" align="right" /></a>
+<a href="https://masadjie.github.io/djie-shell/#video"><img src="site/assets/video/poster.jpg" alt="Video tur Djie Shell 0.5" width="420" align="right" /></a>
 
 - **📊 Dashboard** — semua server dalam satu layar (CPU, RAM, disk, uptime), notifikasi saat server mati atau penuh
 - **▶️ Jalankan perintah di banyak server** — satu perintah, hasil per server; plus **split & broadcast** terminal
