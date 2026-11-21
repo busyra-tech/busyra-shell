@@ -17,6 +17,9 @@ targets:
     platform: macOS
     sources:
       - DjieShell
+      # Kamus bahasa Inggris (dibagi dengan Windows & Linux)
+      - path: ../../i18n/en.json
+        buildPhase: resources
     dependencies:
       - framework: Frameworks/DjieCoreFFI.xcframework
         embed: false

@@ -33,6 +33,8 @@
 
   <ItemGroup>
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
+    <!-- Kamus bahasa Inggris (dibagi dengan Mac & Linux) -->
+    <EmbeddedResource Include="..\..\..\i18n\en.json" LogicalName="en.json" />
     <!-- djie_core.dll sesuai arsitektur build -->
     <None Include="Native\arm64\djie_core.dll" Condition="'$(Platform)' == 'ARM64'" Link="djie_core.dll" CopyToOutputDirectory="PreserveNewest" />
     <None Include="Native\x64\djie_core.dll" Condition="'$(Platform)' == 'x64'" Link="djie_core.dll" CopyToOutputDirectory="PreserveNewest" />

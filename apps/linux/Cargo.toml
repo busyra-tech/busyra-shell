@@ -17,6 +17,7 @@ adw = { package = "libadwaita", version = "0.8", features = ["v1_5"] }
 vte = { package = "vte4", version = "0.9" }
 uuid = { version = "1", features = ["v4"] }
 libc = "0.2"
+serde_json = "1"
 
 [profile.release]
 lto = true

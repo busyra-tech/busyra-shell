@@ -1,5 +1,7 @@
 //! Djie Shell untuk Linux — GTK4 + libadwaita + VTE, memakai djie-core langsung.
 
+#[macro_use]
+mod i18n;
 mod config;
 mod ctx;
 mod editor;
