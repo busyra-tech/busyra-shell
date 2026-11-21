@@ -1044,9 +1044,14 @@ internal sealed class AppModel
     }
 
     /// <summary>Teruskan ketikan dari satu panel ke panel split lain (saat broadcast menyala).</summary>
+    /// <summary>Balasan otomatis terminal (laporan posisi kursor, atribut perangkat, warna OSC, fokus) — bukan ketikan, jadi tidak di-broadcast.</summary>
+    private static readonly System.Text.RegularExpressions.Regex TerminalReply = new(
+        @"^(\x1b\[\??[0-9;]*[Rcn]|\x1b\[[>=?][0-9;]*c|\x1b\][0-9]+;[^\x07\x1b]*(\x07|\x1b\\)|\x1b\[[IO]|\x1b\[\??[0-9;]*\$y|\x1bP[^\x1b]*\x1b\\)+$");
+    public static bool IsTerminalReply(string data) => data.Length >= 3 && data[0] == '\x1b' && TerminalReply.IsMatch(data);
+
     public void BroadcastInput(TerminalSession source, string data)
     {
-        if (!Broadcast || !SplitVisible || !SplitIds.Contains(source.Id)) return;
+        if (!Broadcast || !SplitVisible || !SplitIds.Contains(source.Id) || IsTerminalReply(data)) return;
         foreach (var s in Sessions)
             if (s != source && SplitIds.Contains(s.Id) && s.State != TerminalSession.Status.Disconnected) s.WriteInput(data);
     }

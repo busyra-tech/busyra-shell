@@ -332,6 +332,14 @@ final class AppModel {
                 }
             }
         }
+        // DJIE_DEMO_CONNECT=judul host : buka terminal; DJIE_DEMO_INFO=1 panel Info server; DJIE_DEMO_CONNECT_TYPE = ketikan (\r = Enter)
+        if let name = env["DJIE_DEMO_CONNECT"], let h = hosts.first(where: { $0.title == name }) {
+            connect([h.id])
+            if env["DJIE_DEMO_INFO"] != nil { DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [self] in showServerInfo = true; syncServerStats() } }
+            if let typed = env["DJIE_DEMO_CONNECT_TYPE"] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [self] in activeTerminalView?.send(txt: typed.replacingOccurrences(of: "\\r", with: "\r")) }
+            }
+        }
         // DJIE_DEMO_ADMIN=judul host, DJIE_DEMO_ADMIN_TAB=processes|services|cron|logs, DJIE_DEMO_ADMIN_SERVICE=nama
         if let name = env["DJIE_DEMO_ADMIN"], let h = hosts.first(where: { $0.title == name }) {
             section = .serverAdmin
@@ -400,6 +408,10 @@ final class AppModel {
         if let list = env["DJIE_DEMO_STACK"] {
             section = .localServer
             Task {
+                // DJIE_DEMO_STACK_DOCROOT=folder proyek; DJIE_DEMO_STACK_INSTALL=php,... unduh komponen dulu
+                if let root = env["DJIE_DEMO_STACK_DOCROOT"] { stack.settings.docRoot = root; stack.saveSettings() }
+                for id in (env["DJIE_DEMO_STACK_INSTALL"] ?? "").split(separator: ",") { stack.install(String(id)) }
+                for _ in 0..<600 where !stack.downloads.isEmpty { try? await Task.sleep(for: .milliseconds(200)) }
                 for s in list.split(separator: ",") { await stack.toggle(String(s)) }
                 // DJIE_DEMO_STACK_OPENDB=postgres : buka koneksi lokal di halaman Database
                 if let db = env["DJIE_DEMO_STACK_OPENDB"], let svc = stack.service(db) {
@@ -997,8 +1009,16 @@ final class AppModel {
     }
 
     /// Teruskan ketikan dari satu panel ke panel split lain (saat broadcast menyala).
+    /// Balasan otomatis terminal (laporan posisi kursor, atribut perangkat, warna OSC, fokus) — bukan ketikan,
+    /// jadi tidak boleh ikut di-broadcast ke panel lain.
+    static func isTerminalReply(_ data: ArraySlice<UInt8>) -> Bool {
+        guard data.count >= 3, data.first == 0x1B else { return false }
+        let s = String(decoding: data, as: UTF8.self)
+        return s.range(of: #"^(\e\[\??[0-9;]*[Rcn]|\e\[[>=?][0-9;]*c|\e\][0-9]+;[^\a\e]*(\a|\e\\)|\e\[[IO]|\e\[\??[0-9;]*\$y|\eP[^\e]*\e\\)+$"#, options: .regularExpression) != nil
+    }
+
     func broadcastInput(from source: TerminalSession, data: ArraySlice<UInt8>) {
-        guard broadcast, !broadcasting, splitVisible, splitIDs.contains(source.id) else { return }
+        guard broadcast, !broadcasting, splitVisible, splitIDs.contains(source.id), !Self.isTerminalReply(data) else { return }
         broadcasting = true
         defer { broadcasting = false }
         for s in sessions where s.id != source.id && splitIDs.contains(s.id) {

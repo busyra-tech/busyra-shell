@@ -8,6 +8,9 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 
 ## [Unreleased]
 
+### Diperbaiki
+- Broadcast terminal tidak lagi meneruskan balasan otomatis terminal (mis. laporan posisi kursor `ESC[10;10R`) ke panel lain — sebelumnya bisa muncul teks aneh seperti `;10R` di server lain (macOS & Windows)
+
 ## [0.5.0] — 2026-11-21
 
 Rilis terbesar sejauh ini: Dashboard semua server, Kelola Server, backup database, Docker, split & broadcast, dan versi Linux (beta).
