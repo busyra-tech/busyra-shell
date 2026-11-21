@@ -21,7 +21,7 @@ internal sealed class DatabasePage : PageBase
     private string _overviewFilter = "";
     private TextBox? _sqlBox;
 
-    public DatabasePage() : base("data", "db", "nav")
+    public DatabasePage() : base("data", "db", "nav", "backup")
     {
         _wsChanged = () => DispatcherQueue.TryEnqueue(RenderWorkspace);
         Unloaded += (_, _) => { if (_ws != null) _ws.Changed -= _wsChanged; };
@@ -74,7 +74,16 @@ internal sealed class DatabasePage : PageBase
         var where = c.Engine == DbEngine.Sqlite ? c.FilePath : (M.HideAddresses && c.Host != "127.0.0.1" && c.Host != "localhost" ? "••••••••" : c.Host) + (c.Port > 0 ? $":{c.Port}" : "");
         var tunnel = M.HostById(c.SshHostId);
         var info = Ui.Col(3, Ui.Text(c.Title(), 15, FontWeights.SemiBold), Ui.Text(p.Name, 11.5, fg: Theme.Text2));
-        var top = Ui.Columns("Auto,*,Auto", 12, EngineBadge(p), info, Ui.Row(2,
+        UIElement? backup = null;
+        if (DjieCoreMethods.BackupSupported(c.Engine))
+        {
+            var sched = M.Backups.Schedule(c.Id);
+            backup = M.Backups.Jobs.ContainsKey(c.Id)
+                ? new ProgressRing { Width = 16, Height = 16, IsActive = true, Margin = new Thickness(6) }
+                : Ui.IconBtn(sched.Frequency != "off" ? "\uE823" : G.Download, sched.Frequency != "off" ? "Backup terjadwal" : "Backup & restore",
+                    () => new BackupDialog(c).Show(), sched.LastError != null ? Theme.Brush(Theme.Red) : sched.Frequency != "off" ? Theme.Brush(Theme.Accent) : null);
+        }
+        var top = Ui.Columns("Auto,*,Auto", 12, EngineBadge(p), info, Ui.Row(2, backup,
             Ui.IconBtn(G.Edit, "Edit", () => _ = Editor(c)),
             Ui.IconBtn(G.Delete, "Hapus", async () => { if (await Ui.Confirm($"Hapus koneksi “{c.Title()}”?", "Koneksi dan password-nya dihapus dari vault.")) M.Delete(c); }, Theme.Brush("#E5484D"))));
         var meta = Ui.Col(4,

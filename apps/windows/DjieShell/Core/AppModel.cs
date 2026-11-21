@@ -120,6 +120,7 @@ internal sealed class AppModel
     public DockerModel Docker { get; }
     public DashboardModel Dashboard { get; }
     public AdminModel Admin { get; }
+    public BackupModel Backups { get; }
 
     public bool IsDark { get; private set; } = true;
     public string Appearance { get; private set; } = Settings.Str(Settings.Appearance) ?? "dark";
@@ -142,6 +143,7 @@ internal sealed class AppModel
         Docker = new DockerModel(this);
         Dashboard = new DashboardModel(this);
         Admin = new AdminModel(this);
+        Backups = new BackupModel(this);
         Tunnels.Changed += () => Raise("tunnels");
         IsDark = ComputeDark();
         _ui.ColorValuesChanged += (_, _) => _dq.TryEnqueue(() =>
@@ -250,6 +252,16 @@ internal sealed class AppModel
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER") is { Length: > 0 } dk) _ = DemoDocker(dk);
         // DJIE_DEMO_SPLIT=3 : split terminal lokal; DJIE_DEMO_BROADCAST=1; DJIE_DEMO_SPLIT_TYPE = teks diketik di panel aktif
         if (int.TryParse(Environment.GetEnvironmentVariable("DJIE_DEMO_SPLIT"), out var n) && n > 1) _ = DemoSplit(n);
+        // DJIE_DEMO_BACKUP_DB="label|engine|port|user|pw|db|host ssh" : koneksi tes + dialog Backup; DJIE_DEMO_BACKUP_RUN=1
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_BACKUP_DB") is { Length: > 0 } bspec && bspec.Split('|') is { Length: 7 } bf)
+        {
+            var engine = bf[1] == "postgres" ? DbEngine.Postgres : bf[1] == "mariadb" ? DbEngine.Mariadb : DbEngine.Mysql;
+            var ssh = Hosts.FirstOrDefault(h => h.Title() == bf[6])?.Id;
+            var saved = _vault!.UpsertDatabase(new DbConnection("", bf[0], engine, "127.0.0.1", ushort.Parse(bf[2]), bf[3], bf[4], bf[5], "", false, ssh, "#C0765A", 0, false));
+            DataChanged();
+            Navigate(Section.Database);
+            _ = DemoBackup(saved);
+        }
         // DJIE_DEMO_ADMIN=judul host, DJIE_DEMO_ADMIN_TAB=Processes|Services|Cron|Logs, DJIE_DEMO_ADMIN_SERVICE=nama
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_ADMIN") is { Length: > 0 } adm) _ = DemoAdmin(adm);
         // DJIE_DEMO_DASHBOARD_SELECT=judul1,judul2 : pilih server; DJIE_DEMO_DASHBOARD_SPLIT = teks diketik setelah Split & broadcast
@@ -399,6 +411,7 @@ internal sealed class AppModel
         Selection.Clear();
         Dashboard.Reset();
         Admin.Close();
+        Backups.StopTimer();
         Raise("sessions");
         SetPhase(Phase.Locked);
     }
@@ -413,6 +426,8 @@ internal sealed class AppModel
         if (AccountEmail != null) SyncNow();
         _ = CheckForUpdates(false);
         StartTeamTimer();
+        Backups.StartTimer();
+        _ = Backups.RunDue();
     }
 
     public async Task CheckForUpdates(bool manual)
@@ -754,6 +769,13 @@ internal sealed class AppModel
         await Docker.Select(dk == "local" ? null : Hosts.FirstOrDefault(h => h.Label == dk)?.Id);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER_SELECT") is { } name && Docker.Containers.FirstOrDefault(c => c.Name == name) is { } c)
             Docker.Choose(c);
+    }
+
+    private async Task DemoBackup(DbConnection c)
+    {
+        await Task.Delay(1500);
+        new Views.BackupDialog(c).Show();
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_BACKUP_RUN") == "1") await Backups.Backup(c);
     }
 
     private async Task DemoAdmin(string name)

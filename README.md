@@ -76,6 +76,7 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Info server** | Spesifikasi (OS, kernel, CPU, uptime) + grafik live CPU, RAM, jaringan, dan storage |
 | **Dashboard** *(v0.5)* | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; notifikasi saat server mati atau penuh; langsung split & broadcast |
 | **Jalankan perintah** *(v0.5)* | Satu perintah ke banyak server paralel, hasil per server (exit code, output, durasi) |
+| **Kelola Server** *(v0.5)* | Proses ala htop (kill), service systemd (start/stop/restart/boot), editor crontab dengan bahasa biasa, log journalctl & file log |
 | **Split & broadcast** *(v0.5)* | 2–4 terminal berdampingan; ketik sekali, jalan di semua panel (⌘D, ⇧⌘B) |
 | **Autocomplete** | Saran perintah dari riwayat & snippet saat mengetik |
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
@@ -85,6 +86,8 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 <img src="site/assets/screens/dashboard.jpg" alt="Dashboard semua server" width="900" />
 
 <img src="site/assets/screens/run-many.jpg" alt="Jalankan satu perintah di banyak server" width="900" />
+
+<img src="site/assets/screens/server-admin.jpg" alt="Kelola Server: service systemd" width="900" />
 
 <img src="site/assets/screens/split.jpg" alt="Split tiga terminal dengan broadcast aktif" width="900" />
 
@@ -149,6 +152,7 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 - **Telusuri** dengan paging, **Struktur** tabel, editor **SQL** dengan riwayat, ekspor **CSV**
 - **Cari** per kolom seperti phpMyAdmin: `=`, `LIKE %…%`, `IN`, `BETWEEN`, `IS NULL`, …
 - **Cari cepat** di semua kolom tabel sekaligus; daftar database & tabel bisa ditampilkan / disembunyikan
+- **Backup & restore** *(v0.5)* — MySQL, MariaDB, PostgreSQL, MongoDB, SQLite ke file `.gz` (lewat SSH dump dijalankan di server); jadwal harian/mingguan, simpan N terakhir, opsional ke Google Drive
 
 <img src="site/assets/screens/database.jpg" alt="Tab Cari per kolom" width="900" />
 

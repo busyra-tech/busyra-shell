@@ -95,6 +95,9 @@ final class AppModel {
     var serverStats: ServerStats?
     let dashboard = DashboardModel()
     let admin = AdminModel()
+    let backups = BackupModel()
+    /// Hanya tes: buka sheet Backup untuk koneksi ini.
+    var demoBackup: DbConnection?
     /// Sheet "Jalankan perintah di banyak server".
     var runMany: RunManyModel?
 
@@ -313,6 +316,22 @@ final class AppModel {
             }
             reload()
         }
+        // DJIE_DEMO_BACKUP_DB="label|engine|port|user|pw|db|host ssh?" : koneksi tes + buka sheet Backup; DJIE_DEMO_BACKUP_RUN=1 jalankan
+        if let spec = env["DJIE_DEMO_BACKUP_DB"] {
+            let f = spec.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+            if f.count == 7 {
+                let engine: DbEngine = f[1] == "postgres" ? .postgres : f[1] == "mariadb" ? .mariadb : .mysql
+                let ssh = hosts.first { $0.title == f[6] }?.id
+                let c = DbConnection(id: "", label: f[0], engine: engine, host: "127.0.0.1", port: UInt16(f[2]) ?? 3306, username: f[3],
+                                     password: f[4], database: f[5], filePath: "", tls: false, sshHostId: ssh, color: "#C0765A", updatedAt: 0, deleted: false)
+                if let saved = try? v.upsertDatabase(conn: c) {
+                    reload()
+                    section = .database
+                    demoBackup = saved
+                    if env["DJIE_DEMO_BACKUP_RUN"] != nil { Task { await backups.backup(saved, app: self) } }
+                }
+            }
+        }
         // DJIE_DEMO_ADMIN=judul host, DJIE_DEMO_ADMIN_TAB=processes|services|cron|logs, DJIE_DEMO_ADMIN_SERVICE=nama
         if let name = env["DJIE_DEMO_ADMIN"], let h = hosts.first(where: { $0.title == name }) {
             section = .serverAdmin
@@ -472,6 +491,7 @@ final class AppModel {
         dashboard.reset()
         admin.close()
         Task { await admin.select(nil, model: self) }
+        backups.stopTimer()
         runMany = nil
         withAnimation(.djie) { phase = .locked }
     }
@@ -485,6 +505,8 @@ final class AppModel {
         if accountEmail != nil { syncNow() }
         Task { await checkForUpdates(manual: false) }
         startTeamTimer()
+        backups.startTimer(app: self)
+        Task { await backups.runDue(self) }
     }
 
     /// Cek rilis baru. `manual` = dipanggil dari menu, tampilkan hasil walau sudah terbaru.
@@ -995,7 +1017,7 @@ final class AppModel {
         return accountEmail != nil && GoogleTokens.hasDriveFileScope
     }
 
-    private func driveToken() async throws -> String {
+    func driveToken() async throws -> String {
         #if DEBUG
         if let t = ProcessInfo.processInfo.environment["DJIE_TEST_DRIVE_TOKEN"] { return t }
         #endif

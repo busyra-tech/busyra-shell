@@ -20,6 +20,17 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
   - Hasil per server: sukses/gagal, exit code, output (stdout + stderr), durasi; yang gagal otomatis terbuka
   - Pilih server (semua / hanya online), ambil dari Snippet, atur batas waktu (30 detik – 30 menit)
   - *Ulangi yang gagal* dan *Salin semua* output
+- **🛠️ Kelola Server** — menu baru: pilih server, lalu
+  - **Proses** ala htop: urut CPU/memori/PID, cari, hentikan (SIGTERM) atau kill -9
+  - **Service systemd**: start, stop, restart, reload, aktif/nonaktif saat boot, status lengkap, langsung ke log-nya (konfirmasi saat menghentikan SSH)
+  - **Cron**: daftar jadwal dengan penjelasan bahasa biasa (“Tiap Senin–Jumat pukul 08.00”), tambah/ubah dengan preset, aktif/nonaktif, hapus
+  - **Log**: journalctl per service & level, file log umum (nginx, syslog, auth, …), saring, mode ikuti
+  - Aksi yang butuh root memakai `sudo -n` otomatis; user tanpa sudo mendapat penjelasan yang jelas
+- **💾 Backup & restore database** — tombol backup di tiap koneksi MySQL, MariaDB, PostgreSQL, MongoDB, SQLite
+  - Lewat host SSH: `mysqldump` / `pg_dump` / `mongodump` dijalankan di server, hasilnya dialirkan & dikompres di komputer ini (tanpa memasang apa pun)
+  - Koneksi langsung: memakai alat di komputer ini (PATH, Homebrew, MAMP, komponen Server Lokal)
+  - Jadwal harian / mingguan pada jam pilihan, simpan N backup terakhir, opsional unggah ke Google Drive; notifikasi bila backup terjadwal gagal
+  - Restore dari daftar backup dengan konfirmasi; progres & tombol batal
 - **🐳 Docker** — kelola Docker di komputer ini atau di server mana pun lewat SSH, tanpa expose port Docker
   - Container dikelompokkan per proyek Compose: start, stop, restart, pause, hapus
   - CPU & RAM live tiap container, log yang ikut berjalan (300 – 5.000 baris)

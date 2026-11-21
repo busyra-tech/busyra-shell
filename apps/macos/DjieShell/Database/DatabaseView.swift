@@ -26,6 +26,7 @@ struct DbConnectionList: View {
     @AppStorage(PrivacyKeys.hideAddresses) private var hideAddresses = true
     @State private var editing: DbConnection?
     @State private var picking = false
+    @State private var backingUp: DbConnection?
 
     var body: some View {
         ScrollView {
@@ -41,7 +42,7 @@ struct DbConnectionList: View {
                 } else {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 260), spacing: 14)], spacing: 14) {
                         ForEach(Array(model.databases.enumerated()), id: \.element.id) { i, db in
-                            DbCard(db: db, hidden: hideAddresses, onEdit: { editing = db })
+                            DbCard(db: db, hidden: hideAddresses, onEdit: { editing = db }, onBackup: { backingUp = db })
                                 .staggerIn(i, base: 0)
                         }
                     }
@@ -59,6 +60,8 @@ struct DbConnectionList: View {
             .frame(width: 640)
         }
         .sheet(item: $editing) { DbEditor(original: $0) }
+        .sheet(item: $backingUp) { BackupSheet(db: $0) }
+        .onAppear { if let d = model.demoBackup { backingUp = d; model.demoBackup = nil } }
     }
 }
 
@@ -120,6 +123,7 @@ struct DbCard: View {
     let db: DbConnection
     let hidden: Bool
     var onEdit: () -> Void
+    var onBackup: () -> Void = {}
 
     private var preset: DbPreset { DbPreset.find(db) }
     private var address: String {
@@ -133,6 +137,17 @@ struct DbCard: View {
                 HStack(alignment: .top) {
                     EngineBadge(preset: preset, size: 42)
                     Spacer()
+                    if backupSupported(engine: db.engine) {
+                        let job = model.backups.jobs[db.id]
+                        let sched = model.backups.schedule(db.id)
+                        if job != nil {
+                            ProgressView().controlSize(.small).frame(width: 28, height: 28).help("Backup berjalan…")
+                        } else {
+                            IconButton(symbol: sched.frequency != .off ? "clock.badge.checkmark" : "externaldrive.badge.timemachine",
+                                       help: sched.frequency != .off ? "Backup terjadwal · \(sched.frequency.title.lowercased())" : "Backup & restore",
+                                       tint: sched.lastError != nil ? Color(hex: "#F0616D") : sched.frequency != .off ? Theme.accent : .primary, action: onBackup)
+                        }
+                    }
                     IconButton(symbol: "pencil", help: "Edit", action: onEdit)
                     IconButton(symbol: "trash", help: "Hapus", tint: .red) { model.delete(db) }
                 }

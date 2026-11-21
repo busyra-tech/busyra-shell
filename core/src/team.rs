@@ -487,7 +487,7 @@ struct Drive {
 }
 
 /// Alamat Google Drive. `DJIE_DRIVE_BASE` (hanya alamat lokal) dipakai tes dengan server tiruan.
-fn drive_base() -> String {
+pub(crate) fn drive_base() -> String {
     match std::env::var("DJIE_DRIVE_BASE") {
         Ok(b) if b.starts_with("http://127.0.0.1:") || b.starts_with("http://10.211.55.2:") => b,
         _ => "https://www.googleapis.com".into(),

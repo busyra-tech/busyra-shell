@@ -6,6 +6,7 @@
 //! - [`crypto`] : primitif enkripsi & format file
 
 mod admin;
+mod backup;
 mod crypto;
 mod db;
 mod docker;
@@ -22,6 +23,7 @@ mod team;
 mod vault;
 
 pub use admin::{cron_describe, cron_valid, AdminSystem, CronJob, CronLine, LogChunk, LogSource, ServerProcess, ServerAdmin, ServiceUnit};
+pub use backup::{backup_database, backup_extension, backup_supported, drive_upload_backup, restore_database, BackupResult};
 pub use error::CoreError;
 pub use docker::{ComposeProject, DockerClient, DockerContainer, DockerDetail, DockerImage, DockerInfo, DockerNetwork, DockerPort, DockerStat, DockerVolume};
 pub use db::{DbFilter, DbSession, DbTable, QueryResult};
