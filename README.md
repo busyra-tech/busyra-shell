@@ -42,6 +42,7 @@ Versi **Linux** masih beta — lihat [Linux (beta)](#linux-beta).
 - **💾 Backup database** — sekali klik atau terjadwal, opsional ke Google Drive
 - **🐳 Docker** gaya OrbStack — lokal atau di server lewat SSH
 - **🐧 Linux (beta)** — AppImage untuk x86_64 & ARM64
+- **🌐 Dwibahasa** — semua app tersedia dalam bahasa Indonesia & English
 
 ▶ [Tonton videonya](https://masadjie.github.io/djie-shell/#video) · [Catatan rilis lengkap](CHANGELOG.md)
 
@@ -70,6 +71,7 @@ Versi **Linux** masih beta — lihat [Linux (beta)](#linux-beta).
 | 🗄️ [Database](#️-database-ala-phpmyadmin) | 8 engine + 15 layanan cloud, cari ala phpMyAdmin, backup & restore | ✅ | ✅ | — |
 | 🔑 [Keychain, tunnel & proxy](#-keychain-tunnel--proxy) | SSH key, port forwarding, SOCKS5/HTTP proxy, snippets | ✅ | ✅ | ◐ |
 | 🔒 [Keamanan & sync](#-keamanan--sync) | Vault terenkripsi, sync Google Drive, Touch ID / Windows Hello | ✅ | ✅ | ◐ |
+| 🌐 Bahasa | Indonesia & English — ikut sistem atau pilih di "Bahasa / Language" | ✅ | ✅ | ✅ |
 
 ◐ = sebagian (Linux: SSH key, proxy, snippets, vault terenkripsi; port forwarding & sync menyusul)
 
