@@ -11,32 +11,32 @@ namespace DjieShell;
 
 internal enum Phase { Welcome, CreatePassword, Restore, Locked, Main }
 
-internal enum Section { Hosts, Team, Keychain, Forwarding, Sftp, Database, LocalServer, Docker, Snippets, KnownHosts, Logs, Donate, About, Account }
+internal enum Section { Dashboard, Hosts, Team, Keychain, Forwarding, Sftp, Database, LocalServer, Docker, Snippets, KnownHosts, Logs, Donate, About, Account }
 
 internal enum SyncKind { Off, Idle, Syncing, Synced, Failed, NeedsLogin }
 
 internal static class SectionInfo
 {
-    public static readonly Section[] Main = [Section.Hosts, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Docker, Section.Snippets, Section.KnownHosts, Section.Logs];
+    public static readonly Section[] Main = [Section.Dashboard, Section.Hosts, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Docker, Section.Snippets, Section.KnownHosts, Section.Logs];
     public static readonly Section[] Community = [Section.Donate, Section.About];
 
     public static string Title(this Section s) => s switch
     {
-        Section.Hosts => "Hosts", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
+        Section.Dashboard => "Dashboard", Section.Hosts => "Hosts", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
         Section.Database => "Database", Section.LocalServer => "Server Lokal", Section.Docker => "Docker", Section.Snippets => "Snippets", Section.KnownHosts => "Known Hosts", Section.Logs => "Logs",
         Section.Donate => "Donasi", Section.About => "Tentang", _ => "Akun",
     };
 
     public static string Glyph(this Section s) => s switch
     {
-        Section.Hosts => G.Server, Section.Team => G.People, Section.Keychain => G.Key, Section.Forwarding => G.Forward, Section.Sftp => G.Folder,
+        Section.Dashboard => G.Gauge, Section.Hosts => G.Server, Section.Team => G.People, Section.Keychain => G.Key, Section.Forwarding => G.Forward, Section.Sftp => G.Folder,
         Section.Database => G.Database, Section.LocalServer => G.Stack, Section.Docker => G.Apps, Section.Snippets => G.Code, Section.KnownHosts => G.Fingerprint, Section.Logs => G.History,
         Section.Donate => G.Heart, Section.About => G.Info, _ => G.Person,
     };
 
     public static string Tint(this Section s) => s switch
     {
-        Section.Hosts => "#3B82F6", Section.Team => "#22C55E", Section.Keychain => "#F59E0B", Section.Forwarding => "#10B981", Section.Sftp => "#06B6D4",
+        Section.Dashboard => "#F43F5E", Section.Hosts => "#3B82F6", Section.Team => "#22C55E", Section.Keychain => "#F59E0B", Section.Forwarding => "#10B981", Section.Sftp => "#06B6D4",
         Section.Database => "#F97316", Section.LocalServer => "#EAB308", Section.Docker => "#2496ED", Section.Snippets => "#8B5CF6", Section.KnownHosts => "#EC4899", Section.Logs => "#64748B",
         Section.Donate => "#EF4444", Section.About => "#6366F1", _ => "#14B8A6",
     };
@@ -118,6 +118,7 @@ internal sealed class AppModel
     public SftpModel Sftp { get; }
     public StackModel Stack { get; }
     public DockerModel Docker { get; }
+    public DashboardModel Dashboard { get; }
 
     public bool IsDark { get; private set; } = true;
     public string Appearance { get; private set; } = Settings.Str(Settings.Appearance) ?? "dark";
@@ -138,6 +139,7 @@ internal sealed class AppModel
         Sftp = new SftpModel(this);
         Stack = new StackModel(this);
         Docker = new DockerModel(this);
+        Dashboard = new DashboardModel(this);
         Tunnels.Changed += () => Raise("tunnels");
         IsDark = ComputeDark();
         _ui.ColorValuesChanged += (_, _) => _dq.TryEnqueue(() =>
@@ -223,6 +225,19 @@ internal sealed class AppModel
             var old = v.Hosts().FirstOrDefault(x => x.Label == "server-tes");
             v.UpsertHost(old == null ? h : h with { Id = old.Id });
         }
+        // DJIE_DASH_HOSTS="label|host|port|user|grup|#warna;..." (key DJIE_TEST_KEY) menggantikan semua host contoh
+        if (Environment.GetEnvironmentVariable("DJIE_DASH_HOSTS") is { Length: > 0 } dash && Environment.GetEnvironmentVariable("DJIE_TEST_KEY") is { Length: > 0 } dkp)
+        {
+            var pem = File.ReadAllText(dkp);
+            var k = v.Keys().FirstOrDefault(x => x.Label == "tes-dashboard" && x.PrivateKey.Trim() == pem.Trim()) ?? v.ImportKey("tes-dashboard", pem, null);
+            foreach (var old in v.Hosts()) v.DeleteHost(old.Id);
+            foreach (var item in dash.Split(';'))
+            {
+                var f = item.Split('|');
+                if (f.Length != 6 || !ushort.TryParse(f[2], out var port)) continue;
+                v.UpsertHost(HostExt.Blank() with { Label = f[0], Hostname = f[1], Port = port, Username = f[3], Group = f[4].Length == 0 ? null : f[4], Color = f[5], Auth = AuthMethod.Key, KeyId = k.Id });
+            }
+        }
         Open(v);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_SECTION") is { Length: > 0 } sec && Enum.TryParse<Section>(sec, true, out var s)) Navigate(s);
         // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL; DJIE_DEMO_TEAM=admin|member
@@ -233,6 +248,8 @@ internal sealed class AppModel
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER") is { Length: > 0 } dk) _ = DemoDocker(dk);
         // DJIE_DEMO_SPLIT=3 : split terminal lokal; DJIE_DEMO_BROADCAST=1; DJIE_DEMO_SPLIT_TYPE = teks diketik di panel aktif
         if (int.TryParse(Environment.GetEnvironmentVariable("DJIE_DEMO_SPLIT"), out var n) && n > 1) _ = DemoSplit(n);
+        // DJIE_DEMO_DASHBOARD_SELECT=judul1,judul2 : pilih server; DJIE_DEMO_DASHBOARD_SPLIT = teks diketik setelah Split & broadcast
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DASHBOARD_SELECT") is { Length: > 0 } dsel) _ = DemoDashboard(dsel);
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_LIGHT") == "1") SetAppearance("light");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") is "1" or "test") Edit(Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "test" ? test : Hosts.FirstOrDefault());
@@ -707,6 +724,21 @@ internal sealed class AppModel
             Docker.Choose(c);
     }
 
+    private async Task DemoDashboard(string names)
+    {
+        Navigate(Section.Dashboard);
+        var set = names.Split(',').ToHashSet();
+        foreach (var h in Hosts.Where(h => set.Contains(h.Title()))) Dashboard.Selection.Add(h.Id);
+        Raise("dashboard");
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DASHBOARD_SPLIT") is not { } typed) return;
+        await Task.Delay(3000);
+        OpenSplit(Dashboard.SelectedIds, true);
+        Dashboard.Selection.Clear();
+        for (int i = 0; i < 60 && Sessions.Any(s => SplitIds.Contains(s.Id) && s.State != TerminalSession.Status.Connected); i++) await Task.Delay(500);
+        await Task.Delay(1500);
+        ActiveSession?.Send(typed.Replace("\\r", "\r"));
+    }
+
     private async Task DemoSplit(int n)
     {
         OpenLocalTerminal();
@@ -869,6 +901,20 @@ internal sealed class AppModel
         var s = new TerminalSession(h, KeyById(h.KeyId), HostById(h.JumpHostId), null, this);
         Sessions.Add(s);
         AddToSplit(s.Id);
+    }
+
+    /// <summary>Buka beberapa host sekaligus dalam satu split (dari Dashboard), opsional langsung broadcast.</summary>
+    public void OpenSplit(IEnumerable<string> ids, bool broadcast)
+    {
+        var hs = ids.Select(HostById).OfType<Host>().Take(MaxSplit).ToList();
+        if (hs.Count == 0) return;
+        var created = hs.Select(h => new TerminalSession(h, KeyById(h.KeyId), HostById(h.JumpHostId), null, this)).ToList();
+        Sessions.AddRange(created);
+        SplitIds.Clear();
+        if (created.Count > 1) SplitIds.AddRange(created.Select(c => c.Id));
+        ActiveSessionId = created[0].Id;
+        Broadcast = broadcast && created.Count > 1;
+        Raise("sessions");
     }
 
     /// <summary>Panel baru ke host yang sama dengan tab aktif (Ctrl+Shift+D).</summary>

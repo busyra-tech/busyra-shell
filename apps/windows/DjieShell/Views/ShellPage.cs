@@ -157,7 +157,7 @@ internal sealed class ShellPage : Grid
 
     private int Badge(Section s) => s switch
     {
-        Section.Hosts => M.Hosts.Length, Section.Team => M.Teams.Length, Section.Keychain => M.Keys.Length, Section.Snippets => M.Snippets.Length,
+        Section.Dashboard => M.Dashboard.Attention, Section.Hosts => M.Hosts.Length, Section.Team => M.Teams.Length, Section.Keychain => M.Keys.Length, Section.Snippets => M.Snippets.Length,
         Section.Forwarding => M.Forwards.Length, Section.Database => M.Databases.Length, Section.LocalServer => M.Stack.Services.Count(x => x.Running), _ => 0,
     };
 
@@ -535,6 +535,7 @@ internal sealed class ShellPage : Grid
         _shownHome = true;
         FrameworkElement page = M.Section switch
         {
+            Section.Dashboard => new DashboardPage(),
             Section.Hosts => new HostsPage(),
             Section.Team => new TeamPage(),
             Section.Keychain => new KeychainPage(),

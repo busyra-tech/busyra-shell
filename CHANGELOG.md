@@ -9,6 +9,12 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 ## [Unreleased]
 
 ### Baru
+- **📊 Dashboard semua server** — menu baru paling atas di sidebar
+  - Kartu per server: CPU dengan grafik kecil, RAM, disk, load, uptime, kecepatan jaringan — diperbarui tiap 5 detik, tanpa agen (cukup SSH)
+  - Ringkasan: server online, yang perlu perhatian, CPU rata-rata, total RAM terpakai
+  - Peringatan oranye di atas 75% dan merah di atas 90%; server offline ditandai dan dicoba ulang otomatis tiap 20 detik
+  - Filter *Semua · Perlu perhatian · Offline* dan pencarian (nama, OS, grup)
+  - Pilih 2–4 server → **Split & broadcast** dalam satu klik; atau buka terminal / SFTP langsung dari kartu
 - **🐳 Docker** — kelola Docker di komputer ini atau di server mana pun lewat SSH, tanpa expose port Docker
   - Container dikelompokkan per proyek Compose: start, stop, restart, pause, hapus
   - CPU & RAM live tiap container, log yang ikut berjalan (300 – 5.000 baris)

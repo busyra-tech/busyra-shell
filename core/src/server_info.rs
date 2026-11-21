@@ -79,6 +79,10 @@ pub struct ServerSample {
     /// Total byte diterima/dikirim semua interface (kecuali loopback) sejak boot; selisih antar sampel = kecepatan.
     pub net_rx_bytes: u64,
     pub net_tx_bytes: u64,
+    /// Storage utama ("/", di macOS termasuk volume Data).
+    pub disk_total_bytes: u64,
+    pub disk_used_bytes: u64,
+    pub uptime_secs: u64,
 }
 
 /// Skrip sampel: CPU dari selisih /proc/stat (0,5 detik), RAM, load, dan counter jaringan.
@@ -103,6 +107,10 @@ if [ -r /proc/net/dev ]; then
 else
   netstat -ib 2>/dev/null | awk '$1!~/^lo/ && $3~/Link/ {rx+=$7; tx+=$10} END{printf "rx=%.0f\ntx=%.0f\n", rx, tx}'
 fi
+if [ -d /System/Volumes/Data ]; then df -P -k / /System/Volumes/Data 2>/dev/null | awk 'NR==2{t=$2} NR>1{u+=$3} END{printf "disk=%.0f|%.0f\n", t*1024, u*1024}'
+else df -P -k / 2>/dev/null | awk 'NR==2{printf "disk=%.0f|%.0f\n", $2*1024, $3*1024}'; fi
+if [ -r /proc/uptime ]; then echo "uptime=$(cut -d. -f1 /proc/uptime)";
+else b=$(sysctl -n kern.boottime 2>/dev/null | sed -n 's/^{ sec = \([0-9]*\),.*/\1/p'); [ -n "$b" ] && echo "uptime=$(( $(date +%s) - b ))"; fi
 "#;
 
 pub(crate) fn parse_sample(out: &str) -> ServerSample {
@@ -117,6 +125,13 @@ pub(crate) fn parse_sample(out: &str) -> ServerSample {
             "load" => s.load1 = num(v) as f32,
             "rx" => s.net_rx_bytes = num(v) as u64,
             "tx" => s.net_tx_bytes = num(v) as u64,
+            "uptime" => s.uptime_secs = num(v) as u64,
+            "disk" => {
+                if let Some((t, u)) = v.split_once('|') {
+                    s.disk_total_bytes = num(t) as u64;
+                    s.disk_used_bytes = (num(u) as u64).min(s.disk_total_bytes);
+                }
+            }
             _ => {}
         }
     }
@@ -249,7 +264,8 @@ mod tests {
 
     #[test]
     fn parses_sample_and_macos_data_volume() {
-        let s = parse_sample("cpu=473\nmem_total=1000\nmem_used=250\nload=0.42\nrx=123\ntx=456\n");
+        let s = parse_sample("cpu=473\nmem_total=1000\nmem_used=250\nload=0.42\nrx=123\ntx=456\ndisk=900|1200\nuptime=77\n");
+        assert_eq!((s.disk_total_bytes, s.disk_used_bytes, s.uptime_secs), (900, 900, 77));
         assert!((s.cpu_percent - 47.3).abs() < 0.01);
         assert_eq!((s.mem_used_bytes, s.net_rx_bytes, s.net_tx_bytes), (250, 123, 456));
         let i = parse("os=macOS 15\nkernel=Darwin\ndisk=/|500|13\ndisk=/System/Volumes/Data|500|400\n");

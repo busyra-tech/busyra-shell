@@ -74,11 +74,14 @@ Grid atau list, dikelompokkan per grup, warna kartu bebas. Pilih beberapa host l
 | **Lanjutan** | Jump host, proxy SOCKS5/HTTP, agent forwarding, startup snippet, env var |
 | **Terminal lokal** | zsh di Mac, PowerShell / CMD / WSL di Windows — tab di samping sesi SSH |
 | **Info server** | Spesifikasi (OS, kernel, CPU, uptime) + grafik live CPU, RAM, jaringan, dan storage |
+| **Dashboard** *(v0.5)* | Semua server dalam satu layar: CPU, RAM, disk, uptime, jaringan; peringatan merah, langsung split & broadcast |
 | **Split & broadcast** *(v0.5)* | 2–4 terminal berdampingan; ketik sekali, jalan di semua panel (⌘D, ⇧⌘B) |
 | **Autocomplete** | Saran perintah dari riwayat & snippet saat mengetik |
 | **Tampilan** | 7 tema terminal, mode gelap & terang, alamat server bisa disamarkan |
 
 <img src="site/assets/screens/server-info.jpg" alt="Panel Info server dengan grafik live" width="900" />
+
+<img src="site/assets/screens/dashboard.jpg" alt="Dashboard semua server" width="900" />
 
 <img src="site/assets/screens/split.jpg" alt="Split tiga terminal dengan broadcast aktif" width="900" />
 
@@ -191,7 +194,7 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 
 | Versi | Tanggal | Sorotan |
 |---|---|---|
-| [*Berikutnya*](CHANGELOG.md#unreleased) | — | Docker gaya OrbStack, split & broadcast terminal |
+| [*Berikutnya*](CHANGELOG.md#unreleased) | — | Dashboard semua server, Docker gaya OrbStack, split & broadcast terminal |
 | [**0.4.0**](CHANGELOG.md#040--2026-11-20) | 20 Nov 2026 | Server Lokal (Apache/Nginx + PHP, MySQL, PostgreSQL, MongoDB), Tim, edit file SFTP & buka dengan app lain |
 | [0.3.0](CHANGELOG.md#030--2026-11-20) | 20 Nov 2026 | Info server dengan grafik live CPU, RAM, jaringan, storage |
 | [0.2.0](CHANGELOG.md#020--2026-11-20) | 20 Nov 2026 | Versi Windows, proxy SOCKS5/HTTP, database ala phpMyAdmin, terminal lokal |

@@ -59,6 +59,7 @@ struct SectionContent: View {
     var body: some View {
         switch section {
         case .hosts: HostsView()
+        case .dashboard: DashboardView()
         case .team: TeamView()
         case .keychain: KeychainView()
         case .forwarding: ForwardingView()
@@ -137,6 +138,7 @@ struct SidebarView: View {
     private func badge(for s: Section) -> Int {
         switch s {
         case .hosts: model.hosts.count
+        case .dashboard: model.dashboard.attention
         case .team: model.teams.count
         case .keychain: model.keys.count
         case .snippets: model.snippets.count
@@ -224,6 +226,7 @@ extension Section {
     var tint: Color {
         switch self {
         case .hosts: Color(hex: "#3B82F6")
+        case .dashboard: Color(hex: "#F43F5E")
         case .team: Color(hex: "#22C55E")
         case .keychain: Color(hex: "#F59E0B")
         case .forwarding: Color(hex: "#10B981")

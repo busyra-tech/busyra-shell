@@ -10,13 +10,14 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, team, keychain, forwarding, sftp, database, localServer, docker, snippets, knownHosts, logs, donate, about, account
+    case hosts, dashboard, team, keychain, forwarding, sftp, database, localServer, docker, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .docker, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.dashboard, .hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .docker, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
         case .hosts: "Hosts"
+        case .dashboard: "Dashboard"
         case .team: "Tim"
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
@@ -35,6 +36,7 @@ enum Section: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .hosts: "server.rack"
+        case .dashboard: "gauge.with.dots.needle.67percent"
         case .team: "person.2.fill"
         case .keychain: "key.horizontal.fill"
         case .forwarding: "arrow.right.arrow.left"
@@ -89,6 +91,7 @@ final class AppModel {
     /// Panel Info server (spesifikasi & grafik) untuk host di tab aktif.
     var showServerInfo = false { didSet { syncServerStats() } }
     var serverStats: ServerStats?
+    let dashboard = DashboardModel()
 
     // Multi-select host
     var selection: Set<String> = []
@@ -286,6 +289,39 @@ final class AppModel {
             if let typed = env["DJIE_DEMO_SPLIT_TYPE"] {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [self] in
                     activeTerminalView?.send(txt: typed.replacingOccurrences(of: "\\r", with: "\r"))
+                }
+            }
+        }
+        // DJIE_DEMO_DASHBOARD=1 : buka Dashboard; DJIE_DEMO_DASHBOARD_SELECT=judul1,judul2 : pilih server
+        // DJIE_DASH_HOSTS="label|port|user|grup|#warna;..." (semua 127.0.0.1, key DJIE_TERM_KEY) menggantikan host contoh
+        if let list = env["DJIE_DASH_HOSTS"],
+           let pem = env["DJIE_TERM_KEY"].flatMap({ try? String(contentsOfFile: $0, encoding: .utf8) }),
+           let k = try? v.importKey(label: "tes-dashboard", privateKey: pem, passphrase: nil) {
+            for h in v.hosts() { try? v.deleteHost(id: h.id) }
+            for item in list.split(separator: ";") {
+                let f = item.split(separator: "|", omittingEmptySubsequences: false).map(String.init)
+                guard f.count == 5, let port = UInt16(f[1]) else { continue }
+                var h = Host.blank()
+                h.label = f[0]; h.hostname = "127.0.0.1"; h.port = port; h.username = f[2]
+                h.group = f[3].isEmpty ? nil : f[3]; h.color = f[4]; h.auth = .key; h.keyId = k.id
+                _ = try? v.upsertHost(host: h)
+            }
+            reload()
+        }
+        if env["DJIE_DEMO_DASHBOARD"] != nil {
+            section = .dashboard
+            if let list = env["DJIE_DEMO_DASHBOARD_SELECT"] {
+                let names = Set(list.split(separator: ",").map(String.init))
+                dashboard.selection = Set(hosts.filter { names.contains($0.title) }.map(\.id))
+                // DJIE_DEMO_DASHBOARD_SPLIT = teks yang diketik setelah "Split & broadcast" (\r = Enter)
+                if let typed = env["DJIE_DEMO_DASHBOARD_SPLIT"] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { [self] in
+                        openSplit(hosts.map(\.id).filter { dashboard.selection.contains($0) }, broadcast: true)
+                        dashboard.selection.removeAll()
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [self] in
+                            activeTerminalView?.send(txt: typed.replacingOccurrences(of: "\\r", with: "\r"))
+                        }
+                    }
                 }
             }
         }
@@ -818,6 +854,19 @@ final class AppModel {
         let s = TerminalSession(host: host, key: key(id: host.keyId), jump: self.host(id: host.jumpHostId), model: self)
         sessions.append(s)
         addToSplit(s.id)
+    }
+
+    /// Buka beberapa host sekaligus dalam satu split (dari Dashboard), opsional langsung broadcast.
+    func openSplit(_ ids: [String], broadcast on: Bool) {
+        let hs = ids.compactMap { host(id: $0) }.prefix(Self.maxSplit)
+        guard !hs.isEmpty else { return }
+        let new = hs.map { h in TerminalSession(host: h, key: key(id: h.keyId), jump: host(id: h.jumpHostId), model: self) }
+        sessions.append(contentsOf: new)
+        withAnimation(.djieSnappy) {
+            splitIDs = new.count > 1 ? new.map(\.id) : []
+            activeSessionID = new.first?.id
+            broadcast = on && new.count > 1
+        }
     }
 
     /// Panel baru ke host yang sama dengan tab aktif (⌘D).
