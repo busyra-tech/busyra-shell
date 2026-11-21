@@ -27,5 +27,7 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site
+      # Artifact kadang belum terbaca tepat setelah diunggah ("No artifacts named github-pages")
+      - run: sleep 20
       - id: deployment
         uses: actions/deploy-pages@v5
