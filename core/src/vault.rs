@@ -348,9 +348,24 @@ impl Vault {
         }
         let blob = crypto::seal(&self.key, &self.salt, &serde_json::to_vec(data)?);
         let tmp = self.path.with_extension("tmp");
-        fs::write(&tmp, blob)?;
+        write_private(&tmp, &blob)?;
         fs::rename(&tmp, &self.path)?;
         Ok(())
+    }
+}
+
+/// Tulis file yang hanya bisa dibaca pemiliknya (0600 di Unix), tidak bergantung umask.
+fn write_private(path: &Path, data: &[u8]) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = fs::OpenOptions::new().write(true).create(true).truncate(true).mode(0o600).open(path)?;
+        f.write_all(data)
+    }
+    #[cfg(not(unix))]
+    {
+        fs::write(path, data)
     }
 }
 

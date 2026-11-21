@@ -21,3 +21,8 @@ apps/windows/**/bin/
 apps/windows/**/obj/
 apps/windows/publish/
 dist/
+
+# Linux (GTK4)
+apps/linux/target/
+apps/linux/.flatpak-builder/
+apps/linux/build-flatpak/

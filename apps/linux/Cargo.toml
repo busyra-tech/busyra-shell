@@ -1,0 +1,24 @@
+[package]
+name = "djie-shell"
+version = "0.4.0"
+edition = "2024"
+description = "Djie Shell untuk Linux (GTK4 + libadwaita + VTE)"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "djie-shell"
+path = "src/main.rs"
+
+[dependencies]
+djie-core = { path = "../../core" }
+gtk = { package = "gtk4", version = "0.10", features = ["v4_14"] }
+adw = { package = "libadwaita", version = "0.8", features = ["v1_5"] }
+vte = { package = "vte4", version = "0.9" }
+uuid = { version = "1", features = ["v4"] }
+libc = "0.2"
+
+[profile.release]
+lto = true
+opt-level = 3
+strip = true
