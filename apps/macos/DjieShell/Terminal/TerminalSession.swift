@@ -63,7 +63,11 @@ final class TerminalSession: Identifiable {
         v.processDelegate = d
         autocomplete.view = v
         autocomplete.snippets = { [weak model] in model?.snippets ?? [] }
-        v.onInput = { [weak ac = autocomplete] data in ac?.consume(data) }
+        v.onInput = { [weak self, weak ac = autocomplete] data in
+            ac?.consume(data)
+            if let self { self.model?.broadcastInput(from: self, data: data) }
+        }
+
         v.onFirstData = { [weak self] in
             guard let self else { return }
             withAnimation(.djie) { self.status = .connected }

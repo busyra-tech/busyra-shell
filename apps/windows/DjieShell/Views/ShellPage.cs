@@ -264,6 +264,17 @@ internal sealed class ShellPage : Grid
         }
         if (M.ActiveSessionId != null)
         {
+            right.Children.Add(SplitMenu());
+            if (M.SplitVisible)
+            {
+                var on = M.Broadcast;
+                var bc = Ui.Plain(Ui.Row(6, Ui.Icon("\uE95A", 12, on ? Theme.Brush(Theme.Orange) : Theme.Text2),
+                        Ui.Text("Broadcast", 12, on ? FontWeights.SemiBold : FontWeights.Normal, on ? Theme.Brush(Theme.Orange) : Theme.Text2)),
+                    M.ToggleBroadcast, new Thickness(10, 5, 10, 5));
+                if (on) bc.Background = Theme.Brush(Theme.Orange, 0.16);
+                ToolTipService.SetToolTip(bc, "Ketik sekali, kirim ke semua panel split (Ctrl+Shift+B)");
+                right.Children.Add(bc);
+            }
             right.Children.Add(AutocompleteMenu());
             if (M.Snippets.Length > 0)
             {
@@ -343,6 +354,45 @@ internal sealed class ShellPage : Grid
         return chip;
     }
 
+    /// <summary>Menu Split: duplikat tab, gabung tab lain, atau host baru.</summary>
+    private UIElement SplitMenu()
+    {
+        var f = new MenuFlyout();
+        void Item(string text, Action a, bool enabled = true)
+        {
+            var i = new MenuFlyoutItem { Text = text, IsEnabled = enabled };
+            i.Click += (s, e) => a();
+            f.Items.Add(i);
+        }
+        Item("Duplikat tab ini  (Ctrl+Shift+D)", M.SplitDuplicate, M.CanSplit);
+        var others = M.Sessions.Where(x => x.Id != M.ActiveSessionId && !(M.SplitVisible && M.SplitIds.Contains(x.Id))).ToList();
+        if (others.Count > 0)
+        {
+            var sub = new MenuFlyoutSubItem { Text = "Gabung tab", IsEnabled = M.CanSplit };
+            foreach (var o in others) { var it = new MenuFlyoutItem { Text = o.Title }; it.Click += (s, e) => M.SplitWith(o); sub.Items.Add(it); }
+            f.Items.Add(sub);
+        }
+        if (M.Hosts.Length > 0)
+        {
+            var sub = new MenuFlyoutSubItem { Text = "Host baru", IsEnabled = M.CanSplit };
+            foreach (var h in M.Hosts) { var it = new MenuFlyoutItem { Text = h.Title() }; it.Click += (s, e) => M.SplitNew(h); sub.Items.Add(it); }
+            f.Items.Add(sub);
+        }
+        if (M.SplitVisible)
+        {
+            f.Items.Add(new MenuFlyoutSeparator());
+            Item(M.Broadcast ? "Matikan broadcast" : "Broadcast ke semua panel", M.ToggleBroadcast);
+            Item("Keluar dari split", M.Unsplit);
+        }
+        var b = new DropDownButton
+        {
+            Content = Ui.Row(6, Ui.Icon("\uE89F", 12), Ui.Text(M.SplitVisible ? $"Split · {M.SplitIds.Count}" : "Split", 12)),
+            Background = new SolidColorBrush(Colors.Transparent), BorderThickness = new Thickness(0), Flyout = f,
+        };
+        ToolTipService.SetToolTip(b, "Bagi layar: 2–4 terminal berdampingan");
+        return b;
+    }
+
     private UIElement AutocompleteMenu()
     {
         var on = Settings.Bool(Settings.Autocomplete, true);
@@ -378,27 +428,106 @@ internal sealed class ShellPage : Grid
         if (st != null) Ui.StaggerIn(_serverPanel, 0);
     }
 
+    private readonly List<UIElement> _splitChrome = [];
+
+    /// <summary>
+    /// Tampilkan tab aktif penuh, atau panel split dalam grid (2 kolom, 3 kolom, 2×2).
+    /// WebView2 tiap sesi tidak pernah dipindah induknya — hanya sel grid & margin yang berubah.
+    /// </summary>
     private void SyncTerminals()
     {
-        // Tambahkan view baru, buang view sesi yang sudah ditutup
         foreach (var s in M.Sessions)
             if (!_terminals.Children.Contains(s.View)) _terminals.Children.Add(s.View);
-        foreach (var v in _terminals.Children.OfType<FrameworkElement>().ToList())
+        foreach (var v in _terminals.Children.OfType<Microsoft.UI.Xaml.Controls.WebView2>().ToList())
             if (!M.Sessions.Any(s => s.View == v)) _terminals.Children.Remove(v);
+        foreach (var c in _splitChrome) _terminals.Children.Remove(c);
+        _splitChrome.Clear();
+
+        var split = M.SplitVisible ? M.SplitIds.ToList() : [];
+        int cols = split.Count == 4 ? 2 : Math.Max(1, split.Count), rows = split.Count == 4 ? 2 : 1;
+        _terminals.ColumnDefinitions.Clear();
+        _terminals.RowDefinitions.Clear();
+        for (int c = 0; c < cols; c++) _terminals.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        for (int r = 0; r < rows; r++) _terminals.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        _terminals.ColumnSpacing = _terminals.RowSpacing = split.Count > 0 ? 4 : 0;
+
         foreach (var s in M.Sessions)
         {
+            var idx = split.IndexOf(s.Id);
             var active = s.Id == M.ActiveSessionId;
-            s.View.Visibility = active ? Visibility.Visible : Visibility.Collapsed;
+            if (idx >= 0)
+            {
+                Place(s.View, idx % cols, idx / cols, 1, 1);
+                s.View.Margin = new Thickness(1, 27, 1, 1);
+                s.View.Visibility = Visibility.Visible;
+                var header = PaneHeader(s, active);
+                var border = new Border
+                {
+                    BorderThickness = new Thickness(active || M.Broadcast ? 1.5 : 1), CornerRadius = new CornerRadius(3), IsHitTestVisible = false,
+                    BorderBrush = M.Broadcast ? Theme.Brush(Theme.Orange, active ? 0.95 : 0.55) : active ? Theme.Brush(Theme.Accent, 0.85) : Theme.Ink(0.12),
+                };
+                foreach (var el in new FrameworkElement[] { header, border })
+                {
+                    Place(el, idx % cols, idx / cols, 1, 1);
+                    _terminals.Children.Add(el);
+                    _splitChrome.Add(el);
+                }
+            }
+            else
+            {
+                Place(s.View, 0, 0, cols, rows);
+                s.View.Margin = new Thickness(0);
+                s.View.Visibility = active && split.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            }
             if (active) s.Focus();
         }
+        if (split.Count > 0 && M.Broadcast)
+        {
+            var banner = new Border
+            {
+                Background = Theme.Brush(Theme.Orange), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 6, 14, 7),
+                HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(0, 0, 0, 16),
+                IsHitTestVisible = false,
+                Child = Ui.Row(8, Ui.Icon("\uE95A", 12, Theme.Brush("#000000", 0.8)),
+                    Ui.Text($"Broadcast aktif — ketikan dikirim ke {split.Count} terminal", 12, FontWeights.SemiBold, Theme.Brush("#000000", 0.8))),
+            };
+            Place(banner, 0, 0, cols, rows);
+            _terminals.Children.Add(banner);
+            _splitChrome.Add(banner);
+        }
         _terminals.Visibility = M.ActiveSessionId == null ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private static void Place(FrameworkElement e, int col, int row, int colSpan, int rowSpan)
+    {
+        Grid.SetColumn(e, col); Grid.SetRow(e, row);
+        Grid.SetColumnSpan(e, colSpan); Grid.SetRowSpan(e, rowSpan);
+    }
+
+    /// <summary>Judul kecil di atas panel split: warna host, nama, keluarkan dari split.</summary>
+    private FrameworkElement PaneHeader(TerminalSession s, bool active)
+    {
+        var remove = Ui.IconBtn("\uE738", "Keluarkan dari split (tab tetap terbuka)", () => M.RemoveFromSplit(s.Id), size: 10);
+        var row = Ui.Columns("Auto,*,Auto,Auto", 7,
+            new Border { Width = 7, Height = 7, CornerRadius = new CornerRadius(4), Background = Theme.Brush(s.Host.Color), VerticalAlignment = VerticalAlignment.Center },
+            Ui.Text(s.Title, 11.5, active ? FontWeights.SemiBold : FontWeights.Normal, active ? null : Theme.Text2).With(t => t.TextTrimming = TextTrimming.CharacterEllipsis),
+            M.Broadcast ? Ui.Icon("\uE95A", 10, Theme.Brush(Theme.Orange)) : null,
+            remove);
+        var b = Ui.Plain(row, () => M.Activate(s), new Thickness(10, 3, 6, 3));
+        b.Height = 26;
+        b.HorizontalAlignment = HorizontalAlignment.Stretch;
+        b.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        b.VerticalAlignment = VerticalAlignment.Top;
+        b.CornerRadius = new CornerRadius(3, 3, 0, 0);
+        b.Background = active ? Theme.Brush(Theme.Accent, 0.1) : Theme.Ink(0.04);
+        return b;
     }
 
     private void RenderContent()
     {
         var home = M.ActiveSessionId == null;
         _terminals.Visibility = home ? Visibility.Collapsed : Visibility.Visible;
-        foreach (var s in M.Sessions) s.View.Visibility = s.Id == M.ActiveSessionId ? Visibility.Visible : Visibility.Collapsed;
+        if (!home) SyncTerminals();
         _content.Visibility = home ? Visibility.Visible : Visibility.Collapsed;
         if (!home) { _shownHome = false; return; }
         if (_shownSection == M.Section && _shownHome && _content.Children.Count > 0) return;

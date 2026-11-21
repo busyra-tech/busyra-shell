@@ -46,6 +46,15 @@ struct DjieShellApp: App {
                     .disabled(model.phase != .main)
                 Button("Tutup Tab") { model.closeActive() }
                 Divider()
+                Button("Split: Duplikat Tab") { model.splitDuplicate() }
+                    .keyboardShortcut("d")
+                    .disabled(!model.canSplit)
+                Button(model.broadcast ? "Matikan Broadcast" : "Broadcast ke Semua Panel") { model.toggleBroadcast() }
+                    .keyboardShortcut("b", modifiers: [.command, .shift])
+                    .disabled(!model.splitVisible)
+                Button("Keluar dari Split") { model.unsplit() }
+                    .disabled(!model.splitVisible)
+                Divider()
                 Button("Kunci Vault") { model.lock() }
                     .keyboardShortcut("l", modifiers: [.command, .shift])
                     .disabled(model.phase != .main)

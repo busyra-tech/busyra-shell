@@ -50,6 +50,8 @@ internal sealed class TerminalSession
         ThemeId = host.TerminalTheme;
         _dq = DispatcherQueue.GetForCurrentThread();
         View = new WebView2 { DefaultBackgroundColor = Theme.Hex(TerminalThemes.Get(ThemeId).Bg) };
+        // Klik / fokus di panel split menjadikannya tab aktif
+        View.GotFocus += (s, e) => _model.FocusPane(Id);
         _ = InitAsync();
     }
 
@@ -97,7 +99,9 @@ internal sealed class TerminalSession
                 Start();
                 break;
             case "in":
-                _pty?.Write(m.GetProperty("d").GetString() ?? "");
+                var input = m.GetProperty("d").GetString() ?? "";
+                _pty?.Write(input);
+                _model.BroadcastInput(this, input);
                 break;
             case "resize":
                 _cols = m.GetProperty("cols").GetInt32();
@@ -180,6 +184,15 @@ internal sealed class TerminalSession
 
     /// <summary>Kirim teks seolah diketik (snippet) — ikut dilacak autocomplete.</summary>
     public void Send(string text) => Post(new { t = "input", d = text });
+
+    /// <summary>Tulis langsung ke shell (dipakai broadcast; tidak diteruskan lagi).
+    /// Bila shell belum siap, ketikan ditahan lalu dikirim begitu shell mengirim output pertama.</summary>
+    public void WriteInput(string data)
+    {
+        if (_pty != null && _gotData) _pty.Write(data);
+        else _heldInput.Append(data);
+    }
+    private readonly StringBuilder _heldInput = new();
 
 #if DEBUG
     public void DebugAccept() => Post(new { t = "acceptAc" });
@@ -273,6 +286,12 @@ internal sealed class TerminalSession
             _gotData = true;
             State = Status.Connected;
             Changed?.Invoke();
+            if (_heldInput.Length > 0)
+            {
+                var held = _heldInput.ToString();
+                _heldInput.Clear();
+                _ = Task.Delay(400).ContinueWith(_ => _dq.TryEnqueue(() => _pty?.Write(held)));
+            }
             _model.SessionStatusChanged();
             var commands = new[] { Host.StartupSnippet, _run }.Where(c => !string.IsNullOrEmpty(c)).ToList();
             for (int i = 0; i < commands.Count; i++)

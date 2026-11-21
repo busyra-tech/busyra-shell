@@ -20,7 +20,7 @@ mod team;
 mod vault;
 
 pub use error::CoreError;
-pub use docker::{ComposeProject, DockerClient, DockerContainer, DockerImage, DockerInfo, DockerStat};
+pub use docker::{ComposeProject, DockerClient, DockerContainer, DockerDetail, DockerImage, DockerInfo, DockerNetwork, DockerPort, DockerStat, DockerVolume};
 pub use db::{DbFilter, DbSession, DbTable, QueryResult};
 pub use model::{AuthMethod, DbConnection, DbEngine, EnvVar, ForwardKind, Host, HostProxy, PortForward, ProxyKind, SessionLog, Snippet, SshKey, SyncOutcome};
 pub use proxy::proxy_stdio;

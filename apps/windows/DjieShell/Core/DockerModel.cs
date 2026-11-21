@@ -10,7 +10,7 @@ namespace DjieShell;
 /// <summary>Docker: container, image, dan proyek Compose — di PC ini atau server lewat SSH. Padanan DockerModel di DockerView.swift.</summary>
 internal sealed class DockerModel
 {
-    public enum Tab { Containers, Images, Compose }
+    public enum Tab { Containers, Volumes, Images, Networks }
 
     /// <summary>null = Docker di PC ini; selain itu id host.</summary>
     public string? TargetId { get; private set; }
@@ -22,6 +22,14 @@ internal sealed class DockerModel
     public Dictionary<string, DockerStat> Stats { get; private set; } = [];
     public DockerImage[] Images { get; private set; } = [];
     public ComposeProject[] Projects { get; private set; } = [];
+    public DockerVolume[] Volumes { get; private set; } = [];
+    public DockerNetwork[] Networks { get; private set; } = [];
+    /// <summary>Proyek Compose yang dilipat.</summary>
+    public HashSet<string> Collapsed { get; } = [];
+    public string? SelectedId { get; private set; }
+    public DockerDetail? Detail { get; private set; }
+    public DockerContainer? Selected => Containers.FirstOrDefault(c => c.Id == SelectedId);
+    private string? _hostname;
     public HashSet<string> Busy { get; } = [];
     public Tab Current { get; set; } = Tab.Containers;
     public string Query { get; set; } = "";
@@ -46,8 +54,9 @@ internal sealed class DockerModel
         var gen = ++_generation;
         var old = _client;
         _client = null;
-        TargetId = id; Connected = false; Info = null; Error = null;
-        Containers = []; Images = []; Projects = []; Stats = [];
+        TargetId = id; Connected = false; Info = null; Error = null; SelectedId = null; Detail = null;
+        Containers = []; Images = []; Projects = []; Volumes = []; Networks = []; Stats = [];
+        _hostname = id == null ? null : _app.HostById(id)?.Hostname;
         Loading = true;
         Raise();
         if (old != null) _ = old.Close();
@@ -78,15 +87,45 @@ internal sealed class DockerModel
         Loading = true; Raise();
         try
         {
-            var info = c.Info(); var cs = c.Containers(); var im = c.Images(); var pr = c.ComposeProjects();
-            await Task.WhenAll(info, cs, im, pr);
-            Info = info.Result; Containers = cs.Result; Images = im.Result; Projects = pr.Result; Error = null;
+            var info = c.Info(); var cs = c.Containers(); var im = c.Images(); var pr = c.ComposeProjects(); var vo = c.Volumes(); var ne = c.Networks();
+            await Task.WhenAll(info, cs, im, pr, vo, ne);
+            Info = info.Result; Containers = cs.Result; Images = im.Result; Projects = pr.Result; Volumes = vo.Result; Networks = ne.Result; Error = null;
         }
         catch (Exception e) { Error = Errors.Text(e); }
         Loading = false;
         Raise();
         await RefreshStats();
+        if (SelectedId is { } sel) await LoadDetail(sel);
     }
+
+    public void Choose(DockerContainer? c)
+    {
+        SelectedId = c?.Id;
+        if (c == null) Detail = null;
+        Raise();
+        if (c != null) _ = LoadDetail(c.Id);
+    }
+
+    private async Task LoadDetail(string id)
+    {
+        if (_client is not { } c) return;
+        try
+        {
+            var d = await c.Inspect(id);
+            if (SelectedId == id) { Detail = d; Raise(); }
+        }
+        catch { }
+    }
+
+    public Task RemoveVolume(DockerVolume v) => Run("vol:" + v.Name, x => x.RemoveVolume(v.Name));
+
+    /// <summary>Link port di browser: localhost untuk PC ini, hostname server untuk host SSH.</summary>
+    public string Url(ushort port) => $"http://{_hostname ?? "localhost"}:{port}";
+
+    public int Count(Tab t) => t switch
+    {
+        Tab.Containers => Containers.Length, Tab.Volumes => Volumes.Length, Tab.Images => Images.Length, _ => Networks.Length,
+    };
 
     public async Task RefreshStats()
     {
@@ -126,7 +165,11 @@ internal sealed class DockerModel
         await Refresh();
     }
 
-    public Task Action(DockerContainer c, string action) => Run(c.Id, x => x.ContainerAction(c.Id, action));
+    public Task Action(DockerContainer c, string action)
+    {
+        if (action == "rm" && SelectedId == c.Id) Choose(null);
+        return Run(c.Id, x => x.ContainerAction(c.Id, action));
+    }
 
     public Task Compose(string name, string action)
     {

@@ -5,18 +5,20 @@ struct TerminalPane: View {
     @Environment(AppModel.self) private var model
     let session: TerminalSession
     var active = true
+    /// Menerima ketikan (di split hanya satu panel yang fokus).
+    var focused = true
 
     var body: some View {
         let theme = TerminalThemes.def(session.themeID)
         ZStack {
             Color(hex: theme.bg)
-            TerminalRepresentable(session: session, active: active)
+            TerminalRepresentable(session: session, active: active, focused: focused)
                 .padding(.leading, 10).padding(.top, 6)
                 .opacity(session.status == .connecting && !session.isLocal ? 0.25 : 1)
                 .blur(radius: session.status == .connecting && !session.isLocal ? 2 : 0)
 
             GeometryReader { geo in
-                if active, session.autocomplete.visible {
+                if active && focused, session.autocomplete.visible {
                     AutocompletePopup(ac: session.autocomplete, cell: session.view.cellSize, paneSize: geo.size, theme: theme)
                 }
             }
@@ -98,6 +100,7 @@ struct ConnectingOverlay: View {
 struct TerminalRepresentable: NSViewRepresentable {
     let session: TerminalSession
     var active = true
+    var focused = true
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
@@ -117,7 +120,7 @@ struct TerminalRepresentable: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {
         // View AppKit tetap menangkap klik walau transparan — sembunyikan tab yang tidak aktif
         nsView.isHidden = !active
-        if active {
+        if active && focused, session.view.window?.firstResponder !== session.view {
             DispatchQueue.main.async { session.view.window?.makeFirstResponder(session.view) }
         }
     }

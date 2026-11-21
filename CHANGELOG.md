@@ -15,6 +15,13 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
   - Satu klik buka shell di dalam container (tab SSH, atau terminal lokal)
   - Proyek Compose: up, restart, stop, down; daftar & hapus image
   - Mendukung Docker Desktop, OrbStack, Rancher, Colima; di server otomatis mencoba `sudo -n` bila user belum di grup `docker`
+  - Tampilan gaya OrbStack: sidebar Container · Volume · Image · Network, proyek Compose yang bisa dilipat, tombol yang muncul saat disorot
+  - Panel detail container: CPU & RAM, port yang bisa dibuka di browser, perintah, restart policy, health, IP & network, mount, environment (tersamar)
+  - Daftar & hapus volume, daftar network
+- **🪟 Split & broadcast terminal**
+  - Bagi layar jadi 2–4 terminal berdampingan (2 kolom, 3 kolom, 2×2): duplikat tab (⌘D / Ctrl+Shift+D), gabung tab yang sudah terbuka, atau buka host baru
+  - **Broadcast** (⇧⌘B / Ctrl+Shift+B): ketik sekali, dikirim ke semua panel split — panel bertanda oranye
+  - Klik panel untuk memfokuskannya; keluarkan panel dari split tanpa menutup tab
 
 ## [0.4.0] — 2026-11-20
 

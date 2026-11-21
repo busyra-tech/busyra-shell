@@ -278,11 +278,29 @@ final class AppModel {
         }
         // Tes Tim dengan Drive tiruan: DJIE_DRIVE_BASE + DJIE_TEST_DRIVE_TOKEN/EMAIL,
         // DJIE_DEMO_TEAM=admin (buat tim, bagikan 2 host, undang DJIE_DEMO_TEAM_INVITE) atau member (gabung undangan pertama)
+        // DJIE_DEMO_SPLIT=3 : split terminal lokal; DJIE_DEMO_BROADCAST=1; DJIE_DEMO_SPLIT_TYPE = teks diketik di panel aktif
+        if let n = env["DJIE_DEMO_SPLIT"].flatMap(Int.init), n > 1 {
+            openLocalTerminal()
+            for _ in 1..<n { splitDuplicate() }
+            if env["DJIE_DEMO_BROADCAST"] != nil { broadcast = true }
+            if let typed = env["DJIE_DEMO_SPLIT_TYPE"] {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [self] in
+                    activeTerminalView?.send(txt: typed.replacingOccurrences(of: "\\r", with: "\r"))
+                }
+            }
+        }
         // DJIE_DEMO_DOCKER=1 : buka halaman Docker (Mac ini); DJIE_DEMO_DOCKER_TAB=images|compose
         if env["DJIE_DEMO_DOCKER"] != nil {
             section = .docker
             if let t = env["DJIE_DEMO_DOCKER_TAB"].flatMap(DockerModel.Tab.init(rawValue:)) { docker.tab = t }
             if let q = env["DJIE_DEMO_DOCKER_QUERY"] { docker.query = q }
+            // DJIE_DEMO_DOCKER_SELECT=nama container : buka panel detail
+            if let name = env["DJIE_DEMO_DOCKER_SELECT"] {
+                Task {
+                    for _ in 0..<40 where docker.containers.isEmpty { try? await Task.sleep(for: .milliseconds(250)) }
+                    if let c = docker.containers.first(where: { $0.name == name }) { docker.choose(c) }
+                }
+            }
         }
         // DJIE_DEMO_STACK=web,postgres : nyalakan layanan Server Lokal (folder DJIE_STACK_ROOT)
         if let list = env["DJIE_DEMO_STACK"] {
@@ -739,6 +757,7 @@ final class AppModel {
         session.terminate()
         guard let idx = sessions.firstIndex(where: { $0.id == session.id }) else { return }
         withAnimation(.djieSnappy) {
+            removeFromSplit(session.id)
             sessions.remove(at: idx)
             if activeSessionID == session.id {
                 activeSessionID = sessions.isEmpty ? nil : sessions[max(0, idx - 1)].id
@@ -767,6 +786,83 @@ final class AppModel {
 
     func showHome() {
         withAnimation(.djieSnappy) { activeSessionID = nil }
+    }
+
+    // MARK: Split & broadcast
+
+    /// Tab yang ditampilkan berdampingan (2–4). Tampil saat tab aktif termasuk di dalamnya.
+    var splitIDs: [UUID] = []
+    /// Ketikan di satu panel dikirim ke semua panel split.
+    var broadcast = false
+    @ObservationIgnored private var broadcasting = false
+    static let maxSplit = 4
+
+    var splitVisible: Bool { splitIDs.count > 1 && activeSessionID.map(splitIDs.contains) == true }
+    var canSplit: Bool { activeSession != nil && (splitVisible ? splitIDs.count < Self.maxSplit : true) }
+
+    private func addToSplit(_ id: UUID) {
+        guard let active = activeSessionID else { return }
+        withAnimation(.djieSnappy) {
+            if !splitVisible { splitIDs = [active] }
+            if !splitIDs.contains(id), splitIDs.count < Self.maxSplit { splitIDs.append(id) }
+            activeSessionID = id
+        }
+    }
+
+    /// Gabungkan tab yang sudah terbuka ke split.
+    func split(with session: TerminalSession) { addToSplit(session.id) }
+
+    /// Buka host baru langsung di panel split.
+    func splitNew(_ host: Host) {
+        guard canSplit else { return }
+        let s = TerminalSession(host: host, key: key(id: host.keyId), jump: self.host(id: host.jumpHostId), model: self)
+        sessions.append(s)
+        addToSplit(s.id)
+    }
+
+    /// Panel baru ke host yang sama dengan tab aktif (⌘D).
+    func splitDuplicate() {
+        guard let s = activeSession, canSplit else { return }
+        if s.isLocal {
+            let n = TerminalSession(host: TerminalSession.localHost(), key: nil, jump: nil, model: self, local: true)
+            sessions.append(n)
+            addToSplit(n.id)
+        } else {
+            splitNew(s.host)
+        }
+    }
+
+    func removeFromSplit(_ id: UUID) {
+        withAnimation(.djieSnappy) {
+            splitIDs.removeAll { $0 == id }
+            if splitIDs.count < 2 { splitIDs = []; broadcast = false }
+        }
+    }
+
+    func unsplit() {
+        withAnimation(.djieSnappy) { splitIDs = []; broadcast = false }
+    }
+
+    func toggleBroadcast() {
+        guard splitVisible else { return }
+        withAnimation(.djieSnappy) { broadcast.toggle() }
+    }
+
+    /// Panel yang diklik jadi tab aktif.
+    func focusPane(_ id: UUID) {
+        guard splitVisible, splitIDs.contains(id), activeSessionID != id else { return }
+        activeSessionID = id
+    }
+
+    /// Teruskan ketikan dari satu panel ke panel split lain (saat broadcast menyala).
+    func broadcastInput(from source: TerminalSession, data: ArraySlice<UInt8>) {
+        guard broadcast, !broadcasting, splitVisible, splitIDs.contains(source.id) else { return }
+        broadcasting = true
+        defer { broadcasting = false }
+        for s in sessions where s.id != source.id && splitIDs.contains(s.id) {
+            if case .disconnected = s.status { continue }
+            s.view.send(source: s.view, data: data)
+        }
     }
 
     // MARK: Tim

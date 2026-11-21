@@ -19,14 +19,8 @@ struct MainView: View {
                             .id(model.section)
                             .transition(.opacity)
                     }
-                    // Semua sesi tetap hidup walau tidak sedang ditampilkan
-                    ForEach(model.sessions) { s in
-                        let active = s.id == model.activeSessionID
-                        TerminalPane(session: s, active: active)
-                            .opacity(active ? 1 : 0)
-                            .allowsHitTesting(active)
-                            .zIndex(active ? 1 : 0)
-                    }
+                    // Semua sesi tetap hidup walau tidak sedang ditampilkan; di split beberapa tampil berdampingan.
+                    TerminalPanes()
                 }
                 .animation(.djie, value: model.activeSessionID)
                     if let stats = model.serverStats, model.activeSessionID != nil {
@@ -438,6 +432,23 @@ struct TabStrip: View {
                 .buttonStyle(.plain)
                 .help("Spesifikasi & grafik server (⇧⌘I)")
                 .keyboardShortcut("i", modifiers: [.command, .shift])
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            if model.activeSessionID != nil {
+                SplitMenu()
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+            }
+            if model.splitVisible {
+                Button { model.toggleBroadcast() } label: {
+                    Label("Broadcast", systemImage: "dot.radiowaves.left.and.right")
+                        .font(.system(size: 12, weight: model.broadcast ? .semibold : .regular))
+                        .padding(.horizontal, 9).frame(height: 26)
+                        .background(model.broadcast ? Color.orange.opacity(0.18) : .clear, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                        .foregroundStyle(model.broadcast ? Color.orange : .secondary)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Ketik sekali, kirim ke semua panel split (⇧⌘B)")
                 .transition(.opacity.combined(with: .scale(scale: 0.9)))
             }
             if model.activeSessionID != nil {

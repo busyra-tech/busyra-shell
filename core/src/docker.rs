@@ -75,6 +75,55 @@ pub struct ComposeProject {
     pub config_files: String,
 }
 
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct DockerVolume {
+    pub name: String,
+    pub driver: String,
+    pub mountpoint: String,
+    /// Proyek Compose pemilik volume (kosong = tidak ada).
+    pub project: String,
+    /// Volume anonim (nama acak) — biasanya sisa container lama.
+    pub anonymous: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct DockerNetwork {
+    pub id: String,
+    pub name: String,
+    pub driver: String,
+    pub project: String,
+    /// bridge/host/none bawaan Docker.
+    pub builtin: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct DockerPort {
+    pub host_ip: String,
+    pub host_port: u16,
+    /// mis. "80/tcp"
+    pub container_port: String,
+}
+
+/// Detail satu container (`docker inspect`).
+#[derive(Debug, Clone, PartialEq, uniffi::Record)]
+pub struct DockerDetail {
+    pub id: String,
+    pub name: String,
+    pub image: String,
+    pub command: String,
+    pub created: String,
+    pub started_at: String,
+    pub restart_policy: String,
+    pub health: String,
+    pub ip_address: String,
+    pub networks: Vec<String>,
+    pub ports: Vec<DockerPort>,
+    /// `KEY=VALUE` — bisa berisi rahasia, tampilkan tersamar di UI.
+    pub env: Vec<String>,
+    /// "sumber → tujuan (rw)"
+    pub mounts: Vec<String>,
+}
+
 enum Target {
     Local(PathBuf),
     Ssh(tokio::sync::Mutex<Option<russh::client::Handle<ssh::Client>>>),
@@ -207,6 +256,57 @@ impl DockerClient {
             .iter()
             .map(|v| ComposeProject { name: s(v, "Name"), status: s(v, "Status"), config_files: s(v, "ConfigFiles") })
             .collect())
+    }
+
+    pub async fn volumes(&self) -> Result<Vec<DockerVolume>, CoreError> {
+        let out = self.docker(&["volume", "ls", "--format", "{{json .}}"]).await?;
+        let mut v: Vec<DockerVolume> = json_lines(&out)
+            .iter()
+            .map(|v| {
+                let labels = s(v, "Labels");
+                let name = s(v, "Name");
+                DockerVolume {
+                    anonymous: labels.contains("com.docker.volume.anonymous") || (name.len() == 64 && name.chars().all(|c| c.is_ascii_hexdigit())),
+                    project: label(&labels, "com.docker.compose.project"),
+                    driver: s(v, "Driver"),
+                    mountpoint: s(v, "Mountpoint"),
+                    name,
+                }
+            })
+            .collect();
+        v.sort_by(|a, b| (a.anonymous, a.project.is_empty(), &a.project, &a.name).cmp(&(b.anonymous, b.project.is_empty(), &b.project, &b.name)));
+        Ok(v)
+    }
+
+    pub async fn networks(&self) -> Result<Vec<DockerNetwork>, CoreError> {
+        let out = self.docker(&["network", "ls", "--format", "{{json .}}"]).await?;
+        Ok(json_lines(&out)
+            .iter()
+            .map(|v| {
+                let name = s(v, "Name");
+                DockerNetwork {
+                    id: s(v, "ID"),
+                    builtin: matches!(name.as_str(), "bridge" | "host" | "none"),
+                    project: label(&s(v, "Labels"), "com.docker.compose.project"),
+                    driver: s(v, "Driver"),
+                    name,
+                }
+            })
+            .collect())
+    }
+
+    pub async fn remove_volume(&self, name: String) -> Result<(), CoreError> {
+        let name = safe(&name)?;
+        self.docker(&["volume", "rm", name]).await.map(|_| ())
+    }
+
+    pub async fn inspect(&self, id: String) -> Result<DockerDetail, CoreError> {
+        let id = safe(&id)?;
+        let out = self.docker(&["inspect", "--type", "container", id]).await?;
+        let start = out.find('[').ok_or_else(|| err("detail container tidak terbaca"))?;
+        let list: Vec<Value> = serde_json::from_str(out[start..].trim()).map_err(|_| err("detail container tidak terbaca"))?;
+        let d = list.first().ok_or_else(|| err("container tidak ditemukan"))?;
+        Ok(parse_detail(d))
     }
 
     /// start | stop | restart | pause | unpause | rm
@@ -394,6 +494,53 @@ fn parse_container(v: &Value) -> DockerContainer {
     }
 }
 
+fn parse_detail(d: &Value) -> DockerDetail {
+    let strs = |v: &Value| -> Vec<String> { v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_string)).collect()).unwrap_or_default() };
+    let mut command = vec![d["Path"].as_str().unwrap_or("").to_string()];
+    command.extend(strs(&d["Args"]));
+    let nets = d["NetworkSettings"]["Networks"].as_object();
+    let mut ports: Vec<DockerPort> = vec![];
+    if let Some(map) = d["NetworkSettings"]["Ports"].as_object() {
+        for (inner, binds) in map {
+            for b in binds.as_array().into_iter().flatten() {
+                if let Some(p) = b["HostPort"].as_str().and_then(|p| p.parse().ok()) {
+                    let host_ip = b["HostIp"].as_str().unwrap_or("").to_string();
+                    // Lewati duplikat IPv6 (::) bila IPv4 sudah ada untuk port yang sama.
+                    if !ports.iter().any(|x: &DockerPort| x.host_port == p && x.container_port == *inner) {
+                        ports.push(DockerPort { host_ip, host_port: p, container_port: inner.clone() });
+                    }
+                }
+            }
+        }
+    }
+    ports.sort_by_key(|p| p.host_port);
+    DockerDetail {
+        id: d["Id"].as_str().unwrap_or("").to_string(),
+        name: d["Name"].as_str().unwrap_or("").trim_start_matches('/').to_string(),
+        image: d["Config"]["Image"].as_str().unwrap_or("").to_string(),
+        command: command.into_iter().filter(|c| !c.is_empty()).collect::<Vec<_>>().join(" "),
+        created: d["Created"].as_str().unwrap_or("").chars().take(19).collect::<String>().replace('T', " "),
+        started_at: d["State"]["StartedAt"].as_str().unwrap_or("").chars().take(19).collect::<String>().replace('T', " "),
+        restart_policy: d["HostConfig"]["RestartPolicy"]["Name"].as_str().unwrap_or("no").to_string(),
+        health: d["State"]["Health"]["Status"].as_str().unwrap_or("").to_string(),
+        ip_address: nets
+            .and_then(|m| m.values().find_map(|n| n["IPAddress"].as_str().filter(|s| !s.is_empty()).map(str::to_string)))
+            .unwrap_or_default(),
+        networks: nets.map(|m| m.keys().cloned().collect()).unwrap_or_default(),
+        ports,
+        env: strs(&d["Config"]["Env"]),
+        mounts: d["Mounts"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|m| {
+                let src = m["Name"].as_str().filter(|s| !s.is_empty()).or(m["Source"].as_str()).unwrap_or("");
+                format!("{src} → {} ({})", m["Destination"].as_str().unwrap_or(""), if m["RW"].as_bool().unwrap_or(true) { "rw" } else { "ro" })
+            })
+            .collect(),
+    }
+}
+
 fn pct(x: &str) -> f64 {
     x.trim().trim_end_matches('%').parse().unwrap_or(0.0)
 }
@@ -424,6 +571,24 @@ mod tests {
         let st = parse_stat(&serde_json::from_str(r#"{"ID":"5e","CPUPerc":"12.50%","MemPerc":"0.29%","MemUsage":"23.25MiB / 7.816GiB","NetIO":"1MB / 2MB"}"#).unwrap());
         assert_eq!(st.cpu_percent, 12.5);
         assert_eq!(st.mem_percent, 0.29);
+    }
+
+    #[test]
+    fn parses_inspect() {
+        let d: Value = serde_json::from_str(r#"{"Id":"abc","Name":"/web","Path":"/docker-entrypoint.sh","Args":["nginx","-g","daemon off;"],
+          "Created":"2026-11-20T01:02:03.456Z","State":{"StartedAt":"2026-11-20T01:02:04.1Z","Health":{"Status":"healthy"}},
+          "HostConfig":{"RestartPolicy":{"Name":"unless-stopped"}},"Config":{"Image":"nginx:alpine","Env":["A=1","SECRET=x"]},
+          "Mounts":[{"Name":"data","Source":"/var/lib/x","Destination":"/data","RW":true}],
+          "NetworkSettings":{"Networks":{"shop_default":{"IPAddress":"172.18.0.2"}},"Ports":{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":"8080"},{"HostIp":"::","HostPort":"8080"}],"443/tcp":null}}}"#).unwrap();
+        let x = parse_detail(&d);
+        assert_eq!(x.name, "web");
+        assert_eq!(x.command, "/docker-entrypoint.sh nginx -g daemon off;");
+        assert_eq!(x.ports.len(), 1);
+        assert_eq!(x.ports[0].host_port, 8080);
+        assert_eq!(x.mounts, vec!["data → /data (rw)"]);
+        assert_eq!(x.ip_address, "172.18.0.2");
+        assert_eq!(x.health, "healthy");
+        assert_eq!(x.created, "2026-11-20 01:02:03");
     }
 
     #[test]

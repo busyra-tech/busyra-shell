@@ -2,11 +2,12 @@ import SwiftUI
 
 // MARK: - Model
 
-/// Docker: container, image, dan proyek Compose — di Mac ini atau di server lewat SSH (core: DockerClient).
+/// Docker: container, volume, image, network — di Mac ini atau server lewat SSH (core: DockerClient).
+/// Tampilan meniru OrbStack: sidebar kecil, daftar ringkas per proyek Compose, panel detail di kanan.
 @MainActor
 @Observable
 final class DockerModel {
-    enum Tab: String, CaseIterable { case containers, images, compose }
+    enum Tab: String, CaseIterable { case containers, volumes, images, networks }
 
     /// nil = Docker di Mac ini; selain itu id host.
     private(set) var targetId: String?
@@ -15,26 +16,36 @@ final class DockerModel {
     var containers: [DockerContainer] = []
     var stats: [String: DockerStat] = [:]
     var images: [DockerImage] = []
+    var volumes: [DockerVolume] = []
+    var networks: [DockerNetwork] = []
     var projects: [ComposeProject] = []
     var tab: Tab = .containers
     var query = ""
     var loading = false
     var error: String?
     var busy: Set<String> = []
+    /// Proyek Compose yang dilipat.
+    var collapsed: Set<String> = []
+    var selectedId: String?
+    var detail: DockerDetail?
 
     @ObservationIgnored private var client: DockerClient?
     @ObservationIgnored private var poller: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
+    /// Hostname server (untuk link port); nil = localhost.
+    @ObservationIgnored private var hostname: String?
 
-    /// Ganti target (Mac ini / host) lalu muat ulang.
+    var selected: DockerContainer? { containers.first { $0.id == selectedId } }
+
     func select(_ id: String?, model: AppModel) async {
         generation += 1
         let gen = generation
         let old = client
         client = nil
+        hostname = id.flatMap { model.host(id: $0)?.hostname }
         withAnimation(.djie) {
-            targetId = id; connected = false; info = nil; error = nil
-            containers = []; images = []; projects = []; stats = [:]
+            targetId = id; connected = false; info = nil; error = nil; selectedId = nil; detail = nil
+            containers = []; images = []; volumes = []; networks = []; projects = []; stats = [:]
             loading = true
         }
         Task { await old?.close() }
@@ -62,15 +73,20 @@ final class DockerModel {
         do {
             async let i = client.info()
             async let c = client.containers()
-            async let im = client.images()
             async let p = client.composeProjects()
-            let (ii, cc, imm, pp) = try await (i, c, im, p)
-            withAnimation(.djie) { info = ii; containers = cc; images = imm; projects = pp; error = nil }
+            let (ii, cc, pp) = try await (i, c, p)
+            withAnimation(.djie) { info = ii; containers = cc; projects = pp; error = nil }
+            async let im = client.images()
+            async let v = client.volumes()
+            async let n = client.networks()
+            let (imm, vv, nn) = try await (im, v, n)
+            withAnimation(.djie) { images = imm; volumes = vv; networks = nn }
         } catch {
             withAnimation(.djie) { self.error = error.djieMessage }
         }
         loading = false
         await refreshStats()
+        if let id = selectedId { await loadDetail(id) }
     }
 
     func refreshStats() async {
@@ -80,7 +96,6 @@ final class DockerModel {
         }
     }
 
-    /// Perbarui status & statistik berkala selama halaman terbuka.
     func startPolling() {
         poller?.cancel()
         poller = Task { [weak self] in
@@ -97,6 +112,16 @@ final class DockerModel {
 
     func stopPolling() { poller?.cancel() }
 
+    func choose(_ c: DockerContainer?) {
+        withAnimation(.djieSnappy) { selectedId = c?.id; if c == nil { detail = nil } }
+        if let c { Task { await loadDetail(c.id) } }
+    }
+
+    func loadDetail(_ id: String) async {
+        guard let client, let d = try? await client.inspect(id: id), selectedId == id else { return }
+        detail = d
+    }
+
     private func run(_ key: String, _ op: @escaping (DockerClient) async throws -> Void) async {
         guard let client, !busy.contains(key) else { return }
         busy.insert(key)
@@ -106,6 +131,7 @@ final class DockerModel {
     }
 
     func action(_ c: DockerContainer, _ action: String) async {
+        if action == "rm" && selectedId == c.id { choose(nil) }
         await run(c.id) { try await $0.containerAction(id: c.id, action: action) }
     }
 
@@ -114,9 +140,8 @@ final class DockerModel {
         await run("compose:\(name)") { _ = try await $0.composeAction(project: name, configFiles: files, action: action) }
     }
 
-    func removeImage(_ i: DockerImage) async {
-        await run("img:\(i.id)") { try await $0.removeImage(id: i.id) }
-    }
+    func removeImage(_ i: DockerImage) async { await run("img:\(i.id)") { try await $0.removeImage(id: i.id) } }
+    func removeVolume(_ v: DockerVolume) async { await run("vol:\(v.name)") { try await $0.removeVolume(name: v.name) } }
 
     func logs(_ id: String, tail: UInt32) async -> String {
         guard let client else { return "" }
@@ -125,88 +150,165 @@ final class DockerModel {
 
     func execCommand(_ id: String) -> String? { try? client?.execCommand(id: id) }
 
+    /// Link port di browser: localhost untuk Mac ini, hostname server untuk host SSH.
+    func url(_ port: UInt16) -> URL? { URL(string: "http://\(hostname ?? "localhost"):\(port)") }
+
     var filtered: [DockerContainer] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
         guard !q.isEmpty else { return containers }
-        return containers.filter { ([$0.name, $0.image, $0.project, $0.ports]).contains { $0.lowercased().contains(q) } }
+        return containers.filter { [$0.name, $0.image, $0.project, $0.ports].contains { $0.lowercased().contains(q) } }
     }
 
-    /// Dikelompokkan per proyek Compose; container lepas di grup terakhir.
     var groups: [(String, [DockerContainer])] {
         let d = Dictionary(grouping: filtered, by: \.project)
         return d.keys.sorted { a, b in a.isEmpty ? false : (b.isEmpty ? true : a < b) }.map { ($0, d[$0]!) }
     }
+
+    func count(_ t: Tab) -> Int {
+        switch t {
+        case .containers: containers.count
+        case .volumes: volumes.count
+        case .images: images.count
+        case .networks: networks.count
+        }
+    }
 }
 
-// MARK: - Tampilan
+extension DockerContainer: @retroactive Identifiable {}
+
+// MARK: - Halaman
 
 private let dockerBlue = Color(hex: "#2496ED")
+private let runningGreen = Color(hex: "#4ADE80")
 
 struct DockerView: View {
     @Environment(AppModel.self) private var model
-    @State private var logsFor: DockerContainer?
-
-    private var docker: DockerModel { model.docker }
 
     var body: some View {
-        @Bindable var docker = model.docker
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                PageHeader(title: "Docker", subtitle: "Container, image & Compose — di Mac ini atau di server lewat SSH") {
-                    TargetMenu()
-                    Button { Task { await docker.refresh() } } label: {
-                        Image(systemName: "arrow.clockwise").rotationEffect(.degrees(docker.loading ? 360 : 0))
-                            .animation(docker.loading ? .linear(duration: 0.8).repeatForever(autoreverses: false) : .default, value: docker.loading)
-                    }
-                    .buttonStyle(SecondaryButtonStyle()).help("Muat ulang").disabled(!docker.connected)
-                }
-
+        let docker = model.docker
+        HStack(spacing: 0) {
+            DockerSidebar()
+                .frame(width: 210)
+            Divider().opacity(0.6)
+            VStack(spacing: 0) {
+                ListHeader()
+                Divider().opacity(0.5)
                 if let e = docker.error {
-                    HStack(alignment: .top, spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                        Text(e).font(.callout).fixedSize(horizontal: false, vertical: true)
-                        Spacer()
-                        Button("Coba lagi") { Task { await docker.select(docker.targetId, model: model) } }.buttonStyle(SecondaryButtonStyle())
-                    }
-                    .padding(14)
-                    .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    ErrorBanner(text: e).padding(14)
                 }
-
-                if let info = docker.info {
-                    InfoStrip(info: info, images: docker.images.count)
-                    HStack(spacing: 12) {
-                        Picker("", selection: $docker.tab) {
-                            Text("Container · \(docker.containers.count)").tag(DockerModel.Tab.containers)
-                            Text("Image · \(docker.images.count)").tag(DockerModel.Tab.images)
-                            Text("Compose · \(docker.projects.count)").tag(DockerModel.Tab.compose)
+                ScrollView {
+                    Group {
+                        if docker.info == nil {
+                            if docker.loading {
+                                HStack(spacing: 10) { ProgressView().controlSize(.small); Text("Menghubungkan ke Docker…").foregroundStyle(.secondary) }
+                                    .frame(maxWidth: .infinity).padding(.top, 80)
+                            }
+                        } else {
+                            switch docker.tab {
+                            case .containers: ContainerList()
+                            case .volumes: VolumeList()
+                            case .images: ImageList()
+                            case .networks: NetworkList()
+                            }
                         }
-                        .pickerStyle(.segmented).labelsHidden().frame(width: 380)
-                        Spacer()
-                        if docker.tab == .containers { SearchField(text: $docker.query, prompt: "Cari container, image, port…") }
                     }
-                    switch docker.tab {
-                    case .containers: ContainerList(logsFor: $logsFor)
-                    case .images: ImageList()
-                    case .compose: ComposeList()
-                    }
-                } else if docker.loading {
-                    HStack(spacing: 10) { ProgressView().controlSize(.small); Text("Menghubungkan ke Docker…").foregroundStyle(.secondary) }
-                        .frame(maxWidth: .infinity).padding(.top, 60)
+                    .padding(.horizontal, 12).padding(.vertical, 10)
                 }
             }
-            .padding(28)
-            .animation(.djie, value: docker.tab)
+            .frame(maxWidth: .infinity)
+            if docker.tab == .containers, let c = docker.selected {
+                Divider().opacity(0.6)
+                ContainerDetail(container: c)
+                    .frame(width: 380)
+                    .transition(.move(edge: .trailing).combined(with: .opacity))
+            }
         }
+        .animation(.djieSnappy, value: docker.selectedId)
+        .animation(.djie, value: docker.tab)
         .task {
             if !docker.connected && !docker.loading { await docker.select(docker.targetId, model: model) }
             docker.startPolling()
         }
         .onDisappear { docker.stopPolling() }
-        .sheet(item: $logsFor) { c in DockerLogsSheet(container: c) }
     }
 }
 
-extension DockerContainer: @retroactive Identifiable {}
+private struct ErrorBanner: View {
+    @Environment(AppModel.self) private var model
+    let text: String
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(text).font(.callout).fixedSize(horizontal: false, vertical: true)
+            Spacer()
+            Button("Coba lagi") { Task { await model.docker.select(model.docker.targetId, model: model) } }.buttonStyle(SecondaryButtonStyle())
+        }
+        .padding(12)
+        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// MARK: Sidebar
+
+private struct DockerSidebar: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        let docker = model.docker
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("DOCKER DI").font(.system(size: 10, weight: .semibold)).tracking(1).foregroundStyle(.secondary)
+                TargetMenu()
+            }
+            .padding(.top, 14)
+            VStack(spacing: 2) {
+                item(.containers, "Container", "shippingbox")
+                item(.volumes, "Volume", "externaldrive")
+                item(.images, "Image", "square.stack.3d.down.right")
+                item(.networks, "Network", "point.3.connected.trianglepath.dotted")
+            }
+            Spacer()
+            if let i = docker.info {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Circle().fill(runningGreen).frame(width: 7, height: 7)
+                        Text(verbatim: "Docker \(i.version)").font(.system(size: 11.5, weight: .semibold))
+                    }
+                    Text(verbatim: i.os + (i.usesSudo ? " · sudo" : "")).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(verbatim: "\(i.cpus) CPU · \(ByteCountFormatter.string(fromByteCount: Int64(i.memory), countStyle: .memory))")
+                        .font(.system(size: 11)).foregroundStyle(.secondary)
+                    Text(verbatim: "\(i.running) dari \(i.containers) container berjalan").font(.system(size: 11)).foregroundStyle(.secondary)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+            }
+        }
+        .padding(.horizontal, 12).padding(.bottom, 14)
+        .background(Theme.ink.opacity(0.018))
+    }
+
+    private func item(_ t: DockerModel.Tab, _ title: String, _ icon: String) -> some View {
+        let docker = model.docker
+        let on = docker.tab == t
+        return Button {
+            withAnimation(.djieSnappy) { docker.tab = t }
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: icon).font(.system(size: 13)).frame(width: 18).foregroundStyle(on ? dockerBlue : .secondary)
+                Text(title).font(.system(size: 13, weight: on ? .semibold : .regular))
+                Spacer()
+                if docker.info != nil {
+                    Text("\(docker.count(t))").font(.system(size: 11, weight: .medium)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 10).padding(.vertical, 7)
+            .background(on ? dockerBlue.opacity(0.14) : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 /// Pilih Docker: Mac ini atau host tersimpan.
 private struct TargetMenu: View {
@@ -223,76 +325,158 @@ private struct TargetMenu: View {
                 }
             }
         } label: {
-            HStack(spacing: 7) {
-                Image(systemName: current == nil ? "laptopcomputer" : "server.rack").foregroundStyle(dockerBlue)
-                Text(current?.title ?? "Mac ini").font(.system(size: 13, weight: .semibold))
-                Image(systemName: "chevron.down").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
-            }
-            .padding(.horizontal, 12).padding(.vertical, 7)
-            .background(Theme.ink.opacity(0.06), in: RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(Theme.cardStroke))
+            Label(current?.title ?? "Mac ini", systemImage: current == nil ? "laptopcomputer" : "server.rack")
+                .font(.system(size: 12.5, weight: .semibold))
         }
-        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+        .menuStyle(.button)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 10).padding(.vertical, 7)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Theme.ink.opacity(0.05), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.cardStroke))
+        .help("Pilih Docker di Mac ini atau di server")
     }
 }
 
-private struct InfoStrip: View {
-    let info: DockerInfo
-    let images: Int
+private struct ListHeader: View {
+    @Environment(AppModel.self) private var model
     var body: some View {
-        HStack(spacing: 12) {
-            tile("shippingbox.fill", "Docker \(info.version)", info.os + (info.usesSudo ? " · sudo" : ""))
-            tile("play.circle.fill", "\(info.running) / \(info.containers)", "container berjalan")
-            tile("square.stack.3d.down.right.fill", "\(images)", "image")
-            tile("cpu", "\(info.cpus) CPU", ByteCountFormatter.string(fromByteCount: Int64(info.memory), countStyle: .memory) + " RAM")
+        @Bindable var docker = model.docker
+        HStack(spacing: 10) {
+            Text(title).font(.system(size: 20, weight: .bold, design: .rounded))
+            if docker.loading && docker.info != nil { ProgressView().controlSize(.small) }
+            Spacer()
+            if docker.tab == .containers {
+                SearchField(text: $docker.query, prompt: "Cari")
+            }
+            Button { Task { await docker.refresh() } } label: { Image(systemName: "arrow.clockwise") }
+                .buttonStyle(SecondaryButtonStyle()).help("Muat ulang").disabled(!docker.connected)
         }
+        .padding(.horizontal, 18).padding(.vertical, 12)
     }
 
-    private func tile(_ icon: String, _ title: String, _ sub: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).font(.system(size: 15, weight: .semibold)).foregroundStyle(dockerBlue)
-                .frame(width: 34, height: 34).background(dockerBlue.opacity(0.12), in: RoundedRectangle(cornerRadius: 9))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(verbatim: title).font(.system(size: 14, weight: .bold)).lineLimit(1)
-                Text(verbatim: sub).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
-            }
-            Spacer(minLength: 0)
+    private var title: String {
+        switch model.docker.tab {
+        case .containers: "Container"
+        case .volumes: "Volume"
+        case .images: "Image"
+        case .networks: "Network"
         }
-        .padding(12)
-        .frame(maxWidth: .infinity)
-        .background(Theme.card, in: RoundedRectangle(cornerRadius: 13))
-        .overlay(RoundedRectangle(cornerRadius: 13).strokeBorder(Theme.cardStroke))
     }
 }
+
+// MARK: Container
 
 private struct ContainerList: View {
     @Environment(AppModel.self) private var model
-    @Binding var logsFor: DockerContainer?
 
     var body: some View {
         let docker = model.docker
         if docker.containers.isEmpty {
-            EmptyState(icon: "shippingbox", title: "Belum ada container", text: "Container yang dibuat dengan docker run atau docker compose akan muncul di sini.")
+            EmptyState(icon: "shippingbox", title: "Belum ada container", text: "Container dari docker run atau docker compose akan muncul di sini.")
         } else {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 2) {
                 ForEach(docker.groups, id: \.0) { project, list in
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 8) {
-                            Image(systemName: project.isEmpty ? "shippingbox" : "square.stack.3d.up").font(.system(size: 11))
-                            Text(project.isEmpty ? "CONTAINER LEPAS" : project.uppercased()).font(.system(size: 11, weight: .semibold)).tracking(1.1)
-                            Text("\(list.filter { $0.state == "running" }.count)/\(list.count)").font(.system(size: 10, weight: .bold))
-                                .padding(.horizontal, 6).padding(.vertical, 1).background(Theme.ink.opacity(0.08), in: Capsule())
-                            Rectangle().fill(Theme.ink.opacity(0.07)).frame(height: 1)
-                            if !project.isEmpty, docker.projects.contains(where: { $0.name == project }) {
-                                ComposeButtons(name: project, compact: true)
-                            }
-                        }
-                        .foregroundStyle(.secondary)
-                        VStack(spacing: 6) {
-                            ForEach(list, id: \.id) { c in ContainerRow(container: c, logsFor: $logsFor) }
+                    if project.isEmpty {
+                        ForEach(list) { c in ContainerRow(container: c, indent: false) }
+                    } else {
+                        ProjectRow(name: project, list: list)
+                        if !docker.collapsed.contains(project) || !docker.query.isEmpty {
+                            ForEach(list) { c in ContainerRow(container: c, indent: true) }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+/// Baris dengan sorotan hover & tombol yang muncul saat disorot (gaya OrbStack).
+private struct HoverRow<Content: View, Actions: View>: View {
+    var selected = false
+    var action: () -> Void = {}
+    @ViewBuilder var content: () -> Content
+    @ViewBuilder var actions: () -> Actions
+    @State private var hover = false
+
+    var body: some View {
+        HStack(spacing: 10) {
+            content()
+            Spacer(minLength: 8)
+            HStack(spacing: 2) { actions() }.opacity(hover || selected ? 1 : 0)
+        }
+        .padding(.horizontal, 10).frame(height: 46)
+        .background(
+            RoundedRectangle(cornerRadius: 9, style: .continuous)
+                .fill(selected ? dockerBlue.opacity(0.16) : hover ? Theme.ink.opacity(0.05) : .clear)
+        )
+        .contentShape(Rectangle())
+        .onHover { hover = $0 }
+        .onTapGesture(perform: action)
+    }
+}
+
+private struct StatusIcon: View {
+    let state: String
+    var size: CGFloat = 30
+    var body: some View {
+        let running = state == "running"
+        ZStack {
+            RoundedRectangle(cornerRadius: size * 0.27, style: .continuous)
+                .fill(running ? dockerBlue.opacity(0.18) : Theme.ink.opacity(0.06))
+            Image(systemName: "shippingbox.fill").font(.system(size: size * 0.45)).foregroundStyle(running ? dockerBlue : .secondary)
+            Circle().fill(color).frame(width: size * 0.3, height: size * 0.3)
+                .overlay(Circle().strokeBorder(Color(nsColor: .windowBackgroundColor), lineWidth: 2))
+                .offset(x: size * 0.36, y: size * 0.36)
+        }
+        .frame(width: size, height: size)
+    }
+    private var color: Color {
+        switch state {
+        case "running": runningGreen
+        case "paused": .orange
+        case "restarting": .yellow
+        default: Color.gray
+        }
+    }
+}
+
+private struct ProjectRow: View {
+    @Environment(AppModel.self) private var model
+    let name: String
+    let list: [DockerContainer]
+
+    var body: some View {
+        let docker = model.docker
+        let running = list.filter { $0.state == "running" }.count
+        let open = !docker.collapsed.contains(name)
+        let busy = docker.busy.contains("compose:\(name)")
+        HoverRow(action: {
+            withAnimation(.djieSnappy) { if open { docker.collapsed.insert(name) } else { docker.collapsed.remove(name) } }
+        }) {
+            Image(systemName: "chevron.right").font(.system(size: 10, weight: .bold)).foregroundStyle(.secondary)
+                .rotationEffect(.degrees(open ? 90 : 0)).frame(width: 12)
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous).fill(running > 0 ? dockerBlue.opacity(0.18) : Theme.ink.opacity(0.06))
+                Image(systemName: "square.stack.3d.up.fill").font(.system(size: 13)).foregroundStyle(running > 0 ? dockerBlue : .secondary)
+            }
+            .frame(width: 30, height: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(name).font(.system(size: 13, weight: .semibold))
+                Text(running > 0 ? "\(running) dari \(list.count) berjalan" : "\(list.count) container · berhenti")
+                    .font(.system(size: 11)).foregroundStyle(running > 0 ? runningGreen : .secondary)
+            }
+        } actions: {
+            if busy { ProgressView().controlSize(.small).frame(width: 28) }
+            if running > 0 {
+                IconButton(symbol: "stop.fill", help: "Stop proyek") { Task { await docker.compose(name, "stop") } }
+            } else {
+                IconButton(symbol: "play.fill", help: "Jalankan proyek (up)", tint: runningGreen) { Task { await docker.compose(name, "up") } }
+            }
+            IconButton(symbol: "arrow.clockwise", help: "Restart proyek") { Task { await docker.compose(name, "restart") } }
+            ConfirmIcon(symbol: "trash", help: "Down (hapus container proyek)", title: "Down proyek \(name)?",
+                        message: "Semua container proyek ini dihentikan dan dihapus (docker compose down). Volume tetap aman.", confirm: "Down") {
+                Task { await docker.compose(name, "down") }
             }
         }
     }
@@ -301,76 +485,221 @@ private struct ContainerList: View {
 private struct ContainerRow: View {
     @Environment(AppModel.self) private var model
     let container: DockerContainer
-    @Binding var logsFor: DockerContainer?
-    @State private var confirmRemove = false
-
-    private var running: Bool { container.state == "running" }
-    private var color: Color {
-        switch container.state {
-        case "running": Color(hex: "#4ADE80")
-        case "paused": .orange
-        case "restarting": .yellow
-        default: Color.secondary.opacity(0.6)
-        }
-    }
+    let indent: Bool
 
     var body: some View {
         let docker = model.docker
-        let stat = docker.stats[container.id]
+        let running = container.state == "running"
         let busy = docker.busy.contains(container.id)
-        HoverCard(padding: 11) {
-            HStack(spacing: 12) {
-                Circle().fill(color).frame(width: 9, height: 9).shadow(color: running ? color.opacity(0.7) : .clear, radius: 4)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(container.service.isEmpty ? container.name : container.service).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                    Text(container.image).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).lineLimit(1)
+        HoverRow(selected: docker.selectedId == container.id, action: { docker.choose(container) }) {
+            if indent { Spacer().frame(width: 22) }
+            StatusIcon(state: container.state)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(container.service.isEmpty ? container.name : container.service).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                Text(container.image).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1)
+            }
+            Spacer(minLength: 6)
+            if let p = firstPort(container.ports), running {
+                Button { if let u = docker.url(p) { NSWorkspace.shared.open(u) } } label: {
+                    HStack(spacing: 3) { Text(verbatim: ":\(p)"); Image(systemName: "arrow.up.right").font(.system(size: 8, weight: .bold)) }
+                        .font(.system(size: 11, weight: .medium, design: .monospaced)).foregroundStyle(dockerBlue)
+                        .padding(.horizontal, 7).padding(.vertical, 3)
+                        .background(dockerBlue.opacity(0.12), in: Capsule())
                 }
-                .frame(minWidth: 180, alignment: .leading)
-                Text(container.status).font(.system(size: 11)).foregroundStyle(.secondary).lineLimit(1).frame(width: 150, alignment: .leading)
-                PortChips(ports: container.ports)
-                Spacer()
-                if running, let s = stat {
-                    Meter(label: "CPU", value: s.cpuPercent, text: String(format: "%.1f%%", s.cpuPercent))
-                    Meter(label: "RAM", value: s.memPercent, text: s.memUsage.components(separatedBy: " / ").first ?? s.memUsage)
-                }
-                HStack(spacing: 2) {
-                    if busy {
-                        ProgressView().controlSize(.small).frame(width: 28)
-                    } else if running {
-                        IconButton(symbol: "stop.fill", help: "Stop") { Task { await docker.action(container, "stop") } }
-                    } else {
-                        IconButton(symbol: "play.fill", help: "Start", tint: Color(hex: "#4ADE80")) { Task { await docker.action(container, "start") } }
-                    }
-                    IconButton(symbol: "arrow.clockwise", help: "Restart") { Task { await docker.action(container, "restart") } }
-                    IconButton(symbol: "doc.text", help: "Log") { logsFor = container }
-                    IconButton(symbol: "terminal", help: "Buka shell di container") { openShell() }
-                        .disabled(!running)
-                    Menu {
-                        if container.state == "paused" {
-                            Button("Lanjutkan (unpause)") { Task { await docker.action(container, "unpause") } }
-                        } else if running {
-                            Button("Jeda (pause)") { Task { await docker.action(container, "pause") } }
-                        }
-                        Button("Salin ID") { copy(container.id) }
-                        Button("Salin nama") { copy(container.name) }
-                        Divider()
-                        Button("Hapus container…", role: .destructive) { confirmRemove = true }
-                    } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
-                        .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
-                }
+                .buttonStyle(.plain).help("Buka di browser")
+            }
+            if running, let s = docker.stats[container.id] {
+                Text(verbatim: String(format: "%.1f%%", s.cpuPercent)).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary).frame(width: 50, alignment: .trailing)
+            }
+        } actions: {
+            if busy {
+                ProgressView().controlSize(.small).frame(width: 28)
+            } else if running {
+                IconButton(symbol: "stop.fill", help: "Stop") { Task { await docker.action(container, "stop") } }
+            } else {
+                IconButton(symbol: "play.fill", help: "Start", tint: runningGreen) { Task { await docker.action(container, "start") } }
+            }
+            IconButton(symbol: "arrow.clockwise", help: "Restart") { Task { await docker.action(container, "restart") } }
+            ConfirmIcon(symbol: "trash", help: "Hapus container", title: "Hapus container \(container.name)?",
+                        message: "Container dihentikan dan dihapus. Volume dan image tidak ikut terhapus.", confirm: "Hapus") {
+                Task { await docker.action(container, "rm") }
             }
         }
-        .confirmationDialog("Hapus container \(container.name)?", isPresented: $confirmRemove) {
-            Button("Hapus", role: .destructive) { Task { await docker.action(container, "rm") } }
-        } message: {
-            Text("Container dihentikan dan dihapus. Volume dan image tidak ikut terhapus.")
+    }
+}
+
+/// Port host pertama dari string `docker ps` ("0.0.0.0:8000->8000/tcp, ...").
+private func firstPort(_ ports: String) -> UInt16? {
+    for p in ports.components(separatedBy: ", ") {
+        guard let r = p.range(of: "->") else { continue }
+        if let n = p[..<r.lowerBound].split(separator: ":").last.flatMap({ UInt16($0) }) { return n }
+    }
+    return nil
+}
+
+private struct ConfirmIcon: View {
+    let symbol: String
+    let help: String
+    let title: String
+    let message: String
+    let confirm: String
+    let action: () -> Void
+    @State private var asking = false
+    var body: some View {
+        IconButton(symbol: symbol, help: help, tint: .red) { asking = true }
+            .confirmationDialog(title, isPresented: $asking) {
+                Button(confirm, role: .destructive, action: action)
+            } message: { Text(message) }
+    }
+}
+
+// MARK: Detail
+
+private struct ContainerDetail: View {
+    @Environment(AppModel.self) private var model
+    let container: DockerContainer
+    @State private var tab = 0
+    @State private var showEnv = false
+
+    var body: some View {
+        let docker = model.docker
+        let running = container.state == "running"
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 12) {
+                    StatusIcon(state: container.state, size: 44)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(container.name).font(.system(size: 16, weight: .bold)).lineLimit(1).textSelection(.enabled)
+                        Text(container.status).font(.system(size: 11.5)).foregroundStyle(running ? runningGreen : .secondary)
+                    }
+                    Spacer()
+                    IconButton(symbol: "xmark", help: "Tutup") { docker.choose(nil) }
+                }
+                HStack(spacing: 8) {
+                    if running {
+                        Button { Task { await docker.action(container, "stop") } } label: { Label("Stop", systemImage: "stop.fill") }
+                    } else {
+                        Button { Task { await docker.action(container, "start") } } label: { Label("Start", systemImage: "play.fill") }
+                    }
+                    Button { Task { await docker.action(container, "restart") } } label: { Label("Restart", systemImage: "arrow.clockwise") }
+                    Button { openShell() } label: { Label("Terminal", systemImage: "terminal") }.disabled(!running)
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                Picker("", selection: $tab) {
+                    Text("Info").tag(0)
+                    Text("Log").tag(1)
+                }
+                .pickerStyle(.segmented).labelsHidden()
+            }
+            .padding(16)
+            Divider().opacity(0.5)
+            if tab == 0 {
+                ScrollView { info.padding(16) }
+            } else {
+                LiveLogs(id: container.id).padding(12)
+            }
+        }
+        .background(Theme.ink.opacity(0.018))
+        .onChange(of: container.id) { tab = 0; showEnv = false }
+    }
+
+    @ViewBuilder private var info: some View {
+        let docker = model.docker
+        let d = docker.detail?.id.hasPrefix(container.id) == true ? docker.detail : nil
+        VStack(alignment: .leading, spacing: 18) {
+            if container.state == "running", let s = docker.stats[container.id] {
+                group("Pemakaian") {
+                    UsageBar(label: "CPU", value: s.cpuPercent, text: String(format: "%.1f%%", s.cpuPercent))
+                    UsageBar(label: "RAM", value: s.memPercent, text: s.memUsage)
+                }
+            }
+            if let d, !d.ports.isEmpty {
+                group("Port") {
+                    ForEach(d.ports, id: \.hostPort) { p in
+                        Button { if let u = docker.url(p.hostPort) { NSWorkspace.shared.open(u) } } label: {
+                            HStack {
+                                Text(verbatim: "\(docker.url(p.hostPort)?.host() ?? "localhost"):\(p.hostPort)").foregroundStyle(dockerBlue)
+                                Image(systemName: "arrow.up.right").font(.system(size: 9, weight: .bold)).foregroundStyle(dockerBlue)
+                                Spacer()
+                                Text(p.containerPort).foregroundStyle(.secondary)
+                            }
+                            .font(.system(size: 12, design: .monospaced))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            group("Umum") {
+                kv("Image", container.image)
+                if let d {
+                    kv("Perintah", d.command)
+                    kv("Dibuat", d.created)
+                    if !d.startedAt.hasPrefix("0001") { kv("Mulai", d.startedAt) }
+                    kv("Restart", d.restartPolicy)
+                    if !d.health.isEmpty { kv("Health", d.health) }
+                }
+                kv("ID", String(container.id.prefix(12)))
+                if !container.project.isEmpty { kv("Compose", "\(container.project) · \(container.service)") }
+            }
+            if let d {
+                if !d.networks.isEmpty {
+                    group("Network") {
+                        kv("IP", d.ipAddress.isEmpty ? "—" : d.ipAddress)
+                        ForEach(d.networks, id: \.self) { n in Text(n).font(.system(size: 12, design: .monospaced)) }
+                    }
+                }
+                if !d.mounts.isEmpty {
+                    group("Mount") {
+                        ForEach(d.mounts, id: \.self) { m in
+                            Text(m.replacingOccurrences(of: NSHomeDirectory(), with: "~")).font(.system(size: 11, design: .monospaced))
+                                .lineLimit(2).truncationMode(.middle).textSelection(.enabled)
+                        }
+                    }
+                }
+                if !d.env.isEmpty {
+                    group("Environment", trailing: {
+                        Button(showEnv ? "Sembunyikan" : "Tampilkan") { withAnimation(.djieSnappy) { showEnv.toggle() } }
+                            .buttonStyle(.plain).font(.system(size: 11, weight: .semibold)).foregroundStyle(dockerBlue)
+                    }) {
+                        ForEach(d.env, id: \.self) { e in
+                            let parts = e.split(separator: "=", maxSplits: 1).map(String.init)
+                            HStack(alignment: .top, spacing: 6) {
+                                Text(parts.first ?? e).font(.system(size: 11, weight: .semibold, design: .monospaced))
+                                Text(showEnv ? (parts.count > 1 ? parts[1] : "") : "••••••").font(.system(size: 11, design: .monospaced))
+                                    .foregroundStyle(.secondary).lineLimit(2).textSelection(.enabled)
+                            }
+                        }
+                    }
+                }
+            } else {
+                ProgressView().controlSize(.small).frame(maxWidth: .infinity)
+            }
         }
     }
 
-    private func copy(_ s: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(s, forType: .string)
-        model.flash("Disalin")
+    private func group<C: View>(_ title: String, @ViewBuilder content: () -> C) -> some View {
+        group(title, trailing: { EmptyView() }, content: content)
+    }
+
+    private func group<T: View, C: View>(_ title: String, @ViewBuilder trailing: () -> T, @ViewBuilder content: () -> C) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text(title.uppercased()).font(.system(size: 10.5, weight: .semibold)).tracking(1).foregroundStyle(.secondary)
+                Spacer()
+                trailing()
+            }
+            VStack(alignment: .leading, spacing: 7) { content() }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.ink.opacity(0.04), in: RoundedRectangle(cornerRadius: 10))
+        }
+    }
+
+    private func kv(_ k: String, _ v: String) -> some View {
+        HStack(alignment: .top) {
+            Text(k).font(.system(size: 12)).foregroundStyle(.secondary).frame(width: 74, alignment: .leading)
+            Text(v).font(.system(size: 12)).textSelection(.enabled).lineLimit(3)
+        }
     }
 
     private func openShell() {
@@ -379,202 +708,151 @@ private struct ContainerRow: View {
     }
 }
 
-private struct PortChips: View {
-    let ports: String
-    var body: some View {
-        // "0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp" → "8000→8000"
-        let published = ports.components(separatedBy: ", ").compactMap { p -> String? in
-            guard let r = p.range(of: "->") else { return nil }
-            let host = p[..<r.lowerBound].split(separator: ":").last.map(String.init) ?? ""
-            let inner = p[r.upperBound...].split(separator: "/").first.map(String.init) ?? ""
-            return "\(host)→\(inner)"
-        }
-        let unique = Array(NSOrderedSet(array: published)) as? [String] ?? []
-        HStack(spacing: 4) {
-            ForEach(unique.prefix(2), id: \.self) { p in
-                Text(verbatim: p).font(.system(size: 10.5, weight: .medium, design: .monospaced))
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(dockerBlue.opacity(0.13), in: Capsule()).foregroundStyle(dockerBlue)
-            }
-            if unique.count > 2 { Text("+\(unique.count - 2)").font(.system(size: 10.5)).foregroundStyle(.secondary) }
-        }
-    }
-}
-
-private struct Meter: View {
+private struct UsageBar: View {
     let label: String
     let value: Double
     let text: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            HStack(spacing: 4) {
-                Text(label).font(.system(size: 9, weight: .bold)).foregroundStyle(.secondary)
-                Text(verbatim: text).font(.system(size: 10.5, weight: .semibold, design: .monospaced)).lineLimit(1)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(label).font(.system(size: 11.5, weight: .semibold))
+                Spacer()
+                Text(verbatim: text).font(.system(size: 11.5, design: .monospaced)).foregroundStyle(.secondary)
             }
             GeometryReader { g in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.ink.opacity(0.08))
                     Capsule().fill(value > 80 ? Color.red : value > 50 ? Color.orange : dockerBlue)
-                        .frame(width: max(2, g.size.width * min(1, value / 100)))
+                        .frame(width: max(3, g.size.width * min(1, value / 100)))
                 }
             }
-            .frame(height: 4)
+            .frame(height: 5)
         }
-        .frame(width: 92)
     }
 }
 
-private struct ComposeButtons: View {
+private struct LiveLogs: View {
     @Environment(AppModel.self) private var model
-    let name: String
-    var compact = false
-    @State private var confirmDown = false
+    let id: String
+    @State private var text = ""
+    @State private var follow = true
+
+    var body: some View {
+        VStack(spacing: 8) {
+            HStack {
+                Toggle("Ikuti log baru", isOn: $follow).toggleStyle(.switch).controlSize(.mini).font(.system(size: 11.5))
+                Spacer()
+                Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string); model.flash("Log disalin") } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.plain).help("Salin log")
+            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    Text(text.isEmpty ? "Memuat log…" : text)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(8)
+                    Color.clear.frame(height: 1).id("end")
+                }
+                .onChange(of: text) { if follow { proxy.scrollTo("end", anchor: .bottom) } }
+            }
+            .background(Theme.field, in: RoundedRectangle(cornerRadius: 8))
+        }
+        .task(id: "\(id)-\(follow)") {
+            while !Task.isCancelled {
+                text = await model.docker.logs(id, tail: 500)
+                if !follow { break }
+                try? await Task.sleep(for: .seconds(2))
+            }
+        }
+    }
+}
+
+// MARK: Volume, Image, Network
+
+private struct VolumeList: View {
+    @Environment(AppModel.self) private var model
     var body: some View {
         let docker = model.docker
-        let busy = docker.busy.contains("compose:\(name)")
-        HStack(spacing: 4) {
-            if busy { ProgressView().controlSize(.small) }
-            Group {
-                Button { Task { await docker.compose(name, "up") } } label: { Label("Up", systemImage: "play.fill") }
-                Button { Task { await docker.compose(name, "restart") } } label: { Label("Restart", systemImage: "arrow.clockwise") }
-                Button { Task { await docker.compose(name, "stop") } } label: { Label("Stop", systemImage: "stop.fill") }
-                if !compact {
-                    Button { confirmDown = true } label: { Label("Down", systemImage: "trash") }
+        LazyVStack(spacing: 2) {
+            ForEach(docker.volumes, id: \.name) { v in
+                HoverRow {
+                    icon("externaldrive.fill", active: !v.anonymous)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(v.anonymous ? String(v.name.prefix(12)) + "…" : v.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                        Text(v.project.isEmpty ? (v.anonymous ? "anonim · \(v.driver)" : v.driver) : "\(v.project) · \(v.driver)")
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                } actions: {
+                    if docker.busy.contains("vol:\(v.name)") {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        ConfirmIcon(symbol: "trash", help: "Hapus volume", title: "Hapus volume \(v.name.prefix(24))?",
+                                    message: "Data di volume ini hilang permanen. Volume yang masih dipakai container tidak bisa dihapus.", confirm: "Hapus") {
+                            Task { await docker.removeVolume(v) }
+                        }
+                    }
                 }
             }
-            .buttonStyle(SecondaryButtonStyle())
-            .controlSize(compact ? .small : .regular)
-            .disabled(busy)
-        }
-        .confirmationDialog("Down proyek \(name)?", isPresented: $confirmDown) {
-            Button("Down", role: .destructive) { Task { await docker.compose(name, "down") } }
-        } message: {
-            Text("Semua container proyek ini dihentikan dan dihapus (docker compose down). Volume tetap aman.")
         }
     }
 }
 
 private struct ImageList: View {
     @Environment(AppModel.self) private var model
-    @State private var toDelete: DockerImage?
     var body: some View {
         let docker = model.docker
-        VStack(spacing: 6) {
+        LazyVStack(spacing: 2) {
             ForEach(docker.images, id: \.id) { i in
-                HoverCard(padding: 11) {
-                    HStack(spacing: 12) {
-                        Image(systemName: "square.stack.3d.down.right.fill").foregroundStyle(dockerBlue)
-                            .frame(width: 30, height: 30).background(dockerBlue.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
-                        VStack(alignment: .leading, spacing: 2) {
-                            HStack(spacing: 6) {
-                                Text(i.repository).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                                Badge(text: i.tag, color: Theme.accent2)
-                            }
-                            Text(i.id).font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary)
+                HoverRow {
+                    icon("square.stack.3d.down.right.fill", active: true)
+                    VStack(alignment: .leading, spacing: 1) {
+                        HStack(spacing: 6) {
+                            Text(i.repository).font(.system(size: 13, weight: .medium)).lineLimit(1)
+                            Text(i.tag).font(.system(size: 10.5, weight: .semibold, design: .monospaced))
+                                .padding(.horizontal, 6).padding(.vertical, 1).background(Theme.ink.opacity(0.07), in: Capsule())
                         }
-                        Spacer()
-                        Text(i.size).font(.system(size: 12, weight: .semibold, design: .monospaced)).frame(width: 80, alignment: .trailing)
-                        Text(i.created).font(.system(size: 11)).foregroundStyle(.secondary).frame(width: 120, alignment: .trailing)
-                        if docker.busy.contains("img:\(i.id)") {
-                            ProgressView().controlSize(.small).frame(width: 28)
-                        } else {
-                            IconButton(symbol: "trash", help: "Hapus image", tint: .red) { toDelete = i }
+                        Text("\(i.size) · \(i.created)").font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                } actions: {
+                    if docker.busy.contains("img:\(i.id)") {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        ConfirmIcon(symbol: "trash", help: "Hapus image", title: "Hapus image \(i.repository):\(i.tag)?",
+                                    message: "Image yang masih dipakai container tidak bisa dihapus.", confirm: "Hapus") {
+                            Task { await docker.removeImage(i) }
                         }
                     }
-                }
-            }
-        }
-        .confirmationDialog("Hapus image \(toDelete?.repository ?? ""):\(toDelete?.tag ?? "")?", isPresented: Binding(get: { toDelete != nil }, set: { if !$0 { toDelete = nil } })) {
-            Button("Hapus", role: .destructive) { if let i = toDelete { Task { await docker.removeImage(i) } } }
-        } message: {
-            Text("Image yang masih dipakai container tidak bisa dihapus.")
-        }
-    }
-}
-
-private struct ComposeList: View {
-    @Environment(AppModel.self) private var model
-    var body: some View {
-        let docker = model.docker
-        if docker.projects.isEmpty {
-            EmptyState(icon: "square.stack.3d.up", title: "Belum ada proyek Compose", text: "Proyek yang dijalankan dengan docker compose up akan muncul di sini.")
-        } else {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 380), spacing: 12, alignment: .top)], spacing: 12) {
-                ForEach(docker.projects, id: \.name) { p in
-                    let running = p.status.lowercased().contains("running")
-                    VStack(alignment: .leading, spacing: 10) {
-                        HStack(spacing: 10) {
-                            Image(systemName: "square.stack.3d.up.fill").foregroundStyle(.white)
-                                .frame(width: 34, height: 34).background(dockerBlue, in: RoundedRectangle(cornerRadius: 9))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(p.name).font(.system(size: 14, weight: .bold))
-                                Text(p.status).font(.system(size: 11, weight: .medium)).foregroundStyle(running ? Color(hex: "#4ADE80") : .secondary)
-                            }
-                            Spacer()
-                        }
-                        Text(p.configFiles.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
-                            .font(.system(size: 10.5, design: .monospaced)).foregroundStyle(.secondary).lineLimit(2).truncationMode(.middle)
-                        ComposeButtons(name: p.name)
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Theme.card, in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(running ? Color(hex: "#4ADE80").opacity(0.4) : Theme.cardStroke))
                 }
             }
         }
     }
 }
 
-private struct DockerLogsSheet: View {
+private struct NetworkList: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    let container: DockerContainer
-    @State private var text = ""
-    @State private var follow = true
-    @State private var tail: UInt32 = 300
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Image(systemName: "doc.text").foregroundStyle(dockerBlue)
-                Text("Log \(container.name)").font(.title3.bold()).lineLimit(1)
-                Spacer()
-                Picker("", selection: $tail) {
-                    Text("300 baris").tag(UInt32(300))
-                    Text("1.000 baris").tag(UInt32(1000))
-                    Text("5.000 baris").tag(UInt32(5000))
-                }
-                .labelsHidden().frame(width: 120)
-                Toggle("Ikuti", isOn: $follow).toggleStyle(.switch).controlSize(.small)
-            }
-            ScrollViewReader { proxy in
-                ScrollView {
-                    Text(text.isEmpty ? "Memuat log…" : text)
-                        .font(.system(size: 11, design: .monospaced))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                    Color.clear.frame(height: 1).id("end")
-                }
-                .onChange(of: text) { if follow { proxy.scrollTo("end", anchor: .bottom) } }
-            }
-            .frame(height: 440)
-            .background(Theme.field, in: RoundedRectangle(cornerRadius: 10))
-            HStack {
-                Button { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(text, forType: .string); model.flash("Log disalin") } label: { Label("Salin", systemImage: "doc.on.doc") }
-                    .buttonStyle(SecondaryButtonStyle())
-                Spacer()
-                Button("Tutup") { dismiss() }.buttonStyle(SecondaryButtonStyle()).keyboardShortcut(.cancelAction)
-            }
-        }
-        .padding(22).frame(width: 820)
-        .task(id: "\(tail)-\(follow)") {
-            while !Task.isCancelled {
-                text = await model.docker.logs(container.id, tail: tail)
-                if !follow { break }
-                try? await Task.sleep(for: .seconds(2))
+        LazyVStack(spacing: 2) {
+            ForEach(model.docker.networks, id: \.id) { n in
+                HoverRow {
+                    icon("point.3.connected.trianglepath.dotted", active: !n.builtin)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(n.name).font(.system(size: 13, weight: .medium))
+                        Text([n.driver, n.project.isEmpty ? (n.builtin ? "bawaan" : "") : n.project].filter { !$0.isEmpty }.joined(separator: " · "))
+                            .font(.system(size: 11)).foregroundStyle(.secondary)
+                    }
+                } actions: { EmptyView() }
             }
         }
     }
+}
+
+private func icon(_ name: String, active: Bool) -> some View {
+    ZStack {
+        RoundedRectangle(cornerRadius: 8, style: .continuous).fill(active ? dockerBlue.opacity(0.16) : Theme.ink.opacity(0.06))
+        Image(systemName: name).font(.system(size: 13)).foregroundStyle(active ? dockerBlue : .secondary)
+    }
+    .frame(width: 30, height: 30)
 }

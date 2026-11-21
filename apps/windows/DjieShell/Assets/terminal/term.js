@@ -181,6 +181,8 @@
     if (e.ctrlKey && e.shiftKey && /^Digit[0-9]$/.test(e.code)) { e.preventDefault(); post({ t: 'key', k: 'tab' + e.code.slice(5) }); return false; }
     if (e.ctrlKey && e.shiftKey && (e.key === 'W' || e.key === 'w')) { e.preventDefault(); post({ t: 'key', k: 'close' }); return false; }
     if (e.ctrlKey && e.shiftKey && (e.key === 'L' || e.key === 'l')) { e.preventDefault(); post({ t: 'key', k: 'lock' }); return false; }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) { e.preventDefault(); post({ t: 'key', k: 'split' }); return false; }
+    if (e.ctrlKey && e.shiftKey && (e.key === 'B' || e.key === 'b')) { e.preventDefault(); post({ t: 'key', k: 'broadcast' }); return false; }
     if (e.ctrlKey && (e.key === '=' || e.key === '+')) { e.preventDefault(); zoom(1); return false; }
     if (e.ctrlKey && e.key === '-') { e.preventDefault(); zoom(-1); return false; }
     if (e.ctrlKey && e.key === '0') { e.preventDefault(); zoom(0); return false; }

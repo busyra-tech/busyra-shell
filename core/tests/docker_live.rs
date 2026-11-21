@@ -32,6 +32,13 @@ async fn exercise(d: Arc<DockerClient>, label: &str) {
     assert_eq!(c.state, "running");
     let stats = d.stats().await.unwrap();
     assert!(stats.iter().any(|s| c.id.starts_with(&s.id) || s.id.starts_with(&c.id)), "stats memuat container tes");
+    let detail = d.inspect(c.id.clone()).await.unwrap();
+    assert_eq!(detail.name, name);
+    assert!(detail.command.contains("sleep 600"), "{}", detail.command);
+    let vols = d.volumes().await.unwrap();
+    let nets = d.networks().await.unwrap();
+    eprintln!("[{label}] volumes: {} · networks: {} · ip {}", vols.len(), nets.len(), detail.ip_address);
+    assert!(nets.iter().any(|n| n.name == "bridge" && n.builtin));
     let logs = d.logs(c.id.clone(), 50).await.unwrap();
     assert!(logs.contains("halo-djie"), "{logs}");
 

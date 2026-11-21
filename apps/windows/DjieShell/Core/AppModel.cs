@@ -230,11 +230,9 @@ internal sealed class AppModel
         // DJIE_DEMO_STACK=web,postgres : nyalakan layanan Server Lokal; DJIE_DEMO_STACK_INSTALL=nginx,php : unduh dulu
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_STACK") is { } stackList) _ = DemoStack(stackList);
         // DJIE_DEMO_DOCKER=<id host> | local : buka halaman Docker
-        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER") is { Length: > 0 } dk)
-        {
-            Navigate(Section.Docker);
-            _ = Docker.Select(dk == "local" ? null : Hosts.FirstOrDefault(h => h.Label == dk)?.Id);
-        }
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER") is { Length: > 0 } dk) _ = DemoDocker(dk);
+        // DJIE_DEMO_SPLIT=3 : split terminal lokal; DJIE_DEMO_BROADCAST=1; DJIE_DEMO_SPLIT_TYPE = teks diketik di panel aktif
+        if (int.TryParse(Environment.GetEnvironmentVariable("DJIE_DEMO_SPLIT"), out var n) && n > 1) _ = DemoSplit(n);
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_LIGHT") == "1") SetAppearance("light");
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") is "1" or "test") Edit(Environment.GetEnvironmentVariable("DJIE_DEMO_EDIT") == "test" ? test : Hosts.FirstOrDefault());
@@ -700,6 +698,29 @@ internal sealed class AppModel
     }
 
 #if DEBUG
+    private async Task DemoDocker(string dk)
+    {
+        Navigate(Section.Docker);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER_QUERY") is { } q) Docker.Query = q;
+        await Docker.Select(dk == "local" ? null : Hosts.FirstOrDefault(h => h.Label == dk)?.Id);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER_SELECT") is { } name && Docker.Containers.FirstOrDefault(c => c.Name == name) is { } c)
+            Docker.Choose(c);
+    }
+
+    private async Task DemoSplit(int n)
+    {
+        OpenLocalTerminal();
+        for (int i = 1; i < n; i++) SplitDuplicate();
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_BROADCAST") == "1") ToggleBroadcast();
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_SPLIT_TYPE") is { } typed)
+        {
+            // Tunggu semua panel tersambung (shell di VM bisa lambat)
+            for (int i = 0; i < 60 && Sessions.Any(s => SplitIds.Contains(s.Id) && s.State != TerminalSession.Status.Connected); i++) await Task.Delay(500);
+            await Task.Delay(1500);
+            ActiveSession?.Send(typed.Replace("\\r", "\r"));
+        }
+    }
+
     private async Task DemoStack(string list)
     {
         Navigate(Section.LocalServer);
@@ -791,6 +812,8 @@ internal sealed class AppModel
         s.Terminate();
         var idx = Sessions.IndexOf(s);
         if (idx < 0) return;
+        SplitIds.Remove(s.Id);
+        if (SplitIds.Count < 2) { SplitIds.Clear(); Broadcast = false; }
         Sessions.RemoveAt(idx);
         if (ActiveSessionId == s.Id) ActiveSessionId = Sessions.Count == 0 ? null : Sessions[Math.Max(0, idx - 1)].Id;
         Raise("sessions");
@@ -818,10 +841,87 @@ internal sealed class AppModel
 
     public void SessionStatusChanged() => Raise("sessions");
 
+    // MARK: Split & broadcast
+
+    /// <summary>Tab yang ditampilkan berdampingan (2–4); tampil saat tab aktif termasuk di dalamnya.</summary>
+    public List<Guid> SplitIds { get; } = [];
+    /// <summary>Ketikan di satu panel dikirim ke semua panel split.</summary>
+    public bool Broadcast { get; private set; }
+    public const int MaxSplit = 4;
+
+    public bool SplitVisible => SplitIds.Count > 1 && ActiveSessionId is { } a && SplitIds.Contains(a);
+    public bool CanSplit => ActiveSession != null && (!SplitVisible || SplitIds.Count < MaxSplit);
+
+    private void AddToSplit(Guid id)
+    {
+        if (ActiveSessionId is not { } active) return;
+        if (!SplitVisible) { SplitIds.Clear(); SplitIds.Add(active); }
+        if (!SplitIds.Contains(id) && SplitIds.Count < MaxSplit) SplitIds.Add(id);
+        ActiveSessionId = id;
+        Raise("sessions");
+    }
+
+    public void SplitWith(TerminalSession s) => AddToSplit(s.Id);
+
+    public void SplitNew(Host h)
+    {
+        if (!CanSplit) return;
+        var s = new TerminalSession(h, KeyById(h.KeyId), HostById(h.JumpHostId), null, this);
+        Sessions.Add(s);
+        AddToSplit(s.Id);
+    }
+
+    /// <summary>Panel baru ke host yang sama dengan tab aktif (Ctrl+Shift+D).</summary>
+    public void SplitDuplicate()
+    {
+        if (ActiveSession is not { } s || !CanSplit) return;
+        if (s.IsLocal)
+        {
+            var n = new TerminalSession(s.Host, null, null, null, this, s.Local ?? LocalShell.Default);
+            Sessions.Add(n);
+            AddToSplit(n.Id);
+        }
+        else SplitNew(s.Host);
+    }
+
+    public void RemoveFromSplit(Guid id)
+    {
+        SplitIds.Remove(id);
+        if (SplitIds.Count < 2) { SplitIds.Clear(); Broadcast = false; }
+        Raise("sessions");
+    }
+
+    public void Unsplit() { SplitIds.Clear(); Broadcast = false; Raise("sessions"); }
+
+    public void ToggleBroadcast()
+    {
+        if (!SplitVisible) return;
+        Broadcast = !Broadcast;
+        Raise("sessions");
+    }
+
+    /// <summary>Panel yang diklik jadi tab aktif.</summary>
+    public void FocusPane(Guid id)
+    {
+        if (!SplitVisible || !SplitIds.Contains(id) || ActiveSessionId == id) return;
+        ActiveSessionId = id;
+        Raise("sessions");
+    }
+
+    /// <summary>Teruskan ketikan dari satu panel ke panel split lain (saat broadcast menyala).</summary>
+    public void BroadcastInput(TerminalSession source, string data)
+    {
+        if (!Broadcast || !SplitVisible || !SplitIds.Contains(source.Id)) return;
+        foreach (var s in Sessions)
+            if (s != source && SplitIds.Contains(s.Id) && s.State != TerminalSession.Status.Disconnected) s.WriteInput(data);
+    }
+
     public void HandleTerminalShortcut(string k)
     {
         switch (k)
         {
+            case "split": SplitDuplicate(); break;
+            case "broadcast": ToggleBroadcast(); break;
             case "nextTab": CycleTab(1); break;
             case "prevTab": CycleTab(-1); break;
             case "close": CloseActive(); break;
