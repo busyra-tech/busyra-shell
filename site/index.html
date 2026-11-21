@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="id" data-theme="dark">
+<html lang="id" class="no-linux" data-theme="dark">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -225,8 +225,11 @@
   .release dt { color: var(--ink-3); } .release dd { margin: 0; font-weight: 600; }
   .btn.ghost { background: none; border-color: transparent; color: var(--ink-2); }
   .btn.ghost:hover { color: var(--ink); }
-  #heroWin { order: 2; } #heroMac { order: 1; } .cta .ghost { order: 3; }
+  #heroWin { order: 2; } #heroMac { order: 1; } #heroLinux { order: 3; } .cta .ghost { order: 4; }
   .os-win #heroWin { order: 1; } .os-win #heroMac { order: 2; }
+  .no-linux #heroLinux, .no-linux #dlLinux, .no-linux .linuxArm { display: none; }
+  .linuxSoon { display: none; } .no-linux .linuxSoon { display: block; }
+  .os-linux #heroLinux { order: 1; } .os-linux #heroMac { order: 2; } .os-linux #heroWin { order: 3; }
   .ostabs { margin: 0 0 22px; }
   .ospane[hidden] { display: none; }
   .install .card h3 { display: flex; align-items: center; gap: 10px; }
@@ -304,12 +307,13 @@
     <div class="wrap">
       <span class="eyebrow fade-up d1" data-i18n="hero.eyebrow">SSH client native · gratis · open source</span>
       <h1><span class="ln"><span class="grad-text" data-i18n="hero.t1">Semua servermu,</span></span><span class="ln"><span data-i18n="hero.t2">satu terminal.</span></span></h1>
-      <p class="lead fade-up d2" data-i18n="hero.lead">Kelola host, SFTP, database, SSH key, port forwarding, dan snippet dalam satu app native yang cepat dan indah — untuk Mac dan Windows. Semua data terenkripsi, tersinkron lewat Google Drive milikmu sendiri.</p>
+      <p class="lead fade-up d2" data-i18n="hero.lead">Kelola host, SFTP, database, SSH key, port forwarding, dan snippet dalam satu app native yang cepat dan indah — untuk Mac, Windows, dan Linux. Semua data terenkripsi, tersinkron lewat Google Drive milikmu sendiri.</p>
       <div class="cta fade-up d3">
         <a class="btn primary" id="heroMac" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-macOS.dmg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="hero.dl">Download untuk Mac</span></a>
         <a class="btn" id="heroWin" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-x64-Setup.exe"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.4 4.6v6.9H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v6.9L3 18.4zM11.4 12.5H21V21l-9.6-1.4z"/></svg><span data-i18n="hero.dlw">Download untuk Windows</span></a>
+        <a class="btn" id="heroLinux" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-x86_64.AppImage"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.2 0-3.6 1.8-3.6 4.3 0 1.2.2 2.1-.4 3.3-.7 1.3-2.6 3.3-2.9 5.7-.2 1.3.3 2.4.9 2.9-.4.5-1.3.7-1.2 1.6.1.8 1.1 1.2 2.4 1.5 1.3.3 2.2.7 3 .7.9 0 1.4-.4 1.8-.8.4.4.9.8 1.8.8.8 0 1.7-.4 3-.7 1.3-.3 2.3-.7 2.4-1.5.1-.9-.8-1.1-1.2-1.6.6-.5 1.1-1.6.9-2.9-.3-2.4-2.2-4.4-2.9-5.7-.6-1.2-.4-2.1-.4-3.3C15.6 3.8 14.2 2 12 2zm-1.4 4.2c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zm2.8 0c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zM12 8.8c.8 0 1.9.5 1.9.9 0 .3-1.1 1-1.9 1s-1.9-.7-1.9-1c0-.4 1.1-.9 1.9-.9z"/></svg><span data-i18n="hero.dll">Download untuk Linux</span></a>
       </div>
-      <div class="meta fade-up d4"><span>macOS 15+ · <span class="sizeMac">DMG ±7 MB</span></span><span>Windows 10/11 · <span class="sizeWin">EXE ±50 MB</span></span><span>MIT · open source</span></div>
+      <div class="meta fade-up d4"><span>macOS 15+ · <span class="sizeMac">DMG ±7 MB</span></span><span>Windows 10/11 · <span class="sizeWin">EXE ±50 MB</span></span><span>Linux · <span class="sizeLinux">AppImage</span> (beta)</span><span>MIT · open source</span></div>
 
       <div class="showcase" id="showcase">
       <div class="pin">
@@ -663,6 +667,7 @@
         <div class="pills ostabs" id="osTabs">
           <button data-pick="mac" class="on">macOS</button>
           <button data-pick="win">Windows</button>
+          <button data-pick="linux">Linux</button>
         </div>
         <div class="ospane" data-os="mac">
         <h3 style="margin-bottom:18px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="i.h">Cara install di Mac</span></h3>
@@ -682,6 +687,16 @@
         </ol>
         <p class="arch" data-i18n="i.w4">Hapus kapan saja lewat <b>Settings → Apps</b>. Vault dan pengaturanmu tetap aman.</p>
         </div>
+        <div class="ospane" data-os="linux" hidden>
+        <h3 style="margin-bottom:18px"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.2 0-3.6 1.8-3.6 4.3 0 1.2.2 2.1-.4 3.3-.7 1.3-2.6 3.3-2.9 5.7-.2 1.3.3 2.4.9 2.9-.4.5-1.3.7-1.2 1.6.1.8 1.1 1.2 2.4 1.5 1.3.3 2.2.7 3 .7.9 0 1.4-.4 1.8-.8.4.4.9.8 1.8.8.8 0 1.7-.4 3-.7 1.3-.3 2.3-.7 2.4-1.5.1-.9-.8-1.1-1.2-1.6.6-.5 1.1-1.6.9-2.9-.3-2.4-2.2-4.4-2.9-5.7-.6-1.2-.4-2.1-.4-3.3C15.6 3.8 14.2 2 12 2zm-1.4 4.2c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zm2.8 0c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zM12 8.8c.8 0 1.9.5 1.9.9 0 .3-1.1 1-1.9 1s-1.9-.7-1.9-1c0-.4 1.1-.9 1.9-.9z"/></svg><span data-i18n="i.hl">Cara install di Linux (beta)</span></h3>
+        <ol class="steps">
+          <li data-i18n="i.l1">Download <b>AppImage</b>: <b>x86_64</b> untuk kebanyakan PC, atau <b>aarch64</b> untuk PC/laptop ARM.</li>
+          <li data-i18n="i.l2">Jadikan bisa dijalankan, lalu buka (atau klik dua kali dari file manager):</li>
+        </ol>
+        <code>chmod +x Djie-Shell-Linux-*.AppImage && ./Djie-Shell-Linux-*.AppImage</code>
+        <p class="arch linuxSoon" data-i18n="i.lsoon">AppImage Linux hadir mulai rilis v0.5. Sementara itu, build dari source di GitHub (lihat README).</p>
+        <p class="arch" data-i18n="i.l3">Butuh distro yang cukup baru (glibc 2.39+), mis. Ubuntu 24.04, Debian 13, Fedora 40. Versi beta: hosts, terminal SSH & lokal, keychain, dan snippet — fitur lain menyusul.</p>
+        </div>
       </div>
       <div class="card release reveal">
         <span class="eyebrow" data-i18n="i.rel">Rilis terbaru</span>
@@ -689,15 +704,17 @@
           <div><dt data-i18n="i.d1">Versi</dt><dd id="relVer">0.1.0</dd></div>
           <div><dt>Mac</dt><dd><span class="sizeMac">DMG ±7 MB</span> · macOS 15+</dd></div>
           <div><dt>Windows</dt><dd><span class="sizeWin">EXE ±50 MB</span> · Windows 10/11</dd></div>
+          <div><dt>Linux</dt><dd><span class="sizeLinux">AppImage</span> · beta</dd></div>
                     <div><dt>Chip</dt><dd>Apple Silicon, Intel, x64 &amp; ARM64</dd></div>
           <div><dt data-i18n="i.d5">Lisensi</dt><dd>MIT · open source</dd></div>
         </dl>
         <div class="cta" style="justify-content:flex-start">
           <a class="btn primary sm" id="dlMac" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-macOS.dmg"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.4 12.6c0-2.5 2-3.7 2.1-3.8-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.2 1-4.1 2.5-1.8 3-.5 7.5 1.2 10 .8 1.2 1.8 2.6 3.1 2.5 1.3 0 1.7-.8 3.2-.8s1.9.8 3.2.8c1.3 0 2.2-1.2 3-2.4.9-1.4 1.3-2.7 1.3-2.8-.1 0-2.6-1-2.6-4zM14 5.2c.7-.8 1.1-1.9 1-3-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z"/></svg><span data-i18n="hero.dl">Download untuk Mac</span></a>
           <a class="btn primary sm" id="dlWin" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-x64-Setup.exe"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 5.6 10.4 4.6v6.9H3zM11.4 4.4 21 3v8.5h-9.6zM3 12.5h7.4v6.9L3 18.4zM11.4 12.5H21V21l-9.6-1.4z"/></svg><span data-i18n="hero.dlw">Download untuk Windows</span></a>
+          <a class="btn primary sm" id="dlLinux" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-x86_64.AppImage"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c-2.2 0-3.6 1.8-3.6 4.3 0 1.2.2 2.1-.4 3.3-.7 1.3-2.6 3.3-2.9 5.7-.2 1.3.3 2.4.9 2.9-.4.5-1.3.7-1.2 1.6.1.8 1.1 1.2 2.4 1.5 1.3.3 2.2.7 3 .7.9 0 1.4-.4 1.8-.8.4.4.9.8 1.8.8.8 0 1.7-.4 3-.7 1.3-.3 2.3-.7 2.4-1.5.1-.9-.8-1.1-1.2-1.6.6-.5 1.1-1.6.9-2.9-.3-2.4-2.2-4.4-2.9-5.7-.6-1.2-.4-2.1-.4-3.3C15.6 3.8 14.2 2 12 2zm-1.4 4.2c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zm2.8 0c.4 0 .7.5.7 1s-.3 1-.7 1-.7-.5-.7-1 .3-1 .7-1zM12 8.8c.8 0 1.9.5 1.9.9 0 .3-1.1 1-1.9 1s-1.9-.7-1.9-1c0-.4 1.1-.9 1.9-.9z"/></svg><span data-i18n="hero.dll">Download untuk Linux</span></a>
           <a class="btn sm" href="https://github.com/masadjie/djie-shell/releases" data-i18n="i.notes">Catatan rilis</a>
         </div>
-        <p class="arch"><span data-i18n="i.arch">PC Windows berbasis ARM?</span> <a id="dlWinArm" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-arm64-Setup.exe" data-i18n="i.archdl">Download versi ARM64</a></p>
+        <p class="arch"><span data-i18n="i.arch">PC Windows berbasis ARM?</span> <a id="dlWinArm" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Windows-arm64-Setup.exe" data-i18n="i.archdl">Download versi ARM64</a> <span class="linuxArm">· <span data-i18n="i.larm">Linux ARM?</span> <a id="dlLinuxArm" href="https://github.com/masadjie/djie-shell/releases/latest/download/Djie-Shell-Linux-aarch64.AppImage" data-i18n="i.larmdl">AppImage aarch64</a></span></p>
       </div>
     </div>
   </section>
@@ -712,6 +729,7 @@
       <details><summary data-i18n="q.5">Akses Google Drive apa yang diminta?</summary><p data-i18n="q.5a">Hanya folder data khusus aplikasi (drive.appdata) yang tersembunyi. Djie Shell tidak bisa melihat file lain di Drive-mu.</p></details>
       <details><summary data-i18n="q.7">Bisa konek lewat proxy kantor?</summary><p data-i18n="q.7a">Bisa. Di editor host buka <b>Lanjutan → Proxy</b>, pilih SOCKS5 atau HTTP, isi alamat, port, dan login jika perlu. Bisa juga sebaliknya: jadikan server SSH sebagai proxy SOCKS lewat Port Forwarding.</p></details>
       <details><summary data-i18n="q.6">Ada versi Windows?</summary><p data-i18n="q.6a">Ada! Windows 10 dan 11, untuk PC x64 maupun ARM64. Memakai inti Rust yang sama, jadi satu vault bisa dipakai bersama di Mac dan Windows lewat sync Google Drive.</p></details>
+      <details><summary data-i18n="q.8">Ada versi Linux?</summary><p data-i18n="q.8a">Ada, masih beta: AppImage untuk x86_64 dan ARM64 (GTK4 + libadwaita, terminal VTE). Sudah bisa kelola host, terminal SSH & lokal, keychain, dan snippet; SFTP, Database, Docker, Dashboard, dan sync Google menyusul.</p></details>
     </div>
   </section>
 
@@ -762,8 +780,11 @@
 const EN = {
   "brand.sub": "SSH Client for Mac &amp; Windows", "nav.sec": "Security", "nav.donate": "Donate",
   "hero.eyebrow": "Native SSH client · free · open source", "hero.t1": "All your servers,", "hero.t2": "one terminal.",
-  "hero.lead": "Manage hosts, SFTP, databases, SSH keys, port forwarding, and snippets in one fast, beautiful native app — for Mac and Windows. Everything is encrypted and synced through your own Google Drive.",
-  "hero.dl": "Download for Mac", "hero.dlw": "Download for Windows", "hero.more": "See features", "chip.2": "Google Drive sync", "chip.3": "Connect many hosts at once", "pill.light": "Light mode",
+  "hero.lead": "Manage hosts, SFTP, databases, SSH keys, port forwarding, and snippets in one fast, beautiful native app — for Mac, Windows, and Linux. Everything is encrypted and synced through your own Google Drive.",
+  "hero.dl": "Download for Mac", "hero.dlw": "Download for Windows", "hero.dll": "Download for Linux",
+  "i.hl": "Installing on Linux (beta)", "i.l1": "Download the <b>AppImage</b>: <b>x86_64</b> for most PCs, or <b>aarch64</b> for ARM PCs/laptops.", "i.l2": "Make it executable, then run it (or double-click it in your file manager):",
+  "i.l3": "Needs a fairly recent distro (glibc 2.39+), e.g. Ubuntu 24.04, Debian 13, Fedora 40. Beta: hosts, SSH & local terminal, keychain, and snippets — more coming.", "i.lsoon": "The Linux AppImage ships starting with v0.5. Until then, build from source on GitHub (see README).", "i.larm": "Linux ARM?", "i.larmdl": "aarch64 AppImage",
+  "q.8": "Is there a Linux version?", "q.8a": "Yes, in beta: AppImage for x86_64 and ARM64 (GTK4 + libadwaita, VTE terminal). Hosts, SSH & local terminal, keychain, and snippets work today; SFTP, Database, Docker, Dashboard, and Google sync are coming.", "hero.more": "See features", "chip.2": "Google Drive sync", "chip.3": "Connect many hosts at once", "pill.light": "Light mode",
   "st.1u": "servers", "st.1": "No Djie Shell servers. Your data never passes through us.", "st.2": "XChaCha20-Poly1305 key derived from your master password.",
   "st.3u": "click", "st.3": "Pick many hosts and connect to all of them in one click.", "st.4": "Native SwiftUI &amp; WinUI 3 — not a wrapped web page.",
   "nav.feat": "Features", "tm.eye": "Teams", "tm.t": "One team,<br />one server list.", "tm.p": "The admin picks which hosts to share and invites teammates by email. Teammates just click <b>Join team</b> — the hosts show up in their Djie Shell, ready to connect.",
@@ -958,14 +979,18 @@ document.getElementById("copyNum").addEventListener("click", () => {
 // Tombol download mengikuti OS pengunjung; PC ARM dapat installer ARM64
 // Link langsung ke file installer (salinan nama tetap di setiap rilis) — klik = langsung terunduh
 const DIRECT = "https://github.com/masadjie/djie-shell/releases/latest/download/";
-const DL = { mac: DIRECT + "Djie-Shell-macOS.dmg", win: DIRECT + "Djie-Shell-Windows-x64-Setup.exe", arm: DIRECT + "Djie-Shell-Windows-arm64-Setup.exe" };
-let OS = /Windows/i.test(navigator.userAgent) ? "win" : "mac", isArm = false;
+const DL = { mac: DIRECT + "Djie-Shell-macOS.dmg", win: DIRECT + "Djie-Shell-Windows-x64-Setup.exe", arm: DIRECT + "Djie-Shell-Windows-arm64-Setup.exe",
+  linux: DIRECT + "Djie-Shell-Linux-x86_64.AppImage", linuxArm: DIRECT + "Djie-Shell-Linux-aarch64.AppImage" };
+const UA = navigator.userAgent;
+let OS = /Windows/i.test(UA) ? "win" : /Linux/i.test(UA) && !/Android/i.test(UA) ? "linux" : "mac", isArm = OS === "linux" && /aarch64|arm64/i.test(UA);
 function applyLinks() {
   document.getElementById("dlMac").href = DL.mac;
   document.getElementById("dlWin").href = isArm ? DL.arm : DL.win;
   document.getElementById("dlWinArm").href = DL.arm;
   document.getElementById("heroMac").href = DL.mac;
   document.getElementById("heroWin").href = isArm ? DL.arm : DL.win;
+  document.getElementById("heroLinux").href = OS === "linux" && isArm ? DL.linuxArm : DL.linux;
+  document.getElementById("dlLinux").href = OS === "linux" && isArm ? DL.linuxArm : DL.linux;
 }
 function showOS(os, scope) {
   (scope || document).querySelectorAll("[data-os]").forEach(el => el.hidden = el.dataset.os !== os);
@@ -981,11 +1006,13 @@ const onScroll = () => hdr.classList.toggle("scrolled", scrollY > 8);
 addEventListener("scroll", onScroll, { passive: true }); onScroll();
 
 // Tombol OS pengunjung jadi utama & di depan
-if (OS === "win") {
-  document.documentElement.classList.add("os-win");
-  document.getElementById("heroWin").classList.add("primary");
+function promote(os) {
+  document.documentElement.classList.add("os-" + os);
+  document.getElementById(os === "win" ? "heroWin" : "heroLinux").classList.add("primary");
   document.getElementById("heroMac").classList.remove("primary");
 }
+// Linux: tombol Linux baru tampil & diutamakan bila rilis terbaru punya AppImage (lihat fetch di bawah)
+if (OS === "win") promote("win");
 showOS(OS); pickTab(OS);
 document.querySelectorAll("[data-pick]").forEach(b => b.addEventListener("click", () => pickTab(b.dataset.pick)));
 if (OS === "win" && navigator.userAgentData && navigator.userAgentData.getHighEntropyValues)
@@ -1003,6 +1030,12 @@ fetch("https://api.github.com/repos/masadjie/djie-shell/releases/latest")
     const x64 = rel.assets.find(a => /Windows-x64-Setup\.exe$/i.test(a.name));
     if (dmg) { document.querySelectorAll(".sizeMac").forEach(e => e.textContent = "DMG " + mb(dmg)); }
     if (x64) { document.querySelectorAll(".sizeWin").forEach(e => e.textContent = "EXE " + mb(x64)); }
+    const appimg = rel.assets.find(a => /Linux-x86_64\.AppImage$/i.test(a.name));
+    if (appimg) {
+      document.querySelectorAll(".sizeLinux").forEach(e => e.textContent = "AppImage " + mb(appimg));
+      document.documentElement.classList.remove("no-linux");
+      if (OS === "linux") promote("linux");
+    }
     applyLinks();
   })
   .catch(() => {});

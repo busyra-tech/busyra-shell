@@ -1,7 +1,7 @@
 name: Release
 
 # Push tag versi (mis. `git tag v0.1.0 && git push --tags`) untuk build
-# DMG macOS + installer Windows (.exe) dan membuat draft GitHub Release.
+# DMG macOS + installer Windows (.exe) + AppImage Linux dan membuat draft GitHub Release.
 on:
   push:
     tags: ["v*"]
@@ -85,8 +85,40 @@ jobs:
           name: windows
           path: dist/*-Setup.exe
 
+  linux:
+    strategy:
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Pasang GTK4, libadwaita, VTE
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev \
+            libgtk-4-dev libadwaita-1-dev libvte-2.91-gtk4-dev curl file
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/linux -> target
+
+      - name: Build AppImage
+        run: ./scripts/build-linux-appimage.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-${{ matrix.arch }}
+          path: dist/Djie-Shell-Linux-*.AppImage
+
   release:
-    needs: [macos, windows]
+    needs: [macos, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -108,9 +140,11 @@ jobs:
           files: |
             dist/*.dmg
             dist/*-Setup.exe
+            dist/*.AppImage
           body: |
             Download installer di bawah:
             - **macOS** (Apple Silicon & Intel): `.dmg`
             - **Windows 10/11**: `-Windows-x64-Setup.exe` untuk PC biasa, `-Windows-arm64-Setup.exe` untuk PC ARM (mis. Snapdragon)
+            - **Linux (beta)**: `Djie-Shell-Linux-x86_64.AppImage` atau `-aarch64.AppImage` — `chmod +x` lalu jalankan (glibc 2.39+, mis. Ubuntu 24.04 / Fedora 40)
 
             App belum ditandatangani sertifikat berbayar — lihat panduan "Install" di website untuk cara membukanya.

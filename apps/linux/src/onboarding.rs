@@ -12,7 +12,47 @@ use crate::theme;
 
 /// Tampilkan layar awal sesuai keadaan vault di disk.
 pub fn show_start(ctx: &Ctx) {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("DJIE_DEMO").is_some() {
+        demo(ctx);
+        return;
+    }
     if djie_core::vault_exists(config::vault_path()) { show_lock(ctx) } else { show_welcome(ctx) }
+}
+
+/// Build debug saja (`DJIE_DEMO=1`): vault sementara berisi contoh host untuk screenshot / video.
+/// `DJIE_DEMO_LOCAL=1` membuka tab terminal lokal, `DJIE_DEMO_PAGE=keychain|snippets` memilih halaman.
+#[cfg(debug_assertions)]
+fn demo(ctx: &Ctx) {
+    let path = std::env::temp_dir().join(format!("djie-demo-{}.djie", std::process::id()));
+    let Ok(v) = Vault::create(path.to_string_lossy().into_owned(), "demo-password".into()) else { return show_welcome(ctx) };
+    let samples: [(&str, &str, Option<&str>, &str, &str); 5] = [
+        ("prod-api", "10.0.1.10", Some("Production"), "#3FD0B4", "deploy"),
+        ("prod-db", "10.0.1.20", Some("Production"), "#F0616D", "postgres"),
+        ("web-1", "10.0.1.31", Some("Production"), "#5B9CF5", "deploy"),
+        ("staging", "staging.local", Some("Staging"), "#9D7CF2", "deploy"),
+        ("homelab", "192.168.1.5", None, "#F2A65A", "pi"),
+    ];
+    for (label, host, group, color, user) in samples {
+        let mut h = crate::ctx::blank_host();
+        h.label = label.into();
+        h.hostname = host.into();
+        h.group = group.map(str::to_string);
+        h.color = color.into();
+        h.username = user.into();
+        let _ = v.upsert_host(h);
+    }
+    let _ = v.generate_key("Laptop Linux".into());
+    for (label, cmd) in [("Cek disk", "df -h"), ("Update sistem", "sudo apt update && sudo apt upgrade -y")] {
+        let _ = v.upsert_snippet(djie_core::Snippet { id: String::new(), label: label.into(), command: cmd.into(), updated_at: 0, deleted: false });
+    }
+    finish(ctx, v);
+    if let Ok(page) = std::env::var("DJIE_DEMO_PAGE") {
+        ctx.show_page(&page);
+    }
+    if std::env::var_os("DJIE_DEMO_LOCAL").is_some() {
+        crate::terminal::open_local(ctx);
+    }
 }
 
 fn set_page(ctx: &Ctx, name: &str, page: &impl IsA<gtk::Widget>) {
