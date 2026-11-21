@@ -38,6 +38,8 @@ pub enum CoreError {
     Stack { msg: String },
     #[error("Docker: {msg}")]
     Docker { msg: String },
+    #[error("{msg}")]
+    Server { msg: String },
 }
 
 impl From<std::io::Error> for CoreError {

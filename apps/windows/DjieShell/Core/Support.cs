@@ -121,6 +121,7 @@ internal static class Errors
         CoreException.Team t => $"Tim: {t.msg}",
         CoreException.Docker dk => dk.msg.Length > 0 ? char.ToUpper(dk.msg[0]) + dk.msg[1..] : dk.msg,
         CoreException.Stack st => st.msg.Length > 0 ? char.ToUpper(st.msg[0]) + st.msg[1..] : st.msg,
+        CoreException.Server sv => sv.msg.Length > 0 ? char.ToUpper(sv.msg[0]) + sv.msg[1..] : sv.msg,
         _ => e.Message
     };
 }

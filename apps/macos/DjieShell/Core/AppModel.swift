@@ -10,14 +10,15 @@ enum Phase: Equatable {
 }
 
 enum Section: String, CaseIterable, Identifiable {
-    case hosts, dashboard, team, keychain, forwarding, sftp, database, localServer, docker, snippets, knownHosts, logs, donate, about, account
+    case hosts, dashboard, serverAdmin, team, keychain, forwarding, sftp, database, localServer, docker, snippets, knownHosts, logs, donate, about, account
     var id: String { rawValue }
-    static let main: [Section] = [.dashboard, .hosts, .team, .keychain, .forwarding, .sftp, .database, .localServer, .docker, .snippets, .knownHosts, .logs]
+    static let main: [Section] = [.dashboard, .hosts, .serverAdmin, .team, .keychain, .forwarding, .sftp, .database, .localServer, .docker, .snippets, .knownHosts, .logs]
     static let community: [Section] = [.donate, .about]
     var title: String {
         switch self {
         case .hosts: "Hosts"
         case .dashboard: "Dashboard"
+        case .serverAdmin: "Kelola Server"
         case .team: "Tim"
         case .keychain: "Keychain"
         case .forwarding: "Port Forwarding"
@@ -37,6 +38,7 @@ enum Section: String, CaseIterable, Identifiable {
         switch self {
         case .hosts: "server.rack"
         case .dashboard: "gauge.with.dots.needle.67percent"
+        case .serverAdmin: "wrench.and.screwdriver.fill"
         case .team: "person.2.fill"
         case .keychain: "key.horizontal.fill"
         case .forwarding: "arrow.right.arrow.left"
@@ -92,6 +94,7 @@ final class AppModel {
     var showServerInfo = false { didSet { syncServerStats() } }
     var serverStats: ServerStats?
     let dashboard = DashboardModel()
+    let admin = AdminModel()
     /// Sheet "Jalankan perintah di banyak server".
     var runMany: RunManyModel?
 
@@ -310,6 +313,17 @@ final class AppModel {
             }
             reload()
         }
+        // DJIE_DEMO_ADMIN=judul host, DJIE_DEMO_ADMIN_TAB=processes|services|cron|logs, DJIE_DEMO_ADMIN_SERVICE=nama
+        if let name = env["DJIE_DEMO_ADMIN"], let h = hosts.first(where: { $0.title == name }) {
+            section = .serverAdmin
+            if let t = env["DJIE_DEMO_ADMIN_TAB"].flatMap(AdminModel.Tab.init(rawValue:)) { admin.tab = t }
+            Task {
+                await admin.select(h.id, model: self)
+                if let svc = env["DJIE_DEMO_ADMIN_SERVICE"] {
+                    if admin.tab == .logs { admin.showLogs(unit: svc) } else { admin.chooseService(svc) }
+                }
+            }
+        }
         if env["DJIE_DEMO_DASHBOARD"] != nil {
             section = .dashboard
             // DJIE_DEMO_ALERTS=1 : nyalakan pemantauan + catat peringatan ke stderr (tanpa minta izin notifikasi)
@@ -456,6 +470,8 @@ final class AppModel {
         hosts = []; keys = []; snippets = []; forwards = []; logs = []; databases = []
         dbWorkspace = nil
         dashboard.reset()
+        admin.close()
+        Task { await admin.select(nil, model: self) }
         runMany = nil
         withAnimation(.djie) { phase = .locked }
     }

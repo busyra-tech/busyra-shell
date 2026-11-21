@@ -536,6 +536,7 @@ internal sealed class ShellPage : Grid
         FrameworkElement page = M.Section switch
         {
             Section.Dashboard => new DashboardPage(),
+            Section.ServerAdmin => new AdminPage(),
             Section.Hosts => new HostsPage(),
             Section.Team => new TeamPage(),
             Section.Keychain => new KeychainPage(),

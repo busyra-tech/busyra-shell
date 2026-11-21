@@ -60,6 +60,7 @@ struct SectionContent: View {
         switch section {
         case .hosts: HostsView()
         case .dashboard: DashboardView()
+        case .serverAdmin: AdminView()
         case .team: TeamView()
         case .keychain: KeychainView()
         case .forwarding: ForwardingView()
@@ -227,6 +228,7 @@ extension Section {
         switch self {
         case .hosts: Color(hex: "#3B82F6")
         case .dashboard: Color(hex: "#F43F5E")
+        case .serverAdmin: Color(hex: "#0EA5E9")
         case .team: Color(hex: "#22C55E")
         case .keychain: Color(hex: "#F59E0B")
         case .forwarding: Color(hex: "#10B981")

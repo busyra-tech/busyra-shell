@@ -24,6 +24,7 @@ extension Error {
         case .Team(let msg): return "Tim: \(msg)"
         case .Docker(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
         case .Stack(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
+        case .Server(let msg): return msg.prefix(1).uppercased() + msg.dropFirst()
         }
     }
 }

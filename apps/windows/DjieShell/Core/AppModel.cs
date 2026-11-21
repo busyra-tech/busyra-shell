@@ -11,32 +11,32 @@ namespace DjieShell;
 
 internal enum Phase { Welcome, CreatePassword, Restore, Locked, Main }
 
-internal enum Section { Dashboard, Hosts, Team, Keychain, Forwarding, Sftp, Database, LocalServer, Docker, Snippets, KnownHosts, Logs, Donate, About, Account }
+internal enum Section { Dashboard, Hosts, ServerAdmin, Team, Keychain, Forwarding, Sftp, Database, LocalServer, Docker, Snippets, KnownHosts, Logs, Donate, About, Account }
 
 internal enum SyncKind { Off, Idle, Syncing, Synced, Failed, NeedsLogin }
 
 internal static class SectionInfo
 {
-    public static readonly Section[] Main = [Section.Dashboard, Section.Hosts, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Docker, Section.Snippets, Section.KnownHosts, Section.Logs];
+    public static readonly Section[] Main = [Section.Dashboard, Section.Hosts, Section.ServerAdmin, Section.Team, Section.Keychain, Section.Forwarding, Section.Sftp, Section.Database, Section.LocalServer, Section.Docker, Section.Snippets, Section.KnownHosts, Section.Logs];
     public static readonly Section[] Community = [Section.Donate, Section.About];
 
     public static string Title(this Section s) => s switch
     {
-        Section.Dashboard => "Dashboard", Section.Hosts => "Hosts", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
+        Section.Dashboard => "Dashboard", Section.Hosts => "Hosts", Section.ServerAdmin => "Kelola Server", Section.Team => "Tim", Section.Keychain => "Keychain", Section.Forwarding => "Port Forwarding", Section.Sftp => "SFTP",
         Section.Database => "Database", Section.LocalServer => "Server Lokal", Section.Docker => "Docker", Section.Snippets => "Snippets", Section.KnownHosts => "Known Hosts", Section.Logs => "Logs",
         Section.Donate => "Donasi", Section.About => "Tentang", _ => "Akun",
     };
 
     public static string Glyph(this Section s) => s switch
     {
-        Section.Dashboard => G.Gauge, Section.Hosts => G.Server, Section.Team => G.People, Section.Keychain => G.Key, Section.Forwarding => G.Forward, Section.Sftp => G.Folder,
+        Section.Dashboard => G.Gauge, Section.Hosts => G.Server, Section.ServerAdmin => G.Wrench, Section.Team => G.People, Section.Keychain => G.Key, Section.Forwarding => G.Forward, Section.Sftp => G.Folder,
         Section.Database => G.Database, Section.LocalServer => G.Stack, Section.Docker => G.Apps, Section.Snippets => G.Code, Section.KnownHosts => G.Fingerprint, Section.Logs => G.History,
         Section.Donate => G.Heart, Section.About => G.Info, _ => G.Person,
     };
 
     public static string Tint(this Section s) => s switch
     {
-        Section.Dashboard => "#F43F5E", Section.Hosts => "#3B82F6", Section.Team => "#22C55E", Section.Keychain => "#F59E0B", Section.Forwarding => "#10B981", Section.Sftp => "#06B6D4",
+        Section.Dashboard => "#F43F5E", Section.Hosts => "#3B82F6", Section.ServerAdmin => "#0EA5E9", Section.Team => "#22C55E", Section.Keychain => "#F59E0B", Section.Forwarding => "#10B981", Section.Sftp => "#06B6D4",
         Section.Database => "#F97316", Section.LocalServer => "#EAB308", Section.Docker => "#2496ED", Section.Snippets => "#8B5CF6", Section.KnownHosts => "#EC4899", Section.Logs => "#64748B",
         Section.Donate => "#EF4444", Section.About => "#6366F1", _ => "#14B8A6",
     };
@@ -119,6 +119,7 @@ internal sealed class AppModel
     public StackModel Stack { get; }
     public DockerModel Docker { get; }
     public DashboardModel Dashboard { get; }
+    public AdminModel Admin { get; }
 
     public bool IsDark { get; private set; } = true;
     public string Appearance { get; private set; } = Settings.Str(Settings.Appearance) ?? "dark";
@@ -140,6 +141,7 @@ internal sealed class AppModel
         Stack = new StackModel(this);
         Docker = new DockerModel(this);
         Dashboard = new DashboardModel(this);
+        Admin = new AdminModel(this);
         Tunnels.Changed += () => Raise("tunnels");
         IsDark = ComputeDark();
         _ui.ColorValuesChanged += (_, _) => _dq.TryEnqueue(() =>
@@ -248,6 +250,8 @@ internal sealed class AppModel
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER") is { Length: > 0 } dk) _ = DemoDocker(dk);
         // DJIE_DEMO_SPLIT=3 : split terminal lokal; DJIE_DEMO_BROADCAST=1; DJIE_DEMO_SPLIT_TYPE = teks diketik di panel aktif
         if (int.TryParse(Environment.GetEnvironmentVariable("DJIE_DEMO_SPLIT"), out var n) && n > 1) _ = DemoSplit(n);
+        // DJIE_DEMO_ADMIN=judul host, DJIE_DEMO_ADMIN_TAB=Processes|Services|Cron|Logs, DJIE_DEMO_ADMIN_SERVICE=nama
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_ADMIN") is { Length: > 0 } adm) _ = DemoAdmin(adm);
         // DJIE_DEMO_DASHBOARD_SELECT=judul1,judul2 : pilih server; DJIE_DEMO_DASHBOARD_SPLIT = teks diketik setelah Split & broadcast
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DASHBOARD_SELECT") is { Length: > 0 } dsel) _ = DemoDashboard(dsel);
         var test = Hosts.FirstOrDefault(x => x.Label == "server-tes");
@@ -394,6 +398,7 @@ internal sealed class AppModel
         EditingHost = null;
         Selection.Clear();
         Dashboard.Reset();
+        Admin.Close();
         Raise("sessions");
         SetPhase(Phase.Locked);
     }
@@ -749,6 +754,18 @@ internal sealed class AppModel
         await Docker.Select(dk == "local" ? null : Hosts.FirstOrDefault(h => h.Label == dk)?.Id);
         if (Environment.GetEnvironmentVariable("DJIE_DEMO_DOCKER_SELECT") is { } name && Docker.Containers.FirstOrDefault(c => c.Name == name) is { } c)
             Docker.Choose(c);
+    }
+
+    private async Task DemoAdmin(string name)
+    {
+        if (Hosts.FirstOrDefault(h => h.Title() == name) is not { } h) return;
+        if (Enum.TryParse<AdminModel.Tab>(Environment.GetEnvironmentVariable("DJIE_DEMO_ADMIN_TAB"), true, out var tab)) Admin.Current = tab;
+        Navigate(Section.ServerAdmin);
+        await Admin.Select(h.Id);
+        if (Environment.GetEnvironmentVariable("DJIE_DEMO_ADMIN_SERVICE") is { Length: > 0 } svc)
+        {
+            if (Admin.Current == AdminModel.Tab.Logs) Admin.ShowLogs(svc); else Admin.ChooseService(svc);
+        }
     }
 
     private async Task DemoDashboard(string names)
