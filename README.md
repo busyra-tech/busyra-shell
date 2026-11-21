@@ -7,7 +7,8 @@
 **Semua servermu, satu terminal.**
 
 SSH client native untuk **macOS** dan **Windows** — terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
-Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.
+Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri.<br />
+Versi **Linux (beta)** sedang dibangun — lihat [Linux (beta)](#linux-beta).
 
 [![Rilis](https://img.shields.io/github/v/release/masadjie/djie-shell?label=rilis&color=3FD0B4)](https://github.com/masadjie/djie-shell/releases/latest)
 [![Lisensi MIT](https://img.shields.io/badge/lisensi-MIT-5B9CF5)](LICENSE)
@@ -191,6 +192,13 @@ MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, Redis, MongoDB, ClickHouse, plus
 2. Kalau muncul **Windows protected your PC**, klik **More info → Run anyway**.
 3. Ikuti installer (tanpa hak admin), lalu buka **Djie Shell** dari Start Menu.
 
+### Linux (beta)
+
+Versi Linux memakai **GTK4 + libadwaita** dan terminal **VTE**, langsung di atas `djie-core` (tanpa UniFFI). Belum ada rilis resmi — untuk sekarang build sendiri (lihat [Build Linux](#development)).
+
+Yang sudah ada: vault terenkripsi (buat / buka dengan master password), daftar host (grup, cari, warna), editor host (password / SSH key / agent, jump host, proxy SOCKS5/HTTP), tab terminal SSH & terminal lokal, Keychain (generate / import key), dan Snippets.<br />
+Menyusul: SFTP, Database, Docker, Dashboard, Tim, dan sync Google Drive.
+
 > **Update dari versi lama?** Install saja di atasnya — data vault tetap aman. Djie Shell juga memberi tahu di app saat ada versi baru.
 
 ## Changelog
@@ -211,6 +219,7 @@ Detail lengkap tiap versi: **[CHANGELOG.md](CHANGELOG.md)** · Semua file instal
 core/              djie-core (Rust): vault, SSH/SFTP, proxy, database, Docker, Tim, Server Lokal — diekspor via UniFFI
 apps/macos/        App macOS (SwiftUI + SwiftTerm), project dibuat dengan XcodeGen
 apps/windows/      App Windows (WinUI 3 + WebView2/xterm.js + ConPTY), installer Inno Setup
+apps/linux/        App Linux beta (Rust + GTK4/libadwaita + VTE), memakai djie-core langsung
 scripts/           Build core, installer Windows, tes integrasi, Google Drive tiruan
 site/              Website (GitHub Pages), halaman Gabung tim, katalog unduhan Server Lokal (stack.json)
 promo/             Video promo & video update (Remotion)
@@ -238,6 +247,37 @@ powershell -ExecutionPolicy Bypass -File scripts\build-core-windows.ps1
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-windows-installer.ps1
+```
+
+</details>
+
+<details>
+<summary><b>Build Linux (beta)</b> — Rust, GTK 4.14+, libadwaita 1.5+, VTE (gtk4)</summary>
+
+Ubuntu 24.04 / Debian:
+
+```bash
+sudo apt install build-essential pkg-config libssl-dev libgtk-4-dev libadwaita-1-dev libvte-2.91-gtk4-dev openssh-client
+```
+
+Fedora:
+
+```bash
+sudo dnf install gcc pkgconf-pkg-config openssl-devel gtk4-devel libadwaita-devel vte291-gtk4-devel openssh-clients
+```
+
+```bash
+cargo run --release --manifest-path apps/linux/Cargo.toml
+```
+
+AppImage (`dist/Djie-Shell-Linux-<arch>.AppImage`) atau Flatpak (GNOME runtime):
+
+```bash
+./scripts/build-linux-appimage.sh
+```
+
+```bash
+./scripts/build-linux-flatpak.sh
 ```
 
 </details>

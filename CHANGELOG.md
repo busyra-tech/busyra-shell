@@ -9,6 +9,7 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 ## [Unreleased]
 
 ### Baru
+- **🐧 Linux (beta)** — app Linux pertama (GTK4 + libadwaita + terminal VTE) di atas core Rust yang sama: vault terenkripsi, daftar & editor host (password / SSH key / agent, jump host, proxy), tab terminal SSH & lokal, Keychain, dan Snippets. Skrip build AppImage & Flatpak dasar di `scripts/`. SFTP, Database, Docker, Dashboard, Tim, dan sync Google menyusul
 - **📊 Dashboard semua server** — menu baru paling atas di sidebar
   - Kartu per server: CPU dengan grafik kecil, RAM, disk, load, uptime, kecepatan jaringan — diperbarui tiap 5 detik, tanpa agen (cukup SSH)
   - Ringkasan: server online, yang perlu perhatian, CPU rata-rata, total RAM terpakai
