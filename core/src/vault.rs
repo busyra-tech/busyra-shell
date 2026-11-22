@@ -153,17 +153,20 @@ impl Vault {
     /// Gabungkan salinan vault dari Google Drive ke vault lokal.
     ///
     /// Per record (host / key): versi dengan `updated_at` terbaru menang, termasuk tombstone
-    /// penghapusan. Salinan Drive harus dibuat dengan master password yang sama (salt sama).
+    /// penghapusan; pengecualian: admin tim tidak kalah dari record anggota (`team::protect_owner`).
+    /// Salinan Drive harus dibuat dengan master password yang sama (salt sama).
     pub fn merge_remote(&self, blob: Vec<u8>) -> Result<SyncOutcome, CoreError> {
         let salt = crypto::read_salt(&blob)?;
         if salt != self.salt {
             return Err(CoreError::KeyMismatch);
         }
         let plain = crypto::open(&self.key, &blob).map_err(|_| CoreError::KeyMismatch)?;
-        let remote: VaultData = serde_json::from_slice(&plain)?;
+        let mut remote: VaultData = serde_json::from_slice(&plain)?;
 
         let mut data = self.data.lock().unwrap();
-        let results = [
+        let protected = crate::team::protect_owner(&mut data.teams, &mut remote.teams);
+        let mut results = vec![
+            protected,
             merge_records(&mut data.hosts, remote.hosts),
             merge_records(&mut data.keys, remote.keys),
             merge_records(&mut data.snippets, remote.snippets),
@@ -171,8 +174,10 @@ impl Vault {
             merge_records(&mut data.logs, remote.logs),
             merge_records(&mut data.databases, remote.databases),
             merge_records(&mut data.teams, remote.teams),
-            crate::team::merge_identity(&mut data.identity, remote.identity),
         ];
+        // Setelah tim digabung, supaya kunci admin dikenali dari tim kedua sisi.
+        let VaultData { identity, teams, .. } = &mut *data;
+        results.push(crate::team::merge_identity(identity, remote.identity, teams));
         let outcome = SyncOutcome {
             local_changed: results.iter().any(|r| r.0),
             remote_outdated: results.iter().any(|r| r.1),

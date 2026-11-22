@@ -239,7 +239,8 @@ private struct TeamCard: View {
     private var subtitle: String {
         var parts = [team.isOwner ? L("{} anggota", team.members.count) : L("Admin: {}", team.ownerEmail)]
         if team.lastSync > 0 {
-            parts.append("disinkron " + Date(ms: team.lastSync).formatted(.relative(presentation: .named)))
+            let style = Date.RelativeFormatStyle(presentation: .named, locale: Locale(identifier: AppLanguage.resolved))
+            parts.append(L("disinkron {}", Date(ms: team.lastSync).formatted(style)))
         }
         if let e = team.error { parts.append("⚠︎ " + e) }
         return parts.joined(separator: " · ")
@@ -337,6 +338,10 @@ private struct TeamCard: View {
                     ForEach(memberHosts) { h in HostChip(host: h) }
                 }
             }
+        case .waiting where team.error != nil:
+            Label(Lmsg(team.error ?? ""), systemImage: "exclamationmark.triangle")
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         case .waiting:
             Label(L("Menunggu {} membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.", team.ownerEmail),
                   systemImage: "hourglass")

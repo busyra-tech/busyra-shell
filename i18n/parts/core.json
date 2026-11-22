@@ -158,5 +158,6 @@
  "hanya admin yang bisa mengubah tim": "only the admin can change the team",
  "file tim tidak ditemukan di Google Drive (terhapus?)": "the team file wasn't found on Google Drive (deleted?)",
  "key ini sudah ada di Keychain": "this key is already in the Keychain",
- "\"{}\" adalah tim milikmu — kamu adminnya. Rekan bergabung dari Djie Shell di perangkat mereka, yang masuk dengan akun Google yang kamu undang": "\"{}\" is your own team — you're the admin. Teammates join from Djie Shell on their own devices, signed in with the Google account you invited"
+ "\"{}\" adalah tim milikmu — kamu adminnya. Rekan bergabung dari Djie Shell di perangkat mereka, yang masuk dengan akun Google yang kamu undang": "\"{}\" is your own team — you're the admin. Teammates join from Djie Shell on their own devices, signed in with the Google account you invited",
+ "kamu masuk sebagai admin tim ini, tapi kunci admin tidak ada di vault ini — buka Djie Shell di perangkat tempat tim dibuat lalu sinkronkan, atau buat tim baru": "you're signed in as this team's admin, but the admin key isn't in this vault — open Djie Shell on the device where the team was created and sync, or create a new team"
 }

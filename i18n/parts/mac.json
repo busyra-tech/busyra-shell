@@ -921,5 +921,6 @@
  "✓ Selesai": "✓ Done",
  "✓ {} baris terpengaruh": "✓ {} rows affected",
  "✓ {} tersimpan ke server": "✓ {} saved to the server",
- "(dipotong)": "(truncated)"
+ "(dipotong)": "(truncated)",
+ "disinkron {}": "synced {}"
 }

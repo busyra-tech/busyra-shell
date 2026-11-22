@@ -1144,6 +1144,7 @@
  "isi tim tidak bisa dibuka": "couldn't open the team contents",
  "jaringan tidak terjangkau": "network unreachable",
  "jenis alamat tidak didukung": "unsupported address type",
+ "kamu masuk sebagai admin tim ini, tapi kunci admin tidak ada di vault ini — buka Djie Shell di perangkat tempat tim dibuat lalu sinkronkan, atau buat tim baru": "you're signed in as this team's admin, but the admin key isn't in this vault — open Djie Shell on the device where the team was created and sync, or create a new team",
  "kamu sudah bergabung di tim \"{}\"": "you've already joined the team \"{}\"",
  "key ini memakai passphrase, isi passphrase-nya": "this key uses a passphrase — enter the passphrase",
  "key ini sudah ada di Keychain": "this key is already in the Keychain",

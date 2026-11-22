@@ -9,6 +9,8 @@ Download versi terbaru: [Releases](https://github.com/masadjie/djie-shell/releas
 ## [Unreleased]
 
 ### Diperbaiki
+- Tim: admin tidak lagi berubah jadi anggota "menunggu admin" saat vault yang sama dipakai ganti akun Google lalu disinkron. Tim yang telanjur begitu dipulihkan saat sinkron jika kunci adminnya masih ada di vault; jika tidak, app menjelaskan masalahnya (core, tampilan macOS & Windows)
+- Tim (macOS): keterangan waktu sinkron ikut bahasa app
 - Broadcast terminal tidak lagi meneruskan balasan otomatis terminal (mis. laporan posisi kursor `ESC[10;10R`) ke panel lain — sebelumnya bisa muncul teks aneh seperti `;10R` di server lain (macOS & Windows)
 
 ## [0.5.0] — 2026-11-21

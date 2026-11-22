@@ -32,6 +32,7 @@ use crate::vault::Vault;
 use crate::CoreError;
 
 pub const MIME: &str = "application/vnd.djieshell.team";
+const ADMIN_KEY_MISSING: &str = "kamu masuk sebagai admin tim ini, tapi kunci admin tidak ada di vault ini — buka Djie Shell di perangkat tempat tim dibuat lalu sinkronkan, atau buat tim baru";
 const JOIN_PAGE: &str = "https://masadjie.github.io/djie-shell/team.html";
 
 // ---------- Data tersimpan di vault ----------
@@ -66,8 +67,9 @@ impl Identity {
     }
 }
 
-/// Gabungkan identitas dari perangkat lain: yang lebih dulu dibuat menang, agar semua perangkat sama.
-pub fn merge_identity(local: &mut Option<Identity>, remote: Option<Identity>) -> (bool, bool) {
+/// Gabungkan identitas dari perangkat lain agar semua perangkat sama: kunci yang menandatangani salah satu
+/// tim di vault (kunci admin) menang; selain itu yang lebih dulu dibuat.
+pub fn merge_identity(local: &mut Option<Identity>, remote: Option<Identity>, teams: &[TeamState]) -> (bool, bool) {
     match (local.as_ref(), remote) {
         (None, Some(r)) => {
             *local = Some(r);
@@ -75,7 +77,12 @@ pub fn merge_identity(local: &mut Option<Identity>, remote: Option<Identity>) ->
         }
         (Some(_), None) => (false, true),
         (Some(l), Some(r)) if l != &r => {
-            if (r.created_at, &r.box_secret) < (l.created_at, &l.box_secret) {
+            let rank = |i: &Identity| {
+                let signer = i.sign_pub();
+                let is_admin_key = teams.iter().any(|t| !t.deleted && t.owner_sign == signer);
+                (!is_admin_key, i.created_at, i.box_secret.clone())
+            };
+            if rank(&r) < rank(l) {
                 *local = Some(r);
                 (true, false)
             } else {
@@ -84,6 +91,24 @@ pub fn merge_identity(local: &mut Option<Identity>, remote: Option<Identity>) ->
         }
         _ => (false, false),
     }
+}
+
+/// Siapkan record tim sebelum digabung last-write-wins: record admin yang masih hidup tidak boleh kalah dari
+/// record anggota tim yang sama (terjadi saat satu vault dipakai beberapa akun Google). Waktunya dimajukan
+/// agar menang di perangkat lain juga. Mengembalikan (lokal berubah, remote tertinggal).
+pub fn protect_owner(local: &mut [TeamState], remote: &mut [TeamState]) -> (bool, bool) {
+    let mut changed = (false, false);
+    for r in remote.iter_mut() {
+        let Some(l) = local.iter_mut().find(|l| l.id == r.id) else { continue };
+        if l.is_owner && !l.deleted && !r.is_owner && r.updated_at >= l.updated_at {
+            l.updated_at = r.updated_at + 1;
+            changed = (true, true);
+        } else if r.is_owner && !r.deleted && !l.is_owner && l.updated_at >= r.updated_at {
+            r.updated_at = l.updated_at + 1;
+            changed = (true, true);
+        }
+    }
+    changed
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -466,6 +491,47 @@ fn member_apply(state: &mut TeamState, ident: &Identity, file: &TeamFile, doc: &
     }
     let req = JoinRequest { email: me, box_pub: my_box };
     Ok((!file.requests.contains(&req)).then_some(req))
+}
+
+/// Bukti bahwa vault ini milik admin tim: file ditandatangani kunci vault ini, sama dengan kunci yang dipin,
+/// dan kunci tim bisa dibuka dari entri admin. Email saja bukan bukti.
+fn admin_proof(state: &TeamState, ident: &Identity, file: &TeamFile, doc: &SignedDoc) -> Option<(Key, Payload)> {
+    let me = ident.sign_pub();
+    // Epoch lebih lama = file lama yang ditulis ulang: jangan hidupkan lagi daftar anggota lama.
+    if doc.team_id != state.id || doc.epoch < state.epoch || state.owner_sign != me || !verify(file, &me) {
+        return None;
+    }
+    let owner = norm_email(&doc.owner_email);
+    let wrapped = doc.members.iter().find(|m| norm_email(&m.email) == owner)?.wrapped.as_deref()?;
+    let k = unwrap(&ident.box_secret(), wrapped, &wrap_aad(&doc.team_id, doc.epoch, &owner))?;
+    let payload = open_payload(doc, &k)?;
+    Some((k, payload))
+}
+
+/// Kembalikan record yang turun jadi anggota menjadi admin. Host tim yang tidak ada di vault ditambahkan
+/// supaya tidak hilang saat file tim ditulis ulang; yang sudah ada atau sudah dihapus tidak disentuh.
+fn restore_admin(state: &mut TeamState, data: &mut VaultData, doc: &SignedDoc, k: &Key, payload: Payload) {
+    state.is_owner = true;
+    state.name = doc.name.clone();
+    state.owner_email = doc.owner_email.clone();
+    state.my_email = norm_email(&doc.owner_email);
+    state.key = Some(B64.encode(k));
+    state.epoch = doc.epoch;
+    state.members = doc.members.clone();
+    state.shared_host_ids = payload.hosts.iter().map(|h| h.id.clone()).collect();
+    state.hosts.clear();
+    state.keys.clear();
+    state.status = "active".into();
+    for h in payload.hosts {
+        if !data.hosts.iter().any(|x| x.id == h.id) {
+            data.hosts.push(h);
+        }
+    }
+    for key in payload.keys {
+        if !data.keys.iter().any(|x| x.id == key.id) {
+            data.keys.push(key);
+        }
+    }
 }
 
 fn revoke(state: &mut TeamState) {
@@ -989,7 +1055,20 @@ impl Vault {
             r => r?,
         };
         let (mut file, doc) = parse_file(&bytes)?;
-        if let Some(req) = member_apply(state, ident, &file, &doc)? {
+        if let Some((k, payload)) = admin_proof(state, ident, &file, &doc) {
+            {
+                let mut data = self.data.lock().unwrap();
+                restore_admin(state, &mut data, &doc, &k, payload);
+                self.persist(&data)?;
+            }
+            return self.owner_sync(drive, ident, state).await;
+        }
+        let request = member_apply(state, ident, &file, &doc)?;
+        // Admin tanpa kunci adminnya: jangan menyuruhnya menunggu dirinya sendiri atau meminta kunci ke dirinya.
+        if state.status == "waiting" && self.account_email().is_some_and(|e| norm_email(&e) == norm_email(&doc.owner_email)) {
+            return Err(team_err(ADMIN_KEY_MISSING));
+        }
+        if let Some(req) = request {
             file.requests.retain(|r| norm_email(&r.email) != req.email);
             file.requests.push(req);
             drive.update(&state.file_id, serde_json::to_vec_pretty(&file)?).await?;
@@ -1207,11 +1286,51 @@ mod tests {
         let older = Identity { created_at: 1, ..Identity::new() };
         let newer = Identity { created_at: 2, ..Identity::new() };
         let mut x = Some(newer.clone());
-        assert_eq!(merge_identity(&mut x, Some(older.clone())), (true, false));
+        assert_eq!(merge_identity(&mut x, Some(older.clone()), &[]), (true, false));
         assert_eq!(x, Some(older.clone()));
         let mut y = Some(older.clone());
-        assert_eq!(merge_identity(&mut y, Some(newer)), (false, true));
+        assert_eq!(merge_identity(&mut y, Some(newer), &[]), (false, true));
         let mut z = None;
-        assert_eq!(merge_identity(&mut z, Some(older.clone())), (true, false));
+        assert_eq!(merge_identity(&mut z, Some(older.clone()), &[]), (true, false));
+    }
+
+    #[test]
+    fn admin_key_beats_older_identity() {
+        let other = Identity { created_at: 1, ..Identity::new() };
+        let admin = Identity { created_at: 2, ..Identity::new() };
+        let teams = [owner_state(&admin)];
+        let mut x = Some(other.clone());
+        assert_eq!(merge_identity(&mut x, Some(admin.clone()), &teams), (true, false));
+        let mut y = Some(admin.clone());
+        assert_eq!(merge_identity(&mut y, Some(other), &teams), (false, true));
+    }
+
+    #[test]
+    fn owner_record_wins_both_directions() {
+        let owner = owner_state(&Identity::new());
+        let member = TeamState { updated_at: 9, ..member_state(&owner, "budi@x.com") };
+        let (mut l, mut r) = (vec![owner.clone()], vec![member.clone()]);
+        assert_eq!(protect_owner(&mut l, &mut r), (true, true));
+        assert!(l[0].updated_at > r[0].updated_at);
+        let (mut l, mut r) = (vec![member.clone()], vec![owner.clone()]);
+        assert_eq!(protect_owner(&mut l, &mut r), (true, true));
+        assert!(r[0].updated_at > l[0].updated_at);
+
+        // Tim yang dihapus admin tetap mengikuti last-write-wins
+        let (mut l, mut r) = (vec![TeamState { deleted: true, ..owner }], vec![member]);
+        assert_eq!(protect_owner(&mut l, &mut r), (false, false));
+    }
+
+    #[test]
+    fn admin_proof_needs_key_and_current_epoch() {
+        let admin = Identity::new();
+        let owner = owner_state(&admin);
+        let bytes = build_file(&owner, &admin, &Payload::default()).unwrap();
+        let (file, doc) = parse_file(&bytes).unwrap();
+        let demoted = member_state(&owner, "budi@x.com");
+        assert!(admin_proof(&demoted, &admin, &file, &doc).is_some());
+        assert!(admin_proof(&demoted, &Identity::new(), &file, &doc).is_none());
+        let newer = TeamState { epoch: doc.epoch + 1, ..demoted };
+        assert!(admin_proof(&newer, &admin, &file, &doc).is_none(), "file lama yang diputar ulang");
     }
 }

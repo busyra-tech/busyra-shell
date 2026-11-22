@@ -220,6 +220,8 @@ internal sealed class TeamPage : PageBase
                 return Ui.Col(10,
                     Ui.Columns("*,Auto", 8, Ui.Caps(L.T("{} host dari tim", mine.Count)), Ui.Secondary(L.T("Buka Hosts"), G.Server, () => M.Navigate(Section.Hosts))),
                     grid);
+            case TeamStatus.Waiting when t.Error is { } err:
+                return Ui.Columns("Auto,*", 8, Ui.Icon(G.Clock, 14, Theme.Text2), Ui.Secondary(L.Msg(err), 13, wrap: true));
             case TeamStatus.Waiting:
                 return Ui.Row(8, Ui.Icon(G.Clock, 14, Theme.Text2),
                     Ui.Secondary(L.T("Menunggu {} membuka Djie Shell agar kunci tim terkirim. Host tim muncul otomatis setelah itu.", t.OwnerEmail), 13, wrap: true));
