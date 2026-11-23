@@ -68,6 +68,27 @@ export default function App() {
   const [selectedHost, setSelectedHost] = useState(DEFAULT_HOSTS[0]);
   const [activeSessions, setActiveSessions] = useState([]);
 
+  // Guarantee default hosts on mount if missing
+  useEffect(() => {
+    setHosts(prev => {
+      let list = Array.isArray(prev) ? [...prev] : [];
+      let changed = false;
+      if (!list.some(h => h.host === '95.135.92.167' || (h.name && h.name.toLowerCase().includes('sbt')))) {
+        list.unshift(DEFAULT_HOSTS[0]);
+        changed = true;
+      }
+      if (!list.some(h => h.host === '178.128.22.84' || (h.name && h.name.toLowerCase().includes('siu')))) {
+        list.push(DEFAULT_HOSTS[1]);
+        changed = true;
+      }
+      if (changed && !isVaultLocked) {
+        localStorage.setItem('busyra_shell_hosts', JSON.stringify(list));
+      }
+      return changed ? list : prev;
+    });
+  }, []);
+
+
   // Telemetry state
   const [telemetry, setTelemetry] = useState(null);
   const [loadingTelemetry, setLoadingTelemetry] = useState(false);
@@ -213,10 +234,10 @@ export default function App() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#0B0E13]">
         {currentSection === 'dashboard' && (
           <DashboardView
+            hosts={hosts}
             selectedHost={selectedHost}
-            telemetry={telemetry}
-            loadingTelemetry={loadingTelemetry}
-            onRefreshTelemetry={fetchTelemetry}
+            onSelectHost={setSelectedHost}
+            onConnectTerminal={handleConnectTerminal}
             onNavigate={setCurrentSection}
           />
         )}
