@@ -16,7 +16,7 @@ const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '15mb' }));
 
 // Helper: Resolve SSH Configuration (with intelligent fallback to host ~/.ssh keys)
 function resolveSSHConfig(creds) {
@@ -84,9 +84,74 @@ function getSSHClient(creds) {
   });
 }
 
+function execSSHCommand(creds, command) {
+  return new Promise(async (resolve, reject) => {
+    let conn;
+    try {
+      conn = await getSSHClient(creds);
+      conn.exec(command, (err, stream) => {
+        if (err) {
+          conn.end();
+          return reject(err);
+        }
+        let stdout = '';
+        let stderr = '';
+        stream.on('data', d => { stdout += d; });
+        stream.stderr.on('data', d => { stderr += d; });
+        stream.on('close', (code) => {
+          conn.end();
+          resolve({ stdout, stderr, code });
+        });
+      });
+    } catch (err) {
+      if (conn) conn.end();
+      reject(err);
+    }
+  });
+}
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', name: 'Busyra Shell Web', version: '0.2.0' });
+});
+
+// Import local ~/.ssh/config
+app.get('/api/ssh/config-hosts', (req, res) => {
+  try {
+    const confPath = path.join(os.homedir(), '.ssh', 'config');
+    if (!fs.existsSync(confPath)) {
+      return res.json({ hosts: [] });
+    }
+    const content = fs.readFileSync(confPath, 'utf8');
+    const hosts = [];
+    let cur = null;
+    const lines = content.split('\n');
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      if (line.startsWith('Host ') && !line.includes('*')) {
+        if (cur && cur.host) hosts.push(cur);
+        const name = line.replace('Host ', '').trim();
+        cur = {
+          id: 'imported_' + name + '_' + Math.random().toString(36).substr(2, 5),
+          name: name.toUpperCase() + ' (SSH Config)',
+          host: '',
+          port: 22,
+          username: 'root',
+          authType: 'key',
+          tag: 'Imported',
+          color: '#5B9CF5'
+        };
+      } else if (cur) {
+        if (line.startsWith('HostName ')) cur.host = line.replace('HostName ', '').trim();
+        else if (line.startsWith('User ')) cur.username = line.replace('User ', '').trim();
+        else if (line.startsWith('Port ')) cur.port = parseInt(line.replace('Port ', '').trim());
+      }
+    }
+    if (cur && cur.host) hosts.push(cur);
+    res.json({ hosts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Telemetry endpoint
@@ -96,63 +161,106 @@ app.post('/api/telemetry', async (req, res) => {
     return res.status(400).json({ error: 'Host and username required' });
   }
 
-  let conn;
+  const cmd = `
+    uname -srm
+    echo '---UPTIME---'
+    uptime -p 2>/dev/null || uptime
+    echo '---MEM---'
+    awk '/MemTotal:/ {total=$2} /MemAvailable:/ {avail=$2} END {used=total-avail; pct=(used/total)*100; printf "%.1f %.1f %d", used/1048576, total/1048576, pct}' /proc/meminfo 2>/dev/null || echo 'N/A'
+    echo '---DISK---'
+    df -h / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $3, $2, $5}'
+    echo '---DOCKER---'
+    docker ps -q 2>/dev/null | wc -l || echo '0'
+    echo '---LOAD---'
+    cat /proc/loadavg 2>/dev/null | awk '{print $1, $2, $3}' || echo '0 0 0'
+  `;
+
   try {
-    conn = await getSSHClient(creds);
-    const cmd = `
-      uname -srm
-      echo '---UPTIME---'
-      uptime -p 2>/dev/null || uptime
-      echo '---MEM---'
-      awk '/MemTotal:/ {total=$2} /MemAvailable:/ {avail=$2} END {used=total-avail; pct=(used/total)*100; printf "%.1f %.1f %d", used/1048576, total/1048576, pct}' /proc/meminfo 2>/dev/null || echo 'N/A'
-      echo '---DISK---'
-      df -h / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $3, $2, $5}'
-      echo '---DOCKER---'
-      docker ps -q 2>/dev/null | wc -l || echo '0'
-    `;
+    const { stdout } = await execSSHCommand(creds, cmd);
+    const parts = stdout.split(/---[A-Z]+---/);
+    const osName = (parts[0] || '').trim();
+    const uptime = (parts[1] || '').trim();
+    const memRaw = (parts[2] || '').trim().split(' ');
+    const diskRaw = (parts[3] || '').trim().split(' ');
+    const dockerCount = parseInt((parts[4] || '').trim()) || 0;
+    const loadAvg = (parts[5] || '').trim();
 
-    conn.exec(cmd, (err, stream) => {
-      if (err) {
-        conn.end();
-        return res.status(500).json({ error: err.message });
-      }
-
-      let stdout = '';
-      stream.on('data', (d) => { stdout += d; });
-      stream.stderr.on('data', (d) => { stderr += d; });
-      stream.on('close', () => {
-        conn.end();
-        
-        try {
-          const parts = stdout.split(/---[A-Z]+---/);
-          const osName = (parts[0] || '').trim();
-          const uptime = (parts[1] || '').trim();
-          const memRaw = (parts[2] || '').trim().split(' ');
-          const diskRaw = (parts[3] || '').trim().split(' ');
-          const dockerCount = parseInt((parts[4] || '').trim()) || 0;
-
-          res.json({
-            os: osName,
-            uptime,
-            ram: {
-              used: memRaw[0] || '0',
-              total: memRaw[1] || '0',
-              pct: parseInt(memRaw[2]) || 0
-            },
-            disk: {
-              used: diskRaw[0] || '0',
-              total: diskRaw[1] || '0',
-              pct: parseInt(diskRaw[2]) || 0
-            },
-            dockerCount
-          });
-        } catch (parseErr) {
-          res.json({ raw: stdout, error: parseErr.message });
-        }
-      });
+    res.json({
+      os: osName,
+      uptime,
+      ram: {
+        used: memRaw[0] || '0',
+        total: memRaw[1] || '0',
+        pct: parseInt(memRaw[2]) || 0
+      },
+      disk: {
+        used: diskRaw[0] || '0',
+        total: diskRaw[1] || '0',
+        pct: parseInt(diskRaw[2]) || 0
+      },
+      dockerCount,
+      loadAvg
     });
   } catch (err) {
-    if (conn) conn.end();
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Docker Container List
+app.post('/api/docker/list', async (req, res) => {
+  const creds = req.body;
+  const cmd = `docker ps -a --format '{"id":"{{.ID}}","name":"{{.Names}}","image":"{{.Image}}","status":"{{.Status}}","state":"{{.State}}","ports":"{{.Ports}}","created":"{{.CreatedAt}}"}'`;
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    const containers = stdout.trim().split('\n').filter(Boolean).map(line => {
+      try {
+        return JSON.parse(line);
+      } catch (_) {
+        return null;
+      }
+    }).filter(Boolean);
+    res.json({ containers });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Docker Action (restart, stop, start)
+app.post('/api/docker/action', async (req, res) => {
+  const { action, container, ...creds } = req.body;
+  if (!['restart', 'stop', 'start'].includes(action) || !container) {
+    return res.status(400).json({ error: 'Valid action and container name required' });
+  }
+  const cmd = `docker ${action} ${container.replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  try {
+    const { stdout, stderr, code } = await execSSHCommand(creds, cmd);
+    res.json({ success: code === 0, stdout, stderr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Docker Logs
+app.post('/api/docker/logs', async (req, res) => {
+  const { container, tail = 100, ...creds } = req.body;
+  if (!container) return res.status(400).json({ error: 'Container required' });
+  const cmd = `docker logs --tail ${parseInt(tail) || 100} ${container.replace(/[^a-zA-Z0-9_-]/g, '')} 2>&1`;
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    res.json({ logs: stdout });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Snippet Runner
+app.post('/api/snippets/run', async (req, res) => {
+  const { command, ...creds } = req.body;
+  if (!command) return res.status(400).json({ error: 'Command required' });
+  try {
+    const { stdout, stderr, code } = await execSSHCommand(creds, command);
+    res.json({ output: stdout || stderr, code });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -162,63 +270,45 @@ app.post('/api/db/query', async (req, res) => {
   const { dbType = 'postgres', dbName = 'postgres', dbUser = 'aji', dbPassword = '', query, ...creds } = req.body;
   if (!query) return res.status(400).json({ error: 'Query required' });
 
-  let conn;
+  const escapedQuery = query.replace(/'/g, "'\\''");
+  let cmd = '';
+  if (dbType === 'postgres') {
+    cmd = `docker exec -i psql psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1 || psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1`;
+  } else if (dbType === 'mysql') {
+    const passFlag = dbPassword ? `-p'${dbPassword}'` : '';
+    cmd = `docker exec -i mysql mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1 || mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1`;
+  } else if (dbType === 'redis') {
+    cmd = `docker exec -i rds redis-cli ${escapedQuery} 2>&1 || redis-cli ${escapedQuery} 2>&1`;
+  }
+
   try {
-    conn = await getSSHClient(creds);
-    let cmd = '';
-    const escapedQuery = query.replace(/'/g, "'\\''");
-
-    if (dbType === 'postgres') {
-      cmd = `docker exec -i psql psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1 || psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1`;
-    } else if (dbType === 'mysql') {
-      const passFlag = dbPassword ? `-p'${dbPassword}'` : '';
-      cmd = `docker exec -i mysql mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1 || mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1`;
-    } else if (dbType === 'redis') {
-      cmd = `docker exec -i rds redis-cli ${escapedQuery} 2>&1 || redis-cli ${escapedQuery} 2>&1`;
-    }
-
-    conn.exec(cmd, (err, stream) => {
-      if (err) {
-        conn.end();
-        return res.status(500).json({ error: err.message });
+    const { stdout } = await execSSHCommand(creds, cmd);
+    const lines = stdout.trim().split('\n');
+    if (lines.length >= 3 && (lines[1].includes('-+-') || lines[1].includes('---|---') || lines[1].startsWith('--'))) {
+      const colHeader = lines[0];
+      const cols = colHeader.split('|').map(c => c.trim()).filter(Boolean);
+      const dataRows = [];
+      for (let i = 2; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.startsWith('(') && line.endsWith(')')) break;
+        if (!line) continue;
+        const cells = line.split('|').map(c => c.trim());
+        if (cells.length >= cols.length) {
+          dataRows.push(cells.slice(0, cols.length));
+        }
       }
 
-      let stdout = '';
-      stream.on('data', d => { stdout += d; });
-      stream.stderr.on('data', d => { stdout += d; });
-      stream.on('close', () => {
-        conn.end();
-
-        const lines = stdout.trim().split('\n');
-        if (lines.length >= 3 && (lines[1].includes('-+-') || lines[1].includes('---|---') || lines[1].startsWith('--'))) {
-          const colHeader = lines[0];
-          const cols = colHeader.split('|').map(c => c.trim()).filter(Boolean);
-          const dataRows = [];
-          for (let i = 2; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (line.startsWith('(') && line.endsWith(')')) break;
-            if (!line) continue;
-            const cells = line.split('|').map(c => c.trim());
-            if (cells.length >= cols.length) {
-              dataRows.push(cells.slice(0, cols.length));
-            }
-          }
-
-          if (cols.length > 0) {
-            return res.json({ columns: cols, rows: dataRows, rawText: stdout });
-          }
-        }
-
-        res.json({ rawText: stdout });
-      });
-    });
+      if (cols.length > 0) {
+        return res.json({ columns: cols, rows: dataRows, rawText: stdout });
+      }
+    }
+    res.json({ rawText: stdout });
   } catch (err) {
-    if (conn) conn.end();
     res.status(500).json({ error: err.message });
   }
 });
 
-// SFTP List Directory
+// SFTP Endpoints
 app.post('/api/sftp/list', async (req, res) => {
   const { path: remotePath = '/', ...creds } = req.body;
   let conn;
@@ -256,7 +346,6 @@ app.post('/api/sftp/list', async (req, res) => {
   }
 });
 
-// SFTP Read File Content
 app.post('/api/sftp/read', async (req, res) => {
   const { filePath, ...creds } = req.body;
   let conn;
@@ -292,7 +381,6 @@ app.post('/api/sftp/read', async (req, res) => {
   }
 });
 
-// SFTP Write File Content
 app.post('/api/sftp/write', async (req, res) => {
   const { filePath, content, ...creds } = req.body;
   let conn;
@@ -322,7 +410,6 @@ app.post('/api/sftp/write', async (req, res) => {
   }
 });
 
-// SFTP Delete
 app.post('/api/sftp/delete', async (req, res) => {
   const { targetPath, isDirectory, ...creds } = req.body;
   let conn;
