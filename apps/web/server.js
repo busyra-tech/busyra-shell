@@ -154,36 +154,60 @@ app.get('/api/ssh/config-hosts', (req, res) => {
   }
 });
 
-// Telemetry endpoint
+// Telemetry endpoint (fast sampling with CPU delta, memory, disk, network rx/tx, and pretty OS)
 app.post('/api/telemetry', async (req, res) => {
   const creds = req.body;
   if (!creds.host || !creds.username) {
     return res.status(400).json({ error: 'Host and username required' });
   }
 
-  const cmd = `
-    uname -srm
-    echo '---UPTIME---'
-    uptime -p 2>/dev/null || uptime
-    echo '---MEM---'
-    awk '/MemTotal:/ {total=$2} /MemAvailable:/ {avail=$2} END {used=total-avail; pct=(used/total)*100; printf "%.1f %.1f %d", used/1048576, total/1048576, pct}' /proc/meminfo 2>/dev/null || echo 'N/A'
-    echo '---DISK---'
-    df -h / 2>/dev/null | awk 'NR==2 {gsub(/%/,"",$5); print $3, $2, $5}'
-    echo '---DOCKER---'
-    docker ps -q 2>/dev/null | wc -l || echo '0'
-    echo '---LOAD---'
-    cat /proc/loadavg 2>/dev/null | awk '{print $1, $2, $3}' || echo '0 0 0'
-  `;
+  const cmd = `export LC_ALL=C
+if [ -r /etc/os-release ]; then grep '^PRETTY_NAME=' /etc/os-release | cut -d= -f2 | tr -d '"'; else uname -srm; fi
+echo '---UPTIME---'
+if [ -r /proc/uptime ]; then
+  s=$(cut -d. -f1 /proc/uptime)
+  d=$((s / 86400)); h=$(((s % 86400) / 3600)); m=$(((s % 3600) / 60))
+  if [ $d -gt 0 ]; then echo "\${d}d"; elif [ $h -gt 0 ]; then echo "\${h}h"; else echo "\${m}m"; fi
+else
+  uptime -p 2>/dev/null || uptime
+fi
+echo '---MEM---'
+awk '/MemTotal:/ {total=$2} /MemAvailable:/ {avail=$2} END {used=total-avail; pct=(used/total)*100; printf "%.2f %.2f %d\\n", used/1048576, total/1048576, pct}' /proc/meminfo 2>/dev/null || echo '0 0 0'
+echo '---DISK---'
+df -P -k / 2>/dev/null | awk 'NR==2 {t=$2*1024; u=$3*1024; pct=(u/t)*100; printf "%.2f %.2f %d\\n", u/1073741824, t/1073741824, pct}'
+echo '---DOCKER---'
+docker ps -q 2>/dev/null | wc -l || echo '0'
+echo '---LOAD---'
+cat /proc/loadavg 2>/dev/null | awk '{print $1}' || echo '0.00'
+echo '---CPU---'
+if [ -r /proc/stat ]; then
+  read c a b d e f g h i r < /proc/stat; sleep 0.15; read c a2 b2 d2 e2 f2 g2 h2 i2 r < /proc/stat
+  idle=$(( (e2 + f2) - (e + f) )); total=$(( (a2+b2+d2+e2+f2+g2+h2+i2) - (a+b+d+e+f+g+h+i) ))
+  [ "$total" -gt 0 ] && echo "$(( 100 * (total - idle) / total ))" || echo "0"
+else
+  echo '0'
+fi
+echo '---NET---'
+if [ -r /proc/net/dev ]; then
+  awk -F'[: ]+' 'NR>2 { i=($1==""?2:1); if ($i!="lo") { rx+=$(i+1); tx+=$(i+9) } } END{printf "%d %d\\n", rx, tx}' /proc/net/dev
+else
+  echo '0 0'
+fi
+`;
 
   try {
     const { stdout } = await execSSHCommand(creds, cmd);
     const parts = stdout.split(/---[A-Z]+---/);
     const osName = (parts[0] || '').trim();
     const uptime = (parts[1] || '').trim();
-    const memRaw = (parts[2] || '').trim().split(' ');
-    const diskRaw = (parts[3] || '').trim().split(' ');
+    const memRaw = (parts[2] || '').trim().split(/\s+/);
+    const diskRaw = (parts[3] || '').trim().split(/\s+/);
     const dockerCount = parseInt((parts[4] || '').trim()) || 0;
-    const loadAvg = (parts[5] || '').trim();
+    const loadAvg = (parts[5] || '').trim() || '0.00';
+    const cpuPct = parseInt((parts[6] || '').trim()) || 0;
+    const netRaw = (parts[7] || '').trim().split(/\s+/);
+    const rxBytes = parseInt(netRaw[0]) || 0;
+    const txBytes = parseInt(netRaw[1]) || 0;
 
     res.json({
       os: osName,
@@ -199,12 +223,15 @@ app.post('/api/telemetry', async (req, res) => {
         pct: parseInt(diskRaw[2]) || 0
       },
       dockerCount,
-      loadAvg
+      loadAvg,
+      cpu: cpuPct,
+      net: { rx: rxBytes, tx: txBytes }
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // Docker Container List
 app.post('/api/docker/list', async (req, res) => {

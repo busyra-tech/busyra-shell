@@ -17,9 +17,9 @@ import { encryptVault, decryptVault } from './utils/vaultCrypto';
 
 const DEFAULT_HOSTS = [
   {
-    id: 'sbt_primary',
-    name: 'SBT Production (Server Busyra Tech)',
-    host: '95.135.92.167',
+    id: 'saji',
+    name: 'SAJI',
+    host: '31.58.103.124',
     port: 2233,
     username: 'ajidwi',
     authType: 'key',
@@ -29,8 +29,20 @@ const DEFAULT_HOSTS = [
     color: '#3FD0B4'
   },
   {
-    id: 'siu_primary',
-    name: 'SIU Production (IBS)',
+    id: 'sbt',
+    name: 'SBT',
+    host: '95.135.92.167',
+    port: 2233,
+    username: 'ajidwi',
+    authType: 'key',
+    password: '',
+    privateKey: '',
+    tag: 'Production VPS',
+    color: '#4ADE80'
+  },
+  {
+    id: 'siu',
+    name: 'SIU',
     host: '178.128.22.84',
     port: 2233,
     username: 'ajidwi',
@@ -39,8 +51,48 @@ const DEFAULT_HOSTS = [
     privateKey: '',
     tag: 'Production IBS',
     color: '#5B9CF5'
+  },
+  {
+    id: 'sip',
+    name: 'SIP',
+    host: '146.190.102.140',
+    port: 2233,
+    username: 'ajidwi',
+    authType: 'key',
+    password: '',
+    privateKey: '',
+    tag: 'Production IBS',
+    color: '#F59E0B'
+  },
+  {
+    id: 'sit',
+    name: 'SIT',
+    host: '76.13.195.106',
+    port: 2233,
+    username: 'ajidwi',
+    authType: 'key',
+    password: '',
+    privateKey: '',
+    tag: 'Staging IBS',
+    color: '#A78BFA'
   }
 ];
+
+function mergeFleetHosts(existing = []) {
+  if (!Array.isArray(existing) || existing.length === 0) return DEFAULT_HOSTS;
+  let list = [...existing];
+  DEFAULT_HOSTS.forEach(def => {
+    const idx = list.findIndex(h => h.host === def.host || h.id === def.id);
+    if (idx === -1) {
+      list.push(def);
+    } else {
+      if (!list[idx].name || list[idx].name.includes('Production (Server') || list[idx].name.includes('Production (IBS)')) {
+        list[idx] = { ...list[idx], name: def.name, color: def.color, tag: def.tag };
+      }
+    }
+  });
+  return list;
+}
 
 export default function App() {
   const [hosts, setHosts] = useState(() => {
@@ -49,45 +101,29 @@ export default function App() {
     try {
       const parsed = JSON.parse(saved);
       if (parsed && parsed.ciphertext && parsed.salt) return [];
-      if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_HOSTS;
-
-      let list = [...parsed];
-      if (!list.some(h => h.host === '178.128.22.84' || (h.name && h.name.toLowerCase().includes('siu')))) {
-        list.push(DEFAULT_HOSTS[1]);
-      }
-      if (!list.some(h => h.host === '95.135.92.167' || (h.name && h.name.toLowerCase().includes('sbt')))) {
-        list.unshift(DEFAULT_HOSTS[0]);
-      }
-      return list;
+      return mergeFleetHosts(parsed);
     } catch (_) {
       return DEFAULT_HOSTS;
     }
   });
 
-  const [currentSection, setCurrentSection] = useState('dashboard'); // 'dashboard', 'hosts', 'docker', 'terminals', 'sftp', 'db', 'snippets', 'tunnels'
-  const [selectedHost, setSelectedHost] = useState(DEFAULT_HOSTS[0]);
+  const [currentSection, setCurrentSection] = useState('dashboard');
+  const [selectedHost, setSelectedHost] = useState(DEFAULT_HOSTS[1]); // default to SBT
   const [activeSessions, setActiveSessions] = useState([]);
 
-  // Guarantee default hosts on mount if missing
+  // Guarantee default fleet hosts on mount if missing
   useEffect(() => {
     setHosts(prev => {
-      let list = Array.isArray(prev) ? [...prev] : [];
-      let changed = false;
-      if (!list.some(h => h.host === '95.135.92.167' || (h.name && h.name.toLowerCase().includes('sbt')))) {
-        list.unshift(DEFAULT_HOSTS[0]);
-        changed = true;
+      const merged = mergeFleetHosts(prev);
+      if (JSON.stringify(merged) !== JSON.stringify(prev)) {
+        if (!isVaultLocked) {
+          localStorage.setItem('busyra_shell_hosts', JSON.stringify(merged));
+        }
+        return merged;
       }
-      if (!list.some(h => h.host === '178.128.22.84' || (h.name && h.name.toLowerCase().includes('siu')))) {
-        list.push(DEFAULT_HOSTS[1]);
-        changed = true;
-      }
-      if (changed && !isVaultLocked) {
-        localStorage.setItem('busyra_shell_hosts', JSON.stringify(list));
-      }
-      return changed ? list : prev;
+      return prev;
     });
-  }, []);
-
+  }, [isVaultLocked]);
 
   // Telemetry state
   const [telemetry, setTelemetry] = useState(null);
