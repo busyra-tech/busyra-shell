@@ -27,6 +27,18 @@ const DEFAULT_HOSTS = [
     privateKey: '',
     tag: 'Production VPS',
     color: '#3FD0B4'
+  },
+  {
+    id: 'siu_primary',
+    name: 'SIU Production (IBS)',
+    host: '178.128.22.84',
+    port: 2233,
+    username: 'ajidwi',
+    authType: 'key',
+    password: '',
+    privateKey: '',
+    tag: 'Production IBS',
+    color: '#5B9CF5'
   }
 ];
 
@@ -36,8 +48,17 @@ export default function App() {
     if (!saved) return DEFAULT_HOSTS;
     try {
       const parsed = JSON.parse(saved);
-      if (parsed.ciphertext && parsed.salt) return [];
-      return parsed;
+      if (parsed && parsed.ciphertext && parsed.salt) return [];
+      if (!Array.isArray(parsed) || parsed.length === 0) return DEFAULT_HOSTS;
+
+      let list = [...parsed];
+      if (!list.some(h => h.host === '178.128.22.84' || (h.name && h.name.toLowerCase().includes('siu')))) {
+        list.push(DEFAULT_HOSTS[1]);
+      }
+      if (!list.some(h => h.host === '95.135.92.167' || (h.name && h.name.toLowerCase().includes('sbt')))) {
+        list.unshift(DEFAULT_HOSTS[0]);
+      }
+      return list;
     } catch (_) {
       return DEFAULT_HOSTS;
     }
