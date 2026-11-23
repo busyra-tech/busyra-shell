@@ -43,7 +43,7 @@ function getSSHClient(creds) {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', name: 'Busyra Shell Web', version: '0.1.0' });
+  res.json({ status: 'ok', name: 'Busyra Shell Web', version: '0.2.0' });
 });
 
 // Telemetry endpoint
@@ -75,9 +75,8 @@ app.post('/api/telemetry', async (req, res) => {
       }
 
       let stdout = '';
-      let stderr = '';
       stream.on('data', (d) => { stdout += d; });
-      stream.stderr.on('data', (d) => { stderr += d; });
+      stream.stderr.on('data', (d) => { stdout += d; });
       stream.on('close', () => {
         conn.end();
         
@@ -107,6 +106,67 @@ app.post('/api/telemetry', async (req, res) => {
         } catch (parseErr) {
           res.json({ raw: stdout, error: parseErr.message });
         }
+      });
+    });
+  } catch (err) {
+    if (conn) conn.end();
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Database Query Endpoint
+app.post('/api/db/query', async (req, res) => {
+  const { dbType = 'postgres', dbName = 'postgres', dbUser = 'aji', dbPassword = '', query, ...creds } = req.body;
+  if (!query) return res.status(400).json({ error: 'Query required' });
+
+  let conn;
+  try {
+    conn = await getSSHClient(creds);
+    let cmd = '';
+    const escapedQuery = query.replace(/'/g, "'\\''");
+
+    if (dbType === 'postgres') {
+      cmd = `docker exec -i psql psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1 || psql -U ${dbUser} -d ${dbName} -c '${escapedQuery}' 2>&1`;
+    } else if (dbType === 'mysql') {
+      const passFlag = dbPassword ? `-p'${dbPassword}'` : '';
+      cmd = `docker exec -i mysql mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1 || mysql -u ${dbUser} ${passFlag} -e '${escapedQuery}' 2>&1`;
+    } else if (dbType === 'redis') {
+      cmd = `docker exec -i rds redis-cli ${escapedQuery} 2>&1 || redis-cli ${escapedQuery} 2>&1`;
+    }
+
+    conn.exec(cmd, (err, stream) => {
+      if (err) {
+        conn.end();
+        return res.status(500).json({ error: err.message });
+      }
+
+      let stdout = '';
+      stream.on('data', d => { stdout += d; });
+      stream.stderr.on('data', d => { stdout += d; });
+      stream.on('close', () => {
+        conn.end();
+
+        const lines = stdout.trim().split('\n');
+        if (lines.length >= 3 && (lines[1].includes('-+-') || lines[1].includes('---|---') || lines[1].startsWith('--'))) {
+          const colHeader = lines[0];
+          const cols = colHeader.split('|').map(c => c.trim()).filter(Boolean);
+          const dataRows = [];
+          for (let i = 2; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('(') && line.endsWith(')')) break;
+            if (!line) continue;
+            const cells = line.split('|').map(c => c.trim());
+            if (cells.length >= cols.length) {
+              dataRows.push(cells.slice(0, cols.length));
+            }
+          }
+
+          if (cols.length > 0) {
+            return res.json({ columns: cols, rows: dataRows, rawText: stdout });
+          }
+        }
+
+        res.json({ rawText: stdout });
       });
     });
   } catch (err) {
@@ -275,7 +335,6 @@ wss.on('connection', (ws) => {
 
   ws.on('message', (message) => {
     try {
-      // First message must be authentication JSON
       if (!isReady) {
         const payload = JSON.parse(message.toString());
         if (payload.type === 'init') {
@@ -338,7 +397,6 @@ wss.on('connection', (ws) => {
         }
       }
 
-      // If already connected, check for control messages or pipe to terminal
       if (typeof message === 'string' && message.startsWith('{')) {
         try {
           const ctrl = JSON.parse(message);
