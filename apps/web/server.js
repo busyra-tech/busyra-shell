@@ -6,6 +6,7 @@ import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import os from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -17,23 +18,65 @@ const wss = new WebSocketServer({ noServer: true });
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Helper: Establish SSH Client
+// Helper: Resolve SSH Configuration (with intelligent fallback to host ~/.ssh keys)
+function resolveSSHConfig(creds) {
+  const config = {
+    host: creds.host,
+    port: parseInt(creds.port) || 22,
+    username: creds.username || 'root',
+    readyTimeout: 15000,
+    keepaliveInterval: 10000,
+  };
+
+  // 1. Explicit private key provided in payload
+  if (creds.privateKey && creds.privateKey.trim()) {
+    config.privateKey = creds.privateKey.trim();
+    if (creds.passphrase) config.passphrase = creds.passphrase;
+    return config;
+  }
+
+  // 2. Explicit password provided
+  if (creds.authType === 'password' && creds.password) {
+    config.password = creds.password;
+    return config;
+  }
+
+  // 3. Fallback: Auto-load local ~/.ssh keys
+  const home = os.homedir();
+  const defaultKeys = ['id_rsa', 'id_ed25519', 'id_ecdsa'];
+  for (const k of defaultKeys) {
+    const keyPath = path.join(home, '.ssh', k);
+    if (fs.existsSync(keyPath)) {
+      try {
+        config.privateKey = fs.readFileSync(keyPath, 'utf8');
+        const passPath = path.join(home, '.ssh', '.passphrase');
+        if (creds.passphrase) {
+          config.passphrase = creds.passphrase;
+        } else if (fs.existsSync(passPath)) {
+          config.passphrase = fs.readFileSync(passPath, 'utf8').trim();
+        }
+        return config;
+      } catch (_) {}
+    }
+  }
+
+  // 4. Try SSH Agent socket
+  if (process.env.SSH_AUTH_SOCK) {
+    config.agent = process.env.SSH_AUTH_SOCK;
+    return config;
+  }
+
+  if (creds.password) {
+    config.password = creds.password;
+  }
+
+  return config;
+}
+
 function getSSHClient(creds) {
   return new Promise((resolve, reject) => {
     const conn = new SSHClient();
-    const config = {
-      host: creds.host,
-      port: parseInt(creds.port) || 22,
-      username: creds.username,
-      readyTimeout: 10000,
-    };
-
-    if (creds.authType === 'key' || creds.privateKey) {
-      config.privateKey = creds.privateKey;
-      if (creds.passphrase) config.passphrase = creds.passphrase;
-    } else {
-      config.password = creds.password;
-    }
+    const config = resolveSSHConfig(creds);
 
     conn.on('ready', () => resolve(conn));
     conn.on('error', (err) => reject(err));
@@ -76,20 +119,20 @@ app.post('/api/telemetry', async (req, res) => {
 
       let stdout = '';
       stream.on('data', (d) => { stdout += d; });
-      stream.stderr.on('data', (d) => { stdout += d; });
+      stream.stderr.on('data', (d) => { stderr += d; });
       stream.on('close', () => {
         conn.end();
         
         try {
           const parts = stdout.split(/---[A-Z]+---/);
-          const os = (parts[0] || '').trim();
+          const osName = (parts[0] || '').trim();
           const uptime = (parts[1] || '').trim();
           const memRaw = (parts[2] || '').trim().split(' ');
           const diskRaw = (parts[3] || '').trim().split(' ');
           const dockerCount = parseInt((parts[4] || '').trim()) || 0;
 
           res.json({
-            os,
+            os: osName,
             uptime,
             ram: {
               used: memRaw[0] || '0',
@@ -339,21 +382,7 @@ wss.on('connection', (ws) => {
         const payload = JSON.parse(message.toString());
         if (payload.type === 'init') {
           sshClient = new SSHClient();
-
-          const connConfig = {
-            host: payload.host,
-            port: parseInt(payload.port) || 22,
-            username: payload.username,
-            readyTimeout: 15000,
-            keepaliveInterval: 10000,
-          };
-
-          if (payload.authType === 'key' || payload.privateKey) {
-            connConfig.privateKey = payload.privateKey;
-            if (payload.passphrase) connConfig.passphrase = payload.passphrase;
-          } else {
-            connConfig.password = payload.password;
-          }
+          const connConfig = resolveSSHConfig(payload);
 
           sshClient.on('ready', () => {
             sshClient.shell({
