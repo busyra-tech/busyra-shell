@@ -2,9 +2,11 @@
 
 <img src="site/assets/brand/icon-512.png" width="112" alt="Logo Djie Shell" />
 
-# Djie Shell
+# Busyra Shell
 
-**Semua servermu, satu terminal.**
+**Semua servermu, satu terminal — Web & Native Desktop.**
+
+> ℹ️ **Fork & Credits**: Di-fork dari [Djie Shell](https://github.com/masadjie/djie-shell) oleh Adjie Kurniawan (lisensi MIT). Di-rebrand dan diperluas dengan **Web Client (apps/web)** oleh [Busyra Tech](https://busyratech.web.id).
 
 SSH client native untuk **macOS**, **Windows**, dan **Linux (beta)** — dashboard semua server, terminal, SFTP, Docker, database ala phpMyAdmin, server lokal, berbagi host ke tim, SSH key, port forwarding, dan proxy dalam satu app.<br />
 Data terenkripsi end-to-end dan tersinkron lewat Google Drive milikmu sendiri. Tersedia dalam **bahasa Indonesia & English**.<br />
@@ -236,9 +238,31 @@ Menyusul: SFTP, Database, Docker, Dashboard, Tim, dan sync Google Drive.
 
 Detail lengkap tiap versi: **[CHANGELOG.md](CHANGELOG.md)** · Semua file installer: [Releases](https://github.com/masadjie/djie-shell/releases)
 
+## 🌐 Versi Web (Browser & Docker)
+
+Akses terminal SSH dan SFTP langsung dari browser tanpa install aplikasi:
+
+```bash
+cd apps/web
+npm install
+npm run build
+npm run app
+```
+
+Atau jalankan via Docker:
+```bash
+cd apps/web
+docker compose up -d --build
+```
+
+Akses di browser: `http://localhost:3000`
+
+---
+
 ## Development
 
 ```
+apps/web/          Web Client (Next-gen SPA + WebSocket SSH gateway + SFTP)
 core/              djie-core (Rust): vault, SSH/SFTP, proxy, database, Docker, Tim, Server Lokal — diekspor via UniFFI
 apps/macos/        App macOS (SwiftUI + SwiftTerm), project dibuat dengan XcodeGen
 apps/windows/      App Windows (WinUI 3 + WebView2/xterm.js + ConPTY), installer Inno Setup

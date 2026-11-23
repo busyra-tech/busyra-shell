@@ -1,0 +1,9 @@
+services:
+  busyra-shell-web:
+    build: .
+    container_name: busyra-shell-web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
