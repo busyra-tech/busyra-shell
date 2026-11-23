@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
 import { 
   Server, Cpu, HardDrive, Container, RefreshCw, Terminal, 
-  ExternalLink, Activity, ArrowUpRight, ShieldCheck, Database, 
-  FileCode, Play
+  Activity, ArrowUpRight, AlertTriangle, Radio, CheckCircle2, 
+  Database, FileCode, Zap
 } from 'lucide-react';
 
 export default function DashboardView({ 
@@ -13,8 +13,8 @@ export default function DashboardView({
   onNavigate 
 }) {
   const data = telemetry || {};
-  const ram = data.ram || { used: '0', total: '0', pct: 0 };
-  const disk = data.disk || { used: '0', total: '0', pct: 0 };
+  const ram = data.ram || { used: '1.8', total: '9.7', pct: 18 };
+  const disk = data.disk || { used: '34G', total: '76G', pct: 45 };
   const dockerCount = data.dockerCount || 18;
 
   useEffect(() => {
@@ -24,34 +24,29 @@ export default function DashboardView({
   }, [selectedHost]);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-6 max-w-6xl mx-auto space-y-6">
-      {/* Page Header (Matching PageHeader.swift in macOS) */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/[0.06]">
+    <div className="flex flex-col h-full overflow-y-auto p-7 max-w-6xl mx-auto space-y-6">
+      {/* Exact PageHeader from macOS DjieShell */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
         <div>
-          <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-bold tracking-tight text-white">Dashboard</h2>
-            <span className="px-2 py-0.5 text-[10px] font-mono font-semibold bg-[#3FD0B4]/10 text-[#3FD0B4] border border-[#3FD0B4]/20 rounded-full">
-              LIVE TELEMETRY
-            </span>
-          </div>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Metrik kesehatan real-time, monitoring resource, dan kontrol instan server fleet.
+          <h2 className="text-2xl font-bold font-display text-[#e9eef6] tracking-tight">Dashboard</h2>
+          <p className="text-xs text-[#8a91a0] mt-1">
+            Semua server dalam satu layar — CPU, RAM, disk & uptime, diperbarui tiap 5 detik
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
             onClick={() => onRefreshTelemetry(selectedHost)}
             disabled={loadingTelemetry}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-zinc-300 rounded-xl text-xs font-medium transition cursor-pointer shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#181d28] hover:bg-[#232a37] border border-[#232a37] text-xs text-[#a3acbd] hover:text-white rounded-lg transition"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loadingTelemetry ? 'animate-spin text-[#3FD0B4]' : ''}`} />
-            <span>Perbarui Metrik</span>
+            <span>Perbarui</span>
           </button>
 
           <button
             onClick={() => onNavigate('terminals')}
-            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#3FD0B4] via-[#5B9CF5] to-[#9D7CF2] text-zinc-950 font-bold rounded-xl text-xs shadow-lg shadow-[#3FD0B4]/20 hover:opacity-95 transition cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#2fc4a8] via-[#4d8ff0] to-[#8f6ef0] text-[#071214] font-bold rounded-lg text-xs shadow-md shadow-[#2fc4a8]/20 hover:opacity-95 transition"
           >
             <Terminal className="w-3.5 h-3.5 stroke-[2.5]" />
             <span>Buka Terminal SSH</span>
@@ -59,77 +54,125 @@ export default function DashboardView({
         </div>
       </div>
 
-      {/* Primary Server Tile (GlassCard SwiftUI matching) */}
-      <div className="p-5 rounded-2xl bg-white/[0.04] border border-white/[0.08] backdrop-blur-md shadow-2xl relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-[#3FD0B4]/5 rounded-full blur-3xl pointer-events-none" />
+      {/* Exact SummaryRow (4 stat cards matching macOS DashboardView.swift) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        {/* Stat 1: Online */}
+        <div className="flex items-center gap-3 p-3.5 bg-[#12161f] border border-[#232a37] rounded-2xl shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#4ADE80]/15 flex items-center justify-center text-[#4ADE80] shrink-0">
+            <Radio className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] text-[#8a91a0]">Online</div>
+            <div className="text-base font-bold font-display text-[#e9eef6]">1/1</div>
+          </div>
+        </div>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-white/[0.06]">
+        {/* Stat 2: Perlu Perhatian */}
+        <div className="flex items-center gap-3 p-3.5 bg-[#12161f] border border-[#232a37] rounded-2xl shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#697286]/15 flex items-center justify-center text-[#8a91a0] shrink-0">
+            <AlertTriangle className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] text-[#8a91a0]">Perlu perhatian</div>
+            <div className="text-base font-bold font-display text-[#e9eef6]">0</div>
+          </div>
+        </div>
+
+        {/* Stat 3: CPU Rata-Rata */}
+        <div className="flex items-center gap-3 p-3.5 bg-[#12161f] border border-[#232a37] rounded-2xl shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#3FD0B4]/15 flex items-center justify-center text-[#3FD0B4] shrink-0">
+            <Cpu className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] text-[#8a91a0]">CPU rata-rata</div>
+            <div className="text-base font-bold font-display text-[#e9eef6]">
+              {data.loadAvg ? `${Math.round(parseFloat(data.loadAvg.split(' ')[0]) * 100 / 2)}%` : '15%'}
+            </div>
+          </div>
+        </div>
+
+        {/* Stat 4: RAM Terpakai */}
+        <div className="flex items-center gap-3 p-3.5 bg-[#12161f] border border-[#232a37] rounded-2xl shadow-sm">
+          <div className="w-9 h-9 rounded-xl bg-[#9D7CF2]/15 flex items-center justify-center text-[#9D7CF2] shrink-0">
+            <Activity className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="text-[11px] text-[#8a91a0]">RAM terpakai</div>
+            <div className="text-base font-bold font-display text-[#e9eef6]">
+              {ram.used || '1.8'}G / {ram.total || '9.7'}G
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Server Card (GlassCard matching ServerCard in macOS) */}
+      <div className="p-5 bg-[#12161f] border border-[#232a37] rounded-2xl shadow-lg relative overflow-hidden group">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-[#232a37]">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-[#3FD0B4]/15 border border-[#3FD0B4]/30 flex items-center justify-center text-[#3FD0B4] shadow-inner">
-              <Server className="w-6 h-6 stroke-[2]" />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#3FD0B4] to-[#5B9CF5] flex items-center justify-center text-[#071214] font-black text-base shadow-md">
+              S
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-white">{selectedHost?.name || 'SBT Production'}</h3>
-                <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-full">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  ONLINE
+                <h3 className="text-base font-bold text-[#e9eef6]">{selectedHost?.name || 'SBT Production'}</h3>
+                <span className="flex items-center gap-1 px-2 py-0.5 text-[10px] font-semibold bg-[#4ADE80]/15 text-[#4ADE80] border border-[#4ADE80]/30 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80] animate-pulse" />
+                  Online
                 </span>
               </div>
-              <div className="text-xs font-mono text-zinc-400 mt-0.5">
+              <div className="text-xs font-mono text-[#8a91a0] mt-0.5">
                 {selectedHost?.username || 'ajidwi'}@{selectedHost?.host || '95.135.92.167'}:{selectedHost?.port || 2233}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <div className="px-2.5 py-1 rounded-lg bg-black/30 border border-white/[0.05] text-zinc-300 font-mono text-[11px]">
-              OS: <span className="text-white font-medium">{data.os || 'Linux 6.8.0-151-generic'}</span>
-            </div>
-            <div className="px-2.5 py-1 rounded-lg bg-black/30 border border-white/[0.05] text-zinc-300 font-mono text-[11px]">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            <span className="px-2.5 py-1 rounded-md bg-[#181d28] border border-[#232a37] text-[#a3acbd]">
+              OS: <span className="text-[#e9eef6] font-medium">{data.os || 'Linux 6.8.0-151-generic'}</span>
+            </span>
+            <span className="px-2.5 py-1 rounded-md bg-[#181d28] border border-[#232a37] text-[#a3acbd]">
               Uptime: <span className="text-[#3FD0B4] font-medium">{data.uptime || 'Up 2 hours'}</span>
-            </div>
-            {data.loadAvg && (
-              <div className="px-2.5 py-1 rounded-lg bg-black/30 border border-white/[0.05] text-zinc-300 font-mono text-[11px]">
-                Load: <span className="text-amber-400 font-medium">{data.loadAvg}</span>
-              </div>
-            )}
+            </span>
           </div>
         </div>
 
-        {/* 4 Metric Telemetry Gauges */}
+        {/* Real-time Metric Gauges */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 mt-5">
-          {/* CPU Load */}
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-[#3FD0B4]/40 transition">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-medium">CPU Activity</span>
-              <Cpu className="w-4 h-4 text-[#3FD0B4]" />
+          {/* CPU Gauge with Mini Sparkline */}
+          <div className="p-3.5 rounded-xl bg-[#181d28] border border-[#232a37]">
+            <div className="flex items-center justify-between text-[#8a91a0] text-xs mb-1.5">
+              <span>CPU</span>
+              <Cpu className="w-3.5 h-3.5 text-[#3FD0B4]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-white">
-                {data.loadAvg ? data.loadAvg.split(' ')[0] : '0.15'}
+              <span className="text-2xl font-bold font-display text-[#e9eef6]">
+                {data.loadAvg ? `${Math.round(parseFloat(data.loadAvg.split(' ')[0]) * 50)}%` : '15%'}
               </span>
-              <span className="text-xs text-zinc-500 font-mono">load 1m</span>
+              <span className="text-[11px] font-mono text-[#697286]">load {data.loadAvg?.split(' ')[0] || '0.15'}</span>
             </div>
-            <div className="mt-3 w-full bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-[#3FD0B4] to-[#5B9CF5] h-full rounded-full transition-all duration-500"
-                style={{ width: `${Math.min(100, Math.max(10, parseFloat(data.loadAvg || 0.2) * 50))}%` }}
-              />
+            {/* Sparkline curve simulation */}
+            <div className="mt-2.5 h-8 flex items-end gap-1">
+              {[20, 15, 25, 18, 30, 22, 19, 14, 28, 16, 21, 15, 24, 18].map((val, idx) => (
+                <div 
+                  key={idx} 
+                  className="flex-1 bg-[#3FD0B4]/30 hover:bg-[#3FD0B4] rounded-t transition-all"
+                  style={{ height: `${val}%` }}
+                />
+              ))}
             </div>
           </div>
 
-          {/* RAM Usage */}
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-[#5B9CF5]/40 transition">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-medium">Memory Usage</span>
-              <Activity className="w-4 h-4 text-[#5B9CF5]" />
+          {/* RAM Gauge */}
+          <div className="p-3.5 rounded-xl bg-[#181d28] border border-[#232a37]">
+            <div className="flex items-center justify-between text-[#8a91a0] text-xs mb-1.5">
+              <span>RAM</span>
+              <Activity className="w-3.5 h-3.5 text-[#5B9CF5]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-white">{ram.pct || 18}%</span>
-              <span className="text-xs text-zinc-400 font-mono">{ram.used || '1.8'}G / {ram.total || '9.7'}G</span>
+              <span className="text-2xl font-bold font-display text-[#e9eef6]">{ram.pct || 18}%</span>
+              <span className="text-[11px] font-mono text-[#697286]">{ram.used || '1.8'}G / {ram.total || '9.7'}G</span>
             </div>
-            <div className="mt-3 w-full bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
+            <div className="mt-4 w-full bg-[#232a37] rounded-full h-1.5 overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-[#5B9CF5] to-[#9D7CF2] h-full rounded-full transition-all duration-500"
                 style={{ width: `${ram.pct || 18}%` }}
@@ -137,17 +180,17 @@ export default function DashboardView({
             </div>
           </div>
 
-          {/* Disk Usage */}
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-[#9D7CF2]/40 transition">
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-medium">Root Storage</span>
-              <HardDrive className="w-4 h-4 text-[#9D7CF2]" />
+          {/* Disk Gauge */}
+          <div className="p-3.5 rounded-xl bg-[#181d28] border border-[#232a37]">
+            <div className="flex items-center justify-between text-[#8a91a0] text-xs mb-1.5">
+              <span>Disk</span>
+              <HardDrive className="w-3.5 h-3.5 text-[#9D7CF2]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-white">{disk.pct || 45}%</span>
-              <span className="text-xs text-zinc-400 font-mono">{disk.used || '34G'} / {disk.total || '76G'}</span>
+              <span className="text-2xl font-bold font-display text-[#e9eef6]">{disk.pct || 45}%</span>
+              <span className="text-[11px] font-mono text-[#697286]">{disk.used || '34G'} / {disk.total || '76G'}</span>
             </div>
-            <div className="mt-3 w-full bg-zinc-800/80 rounded-full h-1.5 overflow-hidden">
+            <div className="mt-4 w-full bg-[#232a37] rounded-full h-1.5 overflow-hidden">
               <div 
                 className="bg-gradient-to-r from-[#9D7CF2] to-pink-500 h-full rounded-full transition-all duration-500"
                 style={{ width: `${disk.pct || 45}%` }}
@@ -155,80 +198,83 @@ export default function DashboardView({
             </div>
           </div>
 
-          {/* Docker Containers Count */}
-          <div className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:border-emerald-400/40 transition cursor-pointer" onClick={() => onNavigate('docker')}>
-            <div className="flex items-center justify-between text-zinc-400 mb-2">
-              <span className="text-xs font-medium">Docker Services</span>
-              <Container className="w-4 h-4 text-emerald-400" />
+          {/* Docker Fleet Gauge */}
+          <div 
+            onClick={() => onNavigate('docker')}
+            className="p-3.5 rounded-xl bg-[#181d28] border border-[#232a37] hover:border-[#4ADE80]/50 transition cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-[#8a91a0] text-xs mb-1.5">
+              <span>Docker Services</span>
+              <Container className="w-3.5 h-3.5 text-[#4ADE80]" />
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-bold font-mono text-white">{dockerCount}</span>
-              <span className="text-xs text-emerald-400 font-mono font-medium">Active Containers</span>
+              <span className="text-2xl font-bold font-display text-[#e9eef6]">{dockerCount}</span>
+              <span className="text-[11px] font-mono text-[#4ADE80]">Active</span>
             </div>
-            <div className="mt-3 flex items-center justify-between text-[11px] text-zinc-400">
-              <span>OrbStack Compose Fleet</span>
-              <ArrowUpRight className="w-3.5 h-3.5 text-zinc-500" />
+            <div className="mt-3 flex items-center justify-between text-[11px] text-[#8a91a0]">
+              <span>Kelola 18 kontainer</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-[#697286]" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Fast Shortcuts Bar */}
+      {/* Quick Access Grid */}
       <div>
-        <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3 px-1">
-          Quick Access & Tools
+        <h4 className="text-[11px] font-semibold uppercase tracking-wider text-[#697286] font-mono mb-3 px-1">
+          Alat Server
         </h4>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <button
             onClick={() => onNavigate('docker')}
-            className="flex items-center gap-3 p-3.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.07] rounded-xl transition text-left group"
+            className="flex items-center gap-3 p-3 bg-[#12161f] hover:bg-[#181d28] border border-[#232a37] rounded-xl transition text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <Container className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-[#4ADE80]/15 flex items-center justify-center text-[#4ADE80]">
+              <Container className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white group-hover:text-emerald-400 transition">Docker Fleet</div>
-              <div className="text-[10px] text-zinc-400">Manage 18 containers</div>
+              <div className="text-xs font-bold text-[#e9eef6] group-hover:text-[#4ADE80] transition">Docker Fleet</div>
+              <div className="text-[10px] text-[#8a91a0]">18 containers active</div>
             </div>
           </button>
 
           <button
             onClick={() => onNavigate('sftp')}
-            className="flex items-center gap-3 p-3.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.07] rounded-xl transition text-left group"
+            className="flex items-center gap-3 p-3 bg-[#12161f] hover:bg-[#181d28] border border-[#232a37] rounded-xl transition text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
-              <HardDrive className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-[#5B9CF5]/15 flex items-center justify-center text-[#5B9CF5]">
+              <HardDrive className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white group-hover:text-indigo-400 transition">SFTP Explorer</div>
-              <div className="text-[10px] text-zinc-400">Browse & edit files</div>
+              <div className="text-xs font-bold text-[#e9eef6] group-hover:text-[#5B9CF5] transition">SFTP Explorer</div>
+              <div className="text-[10px] text-[#8a91a0]">Browse & edit files</div>
             </div>
           </button>
 
           <button
             onClick={() => onNavigate('db')}
-            className="flex items-center gap-3 p-3.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.07] rounded-xl transition text-left group"
+            className="flex items-center gap-3 p-3 bg-[#12161f] hover:bg-[#181d28] border border-[#232a37] rounded-xl transition text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
-              <Database className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center text-amber-400">
+              <Database className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white group-hover:text-amber-400 transition">DB Runner</div>
-              <div className="text-[10px] text-zinc-400">Postgres & Redis SQL</div>
+              <div className="text-xs font-bold text-[#e9eef6] group-hover:text-amber-400 transition">Database</div>
+              <div className="text-[10px] text-[#8a91a0]">Postgres & Redis SQL</div>
             </div>
           </button>
 
           <button
             onClick={() => onNavigate('snippets')}
-            className="flex items-center gap-3 p-3.5 bg-white/[0.03] hover:bg-white/[0.07] border border-white/[0.07] rounded-xl transition text-left group"
+            className="flex items-center gap-3 p-3 bg-[#12161f] hover:bg-[#181d28] border border-[#232a37] rounded-xl transition text-left group"
           >
-            <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
-              <FileCode className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-lg bg-[#9D7CF2]/15 flex items-center justify-center text-[#9D7CF2]">
+              <FileCode className="w-4 h-4" />
             </div>
             <div>
-              <div className="text-xs font-bold text-white group-hover:text-purple-400 transition">DevOps Scripts</div>
-              <div className="text-[10px] text-zinc-400">8 1-click runbooks</div>
+              <div className="text-xs font-bold text-[#e9eef6] group-hover:text-[#9D7CF2] transition">Snippets</div>
+              <div className="text-[10px] text-[#8a91a0]">1-click DevOps scripts</div>
             </div>
           </button>
         </div>
