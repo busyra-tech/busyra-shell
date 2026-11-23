@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Database, Play, Download, RefreshCw, Table, Terminal, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Database, Play, Download, RefreshCw, Table, Terminal, AlertCircle, CheckCircle2, Shield, Archive } from 'lucide-react';
 
 export default function DbExplorer({ host }) {
+  const [activeTab, setActiveTab] = useState('query'); // 'query' | 'backup'
   const [dbType, setDbType] = useState('postgres');
   const [dbName, setDbName] = useState('journal');
   const [dbUser, setDbUser] = useState('aji');
@@ -10,6 +11,10 @@ export default function DbExplorer({ host }) {
   const [loading, setLoading] = useState(false);
   const [execTime, setExecTime] = useState(null);
   const [error, setError] = useState(null);
+
+  // Backup state
+  const [backingUp, setBackingUp] = useState(false);
+  const [backupSuccess, setBackupSuccess] = useState(null);
 
   const PRESET_DBS = [
     { name: 'journal', type: 'postgres', query: 'SELECT * FROM activity_log ORDER BY id DESC LIMIT 20;' },
@@ -62,194 +67,201 @@ export default function DbExplorer({ host }) {
     }
   };
 
-  const exportCsv = () => {
-    if (!results || !results.rows || !results.columns) return;
-    const header = results.columns.join(',');
-    const rows = results.rows.map(r => r.map(val => `"${String(val).replace(/"/g, '""')}"`).join(',')).join('\\n');
-    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(header + '\\n' + rows);
-    const link = document.createElement('a');
-    link.setAttribute('href', csvContent);
-    link.setAttribute('download', `${dbName}_query_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // 1-Click Database Dump & Download
+  const handleBackupDb = async () => {
+    setBackingUp(true);
+    setBackupSuccess(null);
+    try {
+      const res = await fetch('/api/db/backup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...host,
+          dbType,
+          dbName
+        })
+      });
+
+      const data = await res.json();
+      if (data.sql) {
+        // Trigger download
+        const blob = new Blob([data.sql], { type: 'application/sql' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || `${dbName}_dump.sql`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        setBackupSuccess(`Dump database ${dbName} selesai! File ${a.download} berhasil diunduh.`);
+      } else {
+        setError(data.error || 'Gagal membuat backup');
+      }
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBackingUp(false);
+    }
   };
 
   return (
-    <div className="flex flex-col h-full bg-zinc-950 border border-zinc-800 rounded-xl overflow-hidden shadow-2xl">
+    <div className="flex flex-col h-full bg-[#0a0c12] text-[#e9eef6] p-7 max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-zinc-900 border-b border-zinc-800 text-xs">
-        <div className="flex items-center gap-2.5 font-semibold text-zinc-100">
-          <Database className="w-4 h-4 text-cyan-400" />
-          <span>Database Explorer — {host.name}</span>
-          <span className="px-2 py-0.5 text-[10px] bg-zinc-800 text-cyan-400 rounded-full font-mono">
-            {dbType.toUpperCase()}
-          </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-1">
+        <div>
+          <h2 className="text-2xl font-bold font-display text-[#e9eef6] tracking-tight">Database & Backup</h2>
+          <p className="text-xs text-[#8a91a0] mt-1">
+            Query SQL multi-database & 1-klik dump backup langsung di {host?.name || 'SBT'}.
+          </p>
         </div>
 
-        {/* Quick Database Presets */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <span className="text-zinc-500 text-[11px] mr-1">Presets:</span>
-          {PRESET_DBS.map((p) => (
-            <button
-              key={p.name}
-              onClick={() => handleSelectPreset(p)}
-              className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition ${
-                dbName === p.name
-                  ? 'bg-cyan-950 text-cyan-300 border border-cyan-800/80 font-bold'
-                  : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
+        {/* Tab switcher */}
+        <div className="flex items-center bg-[#181d28] p-1 rounded-xl border border-[#232a37]">
+          <button
+            onClick={() => setActiveTab('query')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeTab === 'query' ? 'bg-[#232a37] text-[#3FD0B4] shadow-sm' : 'text-[#8a91a0] hover:text-[#e9eef6]'
+            }`}
+          >
+            <Table className="w-3.5 h-3.5" />
+            <span>SQL Query</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('backup')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+              activeTab === 'backup' ? 'bg-[#232a37] text-[#9D7CF2] shadow-sm' : 'text-[#8a91a0] hover:text-[#e9eef6]'
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>Backup & Dump</span>
+          </button>
         </div>
       </div>
 
-      {/* Query Bar Controls */}
-      <div className="p-4 bg-zinc-900/60 border-b border-zinc-800 flex flex-col gap-3">
-        <div className="flex flex-wrap items-center gap-3 text-xs">
-          <div className="flex items-center gap-2">
-            <label className="text-zinc-400 font-medium">DB Engine:</label>
-            <select
-              value={dbType}
-              onChange={(e) => setDbType(e.target.value)}
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-zinc-100 font-mono focus:outline-none focus:border-cyan-500"
-            >
-              <option value="postgres">PostgreSQL</option>
-              <option value="mysql">MySQL / MariaDB</option>
-              <option value="redis">Redis CLI</option>
-            </select>
-          </div>
+      {/* Database Select Bar */}
+      <div className="flex flex-wrap items-center gap-2 p-3 bg-[#12161f] border border-[#232a37] rounded-xl text-xs">
+        <span className="text-[#8a91a0] font-semibold">Pilih DB:</span>
+        {PRESET_DBS.map(preset => (
+          <button
+            key={preset.name}
+            onClick={() => handleSelectPreset(preset)}
+            className={`px-2.5 py-1 rounded-lg border font-mono transition ${
+              dbName === preset.name
+                ? 'bg-[#3FD0B4]/15 border-[#3FD0B4]/40 text-[#3FD0B4] font-bold'
+                : 'bg-[#181d28] border-[#232a37] text-[#8a91a0] hover:text-white'
+            }`}
+          >
+            {preset.name}
+          </button>
+        ))}
+      </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-zinc-400 font-medium">Database:</label>
-            <input
-              type="text"
-              value={dbName}
-              onChange={(e) => setDbName(e.target.value)}
-              placeholder="postgres"
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-zinc-100 font-mono focus:outline-none focus:border-cyan-500 w-36"
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <label className="text-zinc-400 font-medium">User:</label>
-            <input
-              type="text"
-              value={dbUser}
-              onChange={(e) => setDbUser(e.target.value)}
-              placeholder="aji"
-              className="bg-zinc-950 border border-zinc-800 rounded-lg px-2.5 py-1.5 text-zinc-100 font-mono focus:outline-none focus:border-cyan-500 w-24"
-            />
-          </div>
-
-          <div className="ml-auto flex items-center gap-2">
-            {results && results.rows && (
+      {activeTab === 'query' && (
+        <>
+          {/* Query Editor */}
+          <div className="flex flex-col bg-[#12161f] border border-[#232a37] rounded-2xl overflow-hidden shadow-lg">
+            <div className="flex items-center justify-between p-3 border-b border-[#232a37] bg-[#181d28]/60">
+              <span className="text-xs text-[#8a91a0] font-mono">SQL Editor ({dbType}://{dbName})</span>
               <button
-                onClick={exportCsv}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-xl text-xs font-medium transition"
+                onClick={handleRunQuery}
+                disabled={loading}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gradient-to-r from-[#2fc4a8] to-[#4d8ff0] text-[#071214] font-bold rounded-xl text-xs shadow hover:opacity-95 transition"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>{loading ? 'Menjalankan...' : 'Jalankan (Run)'}</span>
               </button>
-            )}
+            </div>
+            <textarea
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              rows={4}
+              className="w-full p-4 bg-[#0a0c12] font-mono text-xs text-[#3FD0B4] focus:outline-none resize-none leading-relaxed"
+              placeholder="SELECT * FROM table LIMIT 10;"
+            />
+          </div>
+
+          {/* Results Table */}
+          <div className="flex-1 flex flex-col min-h-0 bg-[#12161f] border border-[#232a37] rounded-2xl overflow-hidden shadow-lg">
+            <div className="p-3 border-b border-[#232a37] bg-[#181d28]/60 flex items-center justify-between text-xs">
+              <span className="font-semibold text-[#8a91a0]">
+                Hasil: {results?.rows?.length || 0} baris {execTime && `(${execTime} ms)`}
+              </span>
+              {error && <span className="text-rose-400 font-mono text-[11px] truncate max-w-md">{error}</span>}
+            </div>
+
+            <div className="flex-1 overflow-auto">
+              {results && results.rows && results.rows.length > 0 ? (
+                <table className="w-full text-left border-collapse font-mono text-xs">
+                  <thead className="bg-[#181d28] text-[#8a91a0] sticky top-0 border-b border-[#232a37]">
+                    <tr>
+                      {results.fields.map(f => (
+                        <th key={f} className="py-2.5 px-4 font-semibold">{f}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#232a37]">
+                    {results.rows.map((row, i) => (
+                      <tr key={i} className="hover:bg-white/[0.03]">
+                        {results.fields.map(f => (
+                          <td key={f} className="py-2 px-4 text-[#e9eef6] whitespace-nowrap">
+                            {typeof row[f] === 'object' ? JSON.stringify(row[f]) : String(row[f] ?? '')}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="p-8 text-center text-[#8a91a0] text-xs">
+                  {loading ? 'Menjalankan query...' : 'Klik "Jalankan" untuk melihat hasil tabel data.'}
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'backup' && (
+        <div className="p-6 bg-[#12161f] border border-[#232a37] rounded-2xl space-y-5">
+          <div>
+            <h3 className="text-base font-bold text-[#e9eef6]">1-Click Backup Database</h3>
+            <p className="text-xs text-[#8a91a0] mt-1">
+              Dump seluruh skema dan tabel database <span className="text-[#3FD0B4] font-mono font-bold">{dbName}</span> via pg_dump langsung ke file .sql di komputer Anda.
+            </p>
+          </div>
+
+          <div className="p-4 bg-[#181d28] border border-[#232a37] rounded-xl flex items-center justify-between">
+            <div>
+              <div className="font-semibold text-xs text-[#e9eef6]">Database Target: {dbName}</div>
+              <div className="text-[11px] text-[#8a91a0]">PostgreSQL container psql @ SBT Production</div>
+            </div>
 
             <button
-              onClick={handleRunQuery}
-              disabled={loading}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-zinc-950 rounded-xl text-xs font-semibold shadow-lg shadow-cyan-500/20 transition cursor-pointer"
+              onClick={handleBackupDb}
+              disabled={backingUp}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#2fc4a8] to-[#4d8ff0] text-[#071214] font-bold rounded-xl text-xs shadow hover:opacity-95 transition"
             >
-              <Play className={`w-3.5 h-3.5 fill-current ${loading ? 'animate-spin' : ''}`} />
-              <span>{loading ? 'Executing...' : 'Run Query'}</span>
+              <Download className={`w-4 h-4 ${backingUp ? 'animate-bounce' : ''}`} />
+              <span>{backingUp ? 'Membuat Dump SQL...' : 'Download Dump SQL'}</span>
             </button>
           </div>
-        </div>
 
-        {/* SQL Input Area */}
-        <div className="relative">
-          <textarea
-            rows={3}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tulis query SQL... (contoh: SELECT * FROM users LIMIT 10;)"
-            className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-zinc-100 font-mono focus:outline-none focus:border-cyan-500 resize-none"
-            onKeyDown={(e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                handleRunQuery();
-              }
-            }}
-          />
-          <span className="absolute right-3 bottom-3 text-[10px] text-zinc-600 font-mono">
-            Press Ctrl+Enter to execute
-          </span>
-        </div>
-      </div>
+          {backupSuccess && (
+            <div className="p-3.5 bg-[#4ADE80]/10 border border-[#4ADE80]/30 rounded-xl text-[#4ADE80] text-xs flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <span>{backupSuccess}</span>
+            </div>
+          )}
 
-      {/* Query Status Bar */}
-      {(execTime || error || results) && (
-        <div className="flex items-center justify-between px-4 py-2 bg-zinc-950 border-b border-zinc-800/80 text-xs font-mono">
-          <div className="flex items-center gap-2">
-            {error ? (
-              <div className="flex items-center gap-1.5 text-rose-400">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate max-w-lg">{error}</span>
-              </div>
-            ) : (
-              <div className="flex items-center gap-1.5 text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Query OK. {results?.rows?.length || 0} baris ditemukan.</span>
-              </div>
-            )}
-          </div>
-          {execTime && (
-            <span className="text-zinc-500 text-[11px]">{execTime} ms</span>
+          {error && (
+            <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
           )}
         </div>
       )}
-
-      {/* Results View */}
-      <div className="flex-1 overflow-auto p-4 bg-zinc-950">
-        {results?.rawText ? (
-          <pre className="font-mono text-xs text-zinc-300 whitespace-pre-wrap select-text p-2">
-            {results.rawText}
-          </pre>
-        ) : results?.columns && results?.rows ? (
-          <div className="border border-zinc-800 rounded-lg overflow-hidden">
-            <table className="w-full text-left text-xs font-mono text-zinc-300">
-              <thead className="bg-zinc-900 border-b border-zinc-800 text-zinc-400 text-[11px]">
-                <tr>
-                  {results.columns.map((col, idx) => (
-                    <th key={idx} className="py-2 px-3 border-r border-zinc-800/50 last:border-r-0 whitespace-nowrap">
-                      {col}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {results.rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="border-b border-zinc-900/80 hover:bg-zinc-900/50 transition">
-                    {row.map((cell, cIdx) => (
-                      <td key={cIdx} className="py-2 px-3 border-r border-zinc-900 last:border-r-0 whitespace-nowrap select-text max-w-xs truncate">
-                        {cell === null ? (
-                          <span className="text-zinc-600 italic">NULL</span>
-                        ) : (
-                          String(cell)
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-zinc-600 gap-2 text-xs">
-            <Table className="w-8 h-8 text-zinc-700" />
-            <span>Ketik query SQL di atas lalu tekan Run Query atau Ctrl+Enter</span>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

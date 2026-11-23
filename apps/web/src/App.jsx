@@ -8,6 +8,9 @@ import SftpExplorer from './components/SftpExplorer';
 import DbExplorer from './components/DbExplorer';
 import SnippetsView from './components/SnippetsView';
 import TunnelsView from './components/TunnelsView';
+import ServerAdminView from './components/ServerAdminView';
+import KeychainView from './components/KeychainView';
+
 import HostModal from './components/HostModal';
 import VaultLockModal from './components/VaultLockModal';
 import { encryptVault, decryptVault } from './utils/vaultCrypto';
@@ -208,6 +211,14 @@ export default function App() {
             onEditHost={(h) => { setEditingHost(h); setIsModalOpen(true); }}
             onOpenNewHost={() => { setEditingHost(null); setIsModalOpen(true); }}
           />
+        )}
+
+                {currentSection === 'admin' && (
+          <ServerAdminView selectedHost={selectedHost} />
+        )}
+
+        {currentSection === 'keychain' && (
+          <KeychainView />
         )}
 
         {currentSection === 'docker' && (

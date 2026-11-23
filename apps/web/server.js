@@ -434,6 +434,183 @@ app.post('/api/sftp/delete', async (req, res) => {
   }
 });
 
+
+
+// Admin: Processes (htop-style)
+app.post('/api/admin/processes', async (req, res) => {
+  const creds = req.body;
+  const cmd = `ps -eo pid,user,%cpu,%mem,stat,comm --sort=-%cpu | head -n 60`;
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    const lines = stdout.trim().split('\n');
+    const procs = [];
+    for (let i = 1; i < lines.length; i++) {
+      const parts = lines[i].trim().split(/\s+/);
+      if (parts.length >= 6) {
+        procs.push({
+          pid: parts[0],
+          user: parts[1],
+          cpu: parseFloat(parts[2]) || 0,
+          mem: parseFloat(parts[3]) || 0,
+          stat: parts[4],
+          comm: parts.slice(5).join(' ')
+        });
+      }
+    }
+    res.json({ processes: procs });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Kill Process
+app.post('/api/admin/kill', async (req, res) => {
+  const { pid, ...creds } = req.body;
+  if (!pid) return res.status(400).json({ error: 'PID required' });
+  const cmd = `kill -9 ${parseInt(pid)}`;
+  try {
+    const { stdout, stderr, code } = await execSSHCommand(creds, cmd);
+    res.json({ success: code === 0, stdout, stderr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Systemd Services
+app.post('/api/admin/services', async (req, res) => {
+  const creds = req.body;
+  const cmd = `systemctl list-units --type=service --no-legend --no-pager`;
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    const services = stdout.trim().split('\n').filter(Boolean).map(line => {
+      const parts = line.trim().split(/\s+/);
+      if (parts.length >= 4) {
+        return {
+          unit: parts[0],
+          load: parts[1],
+          active: parts[2],
+          sub: parts[3],
+          desc: parts.slice(4).join(' ')
+        };
+      }
+      return null;
+    }).filter(Boolean);
+    res.json({ services });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Service Action (start, stop, restart, reload)
+app.post('/api/admin/service-action', async (req, res) => {
+  const { service, action, ...creds } = req.body;
+  if (!service || !['start', 'stop', 'restart', 'reload'].includes(action)) {
+    return res.status(400).json({ error: 'Valid service and action required' });
+  }
+  const cleanName = service.replace(/[^a-zA-Z0-9_.-]/g, '');
+  const cmd = `sudo systemctl ${action} ${cleanName} 2>&1 || systemctl ${action} ${cleanName} 2>&1`;
+  try {
+    const { stdout, stderr, code } = await execSSHCommand(creds, cmd);
+    res.json({ success: code === 0, output: stdout || stderr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Crontab List
+app.post('/api/admin/cron', async (req, res) => {
+  const creds = req.body;
+  const cmd = `crontab -l 2>/dev/null || echo '# Belum ada cron job tersimpan'`;
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    res.json({ crontab: stdout });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Crontab Save
+app.post('/api/admin/cron-save', async (req, res) => {
+  const { crontab, ...creds } = req.body;
+  const escaped = (crontab || '').replace(/'/g, "'\\''");
+  const cmd = `printf '%s\n' '${escaped}' | crontab -`;
+  try {
+    const { stdout, stderr, code } = await execSSHCommand(creds, cmd);
+    res.json({ success: code === 0, output: stdout || stderr });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: System Logs (journalctl)
+app.post('/api/admin/logs', async (req, res) => {
+  const { unit, lines = 100, ...creds } = req.body;
+  let cmd = `journalctl -n ${parseInt(lines) || 100} --no-pager 2>&1`;
+  if (unit) {
+    cmd = `journalctl -u ${unit.replace(/[^a-zA-Z0-9_.-]/g, '')} -n ${parseInt(lines) || 100} --no-pager 2>&1`;
+  }
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    res.json({ logs: stdout });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Database Backup Dump
+app.post('/api/db/backup', async (req, res) => {
+  const { dbType = 'postgres', dbName = 'postgres', ...creds } = req.body;
+  let cmd = '';
+  if (dbType === 'postgres') {
+    cmd = `docker exec -i psql pg_dump -U aji ${dbName} 2>&1 || pg_dump -U aji ${dbName} 2>&1`;
+  } else if (dbType === 'mysql') {
+    cmd = `docker exec -i mysql mysqldump -u root ${dbName} 2>&1 || mysqldump -u root ${dbName} 2>&1`;
+  }
+
+  try {
+    const { stdout } = await execSSHCommand(creds, cmd);
+    res.json({ sql: stdout, filename: `${dbName}_backup_${Date.now()}.sql` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Keychain: Local Keys List
+app.get('/api/keychain/list', (req, res) => {
+  try {
+    const home = os.homedir();
+    const sshDir = path.join(home, '.ssh');
+    if (!fs.existsSync(sshDir)) return res.json({ keys: [] });
+
+    const files = fs.readdirSync(sshDir);
+    const pubFiles = files.filter(f => f.endsWith('.pub'));
+    const keys = pubFiles.map(pub => {
+      const name = pub.replace('.pub', '');
+      const pubPath = path.join(sshDir, pub);
+      const privPath = path.join(sshDir, name);
+      const pubContent = fs.readFileSync(pubPath, 'utf8').trim();
+      const parts = pubContent.split(' ');
+      const type = parts[0] || 'ssh-rsa';
+      const comment = parts[2] || name;
+
+      return {
+        id: 'key_' + name,
+        label: name,
+        type,
+        comment,
+        hasPrivateKey: fs.existsSync(privPath),
+        publicKey: pubContent,
+        updatedAt: fs.statSync(pubPath).mtime
+      };
+    });
+
+    res.json({ keys });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Serve frontend dist if exists
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
@@ -441,9 +618,12 @@ if (fs.existsSync(distPath)) {
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api') && !req.path.startsWith('/ws')) {
       res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      res.status(404).json({ error: 'Not found' });
     }
   });
 }
+
 
 // WebSocket Upgrade Handling for Terminal
 server.on('upgrade', (request, socket, head) => {
@@ -536,6 +716,7 @@ wss.on('connection', (ws) => {
     if (sshClient) sshClient.end();
   });
 });
+
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, '0.0.0.0', () => {

@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   Gauge, Server, Container, Terminal, Folder, 
   Database, Code2, ArrowRightLeft, Shield, Lock, 
-  Plus, Sun, Moon, Laptop, Activity
+  Plus, Sun, Moon, Laptop, Activity, Cpu, Key
 } from 'lucide-react';
 
 export default function Sidebar({ 
@@ -20,10 +20,12 @@ export default function Sidebar({
   const sections = [
     { id: 'dashboard', label: 'Dashboard', icon: Gauge, badge: null },
     { id: 'hosts', label: 'Hosts', icon: Server, badge: hosts.length },
+    { id: 'admin', label: 'Kelola Server', icon: Cpu, badge: null },
     { id: 'docker', label: 'Docker', icon: Container, badge: '18' },
     { id: 'terminals', label: 'Terminal', icon: Terminal, badge: activeSessionsCount > 0 ? activeSessionsCount : null, highlight: activeSessionsCount > 0 },
     { id: 'sftp', label: 'SFTP', icon: Folder, badge: null },
     { id: 'db', label: 'Database', icon: Database, badge: null },
+    { id: 'keychain', label: 'Keychain SSH', icon: Key, badge: null },
     { id: 'snippets', label: 'Snippets', icon: Code2, badge: '8' },
     { id: 'tunnels', label: 'Port Forwarding', icon: ArrowRightLeft, badge: null },
   ];
